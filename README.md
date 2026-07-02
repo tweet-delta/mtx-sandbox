@@ -4,7 +4,7 @@ A small sandbox project for practicing the GitHub pull request workflow.
 
 ## What is this?
 
-This repo exsits so that changes can be proposed, reviewed, and merged through
+This repo exists so that changes can be proposed, reviewed, and merged through
 pull requests, just like a real project.
 
 ## Getting started
