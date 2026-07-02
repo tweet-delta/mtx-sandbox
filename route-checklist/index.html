@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route Checklist — Maintenance House Visit</title>
+<style>
+  :root {
+    --ground: #F2F4F6;
+    --card: #FFFFFF;
+    --ink: #1C2733;
+    --muted: #5D6B7A;
+    --line: #D9DFE6;
+    --accent: #2D5580;
+    --accent-ink: #FFFFFF;
+    --done: #2E7D4F;
+    --note: #8A5E10;
+    --note-bg: #F6EDDA;
+    --resident: #2D5580;
+    --rs: #6A4B8A;
+    --shared: #3E7A6A;
+    --wrap: #8A5E10;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--ground); }
+  body {
+    margin: 0;
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .wrapper { max-width: 680px; margin: 0 auto; padding: 16px 14px 80px; }
+
+  /* Sticky visit header */
+  .visit {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--ground);
+    padding: 8px 0 10px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .visit h1 { font-size: 1.05rem; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .visit .fields { display: flex; gap: 8px; flex-wrap: wrap; }
+  .visit input[type="text"], .visit input[type="date"] {
+    font: inherit; font-size: 0.95rem;
+    padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); color: var(--ink);
+  }
+  .visit input[type="text"] { flex: 1 1 180px; min-width: 0; }
+  .progress { margin-top: 10px; }
+  .progress .bar {
+    height: 6px; border-radius: 999px; background: var(--line); overflow: hidden;
+  }
+  .progress .fill {
+    height: 100%; background: var(--done); width: 0%;
+    transition: width 0.25s ease;
+  }
+  @media (prefers-reduced-motion: reduce) { .progress .fill { transition: none; } }
+  .progress .text {
+    font-size: 0.75rem; color: var(--muted); margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Group labels */
+  .group-label {
+    font-size: 0.68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin: 20px 2px 8px;
+  }
+  .group-label.resident { color: var(--resident); }
+  .group-label.rs { color: var(--rs); }
+  .group-label.shared { color: var(--shared); }
+  .group-label.wrap { color: var(--wrap); }
+
+  /* Sections */
+  details.section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  details.section > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 13px 14px;
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 0.95rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+  details.section > summary::-webkit-details-marker { display: none; }
+  details.section > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: 8px; }
+  .chev { transition: transform 0.15s ease; color: var(--muted); flex: none; }
+  details[open] .chev { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+  .count {
+    margin-left: auto;
+    font-size: 0.78rem; font-weight: 600; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .count.complete { color: var(--done); }
+
+  .items { border-top: 1px solid var(--line); padding: 4px 0; }
+  .item { padding: 4px 14px; }
+  .item-row { display: flex; align-items: flex-start; gap: 10px; }
+  .item label.tick {
+    display: flex; align-items: flex-start; gap: 10px;
+    flex: 1 1 auto; cursor: pointer; padding: 6px 0;
+    font-size: 0.92rem;
+  }
+  .item input[type="checkbox"] {
+    width: 22px; height: 22px; flex: none;
+    accent-color: var(--done);
+    margin: 0;
+  }
+  .item.done label.tick { color: var(--muted); }
+  .note-btn {
+    font: inherit; font-size: 0.75rem; font-weight: 600;
+    color: var(--muted); background: none;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 9px; cursor: pointer; flex: none;
+    margin-top: 4px;
+  }
+  .note-btn.has-note { color: var(--note); background: var(--note-bg); border-color: transparent; }
+  .note-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .item textarea {
+    font: inherit; font-size: 0.88rem;
+    width: 100%; margin: 4px 0 6px 32px; max-width: calc(100% - 32px);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 9px; min-height: 44px; resize: vertical;
+    background: #FFFDF5;
+  }
+
+  /* Alarm counts */
+  .counts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .count-field label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 3px; }
+  .count-field input {
+    font: inherit; font-size: 1rem; width: 100%;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Report */
+  .report-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--card); border-top: 1px solid var(--line);
+    padding: 10px 14px;
+    display: flex; gap: 10px; justify-content: center;
+  }
+  .report-bar button {
+    font: inherit; font-weight: 600; font-size: 0.92rem;
+    border-radius: 8px; padding: 11px 18px; cursor: pointer;
+  }
+  #copyReport { background: var(--accent); color: var(--accent-ink); border: none; flex: 1 1 auto; max-width: 400px; }
+  #copyReport:hover { background: #244568; }
+  #newVisit { background: none; color: var(--muted); border: 1px solid var(--line); }
+  #newVisit:hover { color: var(--ink); border-color: var(--muted); }
+  .report-bar button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  #reportOut {
+    display: none; width: 100%; margin-top: 14px;
+    font: 0.8rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+    min-height: 200px;
+  }
+</style>
+
+<div class="wrapper">
+  <div class="visit">
+    <h1>Maintenance House Visit</h1>
+    <div class="fields">
+      <input type="text" id="house" placeholder="House" aria-label="House name">
+      <input type="date" id="date" aria-label="Visit date">
+    </div>
+    <div class="progress">
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="text" id="progressText"></div>
+    </div>
+  </div>
+
+  <div id="app"></div>
+
+  <textarea id="reportOut" aria-label="Visit report text"></textarea>
+</div>
+
+<div class="report-bar">
+  <button id="copyReport">Copy visit report</button>
+  <button id="newVisit">New visit</button>
+</div>
+
+<script>
+  // Checklist data, structured per the real building layout:
+  // duplex-style group home — Resident level + RS (Residential Supervisor)
+  // unit, each with own kitchen/bath(s); mechanical, outside, generator shared.
+  const GROUPS = [
+    { label: "Whole House", cls: "shared", sections: [
+      { title: "All Areas", items: [
+        "Change all med lock batteries",
+        "Change water alarm batteries (yearly)",
+        "Test CO2 detectors (within 10' of all bedrooms) — how many?",
+        "Check dates on all smoke & CO2 detectors",
+        "Check fixture bulbs (60W soft white LED) — fixtures secure?",
+        "Any damaged switches / receptacles?",
+        "Any wall damage needing patching / painting?",
+        "Check all swings for wear — replace any worn parts",
+        "Home has both toilet & sink plungers",
+        "Any water damage? Check walls, ceilings, sink & bath areas",
+        "Check attic ventilation — exhaust vents attached, no water damage",
+      ]},
+    ]},
+    { label: "Resident Level", cls: "resident", sections: [
+      { title: "Kitchen", items: [
+        "Check water alarms — under sink & dishwasher",
+        "Check faucet & sprayer",
+        "Any water damage or new leaks?",
+        "Run Dishwasher Magic & fill Jet Dry in dishwasher",
+        "Check GFCIs for proper function",
+        "Cabinets & drawers working properly",
+        "Vacuum refrigerator coils (front/back)",
+        "Sharpen knives",
+        "Fire extinguisher up to date and accessible",
+        "Check fire stops / kitchen fire extinguishers",
+        "Felt protectors on table & chair legs (laminate floors)",
+        "Garbage disposal operating correctly — run disposal cleaner",
+        "Run cleaning tablets in HE washers",
+      ]},
+      { title: "Bathroom #1", items: [
+        "Water temp not to exceed 110° (record highest temp)",
+        "Water alarms (toilet, sink & tub)",
+        "Faucet & showerhead working properly",
+        "Check hoses under tub for leaks / moisture / mold",
+        "Renew failing caulk",
+        "Clean exhaust fan",
+        "Check emergency bathroom alarms",
+        "Check for new water leaks / damage",
+      ]},
+      { title: "Bathroom #2", items: [
+        "Water temp not to exceed 110° (record highest temp)",
+        "Water alarms (toilet, sink & tub)",
+        "Faucet & showerhead working properly",
+        "Check hoses under tub for leaks / moisture / mold",
+        "Renew failing caulk",
+        "Clean exhaust fan",
+        "Check emergency bathroom alarms",
+        "Check for new water leaks / damage",
+      ]},
+      { title: "Bedrooms", items: [
+        "Bed rails tight & functioning",
+        "Door transitions in good shape",
+        "Windows functioning properly",
+        "Closet doors functioning properly",
+        "Doors open / close properly",
+      ]},
+    ]},
+    { label: "RS Unit", cls: "rs", sections: [
+      { title: "Kitchen", items: [
+        "Check water alarms — under sink & dishwasher",
+        "Check faucet & sprayer for proper operation",
+        "Any water damage or new leaks?",
+        "Renew failing caulk (sinks, backsplashes, etc.)",
+        "Check GFCIs for proper function",
+        "Cabinets & drawers working properly",
+        "Vacuum refrigerator coils (front/back)",
+        "Felt protectors on table & chair legs (laminate floors)",
+      ]},
+      { title: "Bathroom", items: [
+        "Water alarms (toilet, sink & tub)",
+        "Faucet & showerhead working properly",
+        "Renew failing caulk",
+        "Clean exhaust fan",
+        "Check for new water leaks / damage",
+      ]},
+    ]},
+    { label: "Shared Spaces", cls: "shared", sections: [
+      { title: "Mechanical Room", items: [
+        "Area free of clutter",
+        "Gas & water shutoffs clearly identified",
+        "Water alarms (water heater, softener, washer)",
+        "Any holes / leaks in duct work or stove pipe?",
+        "Change furnace filter (4\" ≈ 90 days, 1\" ≈ 30 days)",
+        "Check furnace dampers for seasonal adjustment",
+        "Clean air exchanger — clean pre-filters",
+        "Check water softener salt level & educate RS",
+        "Check basement for moisture (window condensation)",
+        "Lift sump pump float, verify operation (lower level & outdoor egress windows)",
+      ]},
+      { title: "Common Areas", items: [
+        "Any water damage or new leaks?",
+        "Check spring hinges & door sweeps",
+        "Check doorknobs, hinges & latches for tightness",
+        "All windows open / close properly",
+        "Fire extinguisher up to date and accessible",
+      ]},
+      { title: "Outside", items: [
+        "Walk around house — paint / siding issues; fix or make a MTX ticket",
+        "Downspouts & extensions attached, not plugged or dented",
+        "Landscape drains away from house — no sinkholes",
+        "If gutters need cleaning / repair, create a ticket",
+        "Light fixtures working — change bulbs",
+        "Sidewalks / driveway free of trip & fall hazards",
+        "Clean A/C coils",
+        "Clean all dryer vents",
+        "Check brick and windows — make needed repairs",
+        "Clean front of house of dirt / cobwebs / debris",
+        "Clear sidewalks / driveway of snow & ice",
+        "Roof coils secure & operational — GFCI switch operational",
+        "Snowblower / lawnmower starts properly",
+        "Drive house vehicle — notify RS of maintenance issues",
+        "Clean Q-Straint tracks — check fire extinguisher",
+      ]},
+      { title: "Generator", items: [
+        "Check oil & filter",
+        "Start & run generator for 10 minutes",
+        "Test 15 & 20 amp receptacles with lamp / voltmeter",
+        "Pour generator gas into MTX or house van",
+        "Refill generator gas cans with new gas",
+      ]},
+      { title: "Maintenance Cabinet Stock", items: [
+        "Wireless doorbell",
+        "50' extension cord",
+        "Door alarm (sensors)",
+        "Mouse / ant traps",
+        "Hinges (house specific)",
+        "Duct tape",
+        "Toilet seats",
+        "Nail / screw kit",
+        "Universal toilet handle",
+        "Shower head & holder",
+        "Toilet flapper (house size specific)",
+        "Star nuts (lawnmower / snowblower)",
+        "Toilet valve",
+        "Tool kit",
+        "Closet hardware (house specific)",
+        "Cover plates",
+        "Door knobs",
+        "Specialty bulbs",
+      ]},
+    ]},
+    { label: "Visit Wrap-Up", cls: "wrap", sections: [
+      { title: "Before You Leave", items: [
+        "Fill out site survey online",
+        "Check website for requests — update ones assigned to you",
+        "Try to complete requests not assigned to you — request updates from others",
+        "Email urgent issues to Steve",
+      ]},
+    ]},
+  ];
+
+  const COUNTS = [
+    { id: "res-water", label: "Resident water alarms" },
+    { id: "res-co2",   label: "Resident CO2 alarms" },
+    { id: "rs-water",  label: "RS water alarms" },
+    { id: "rs-co2",    label: "RS CO2 alarms" },
+  ];
+
+  const STORE_KEY = "route-checklist-v1";
+  let memory = null;
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || blank(); }
+    catch { return memory || blank(); }
+  }
+  function save(s) {
+    memory = s;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {}
+  }
+  function blank() {
+    return { house: "", date: new Date().toISOString().slice(0, 10), items: {}, counts: {} };
+  }
+
+  // Stable ids: group index / section index / item index
+  function itemId(g, s, i) { return `g${g}s${s}i${i}`; }
+
+  function build() {
+    const app = document.getElementById("app");
+    let html = "";
+    GROUPS.forEach((group, g) => {
+      html += `<div class="group-label ${group.cls}">${group.label}</div>`;
+      group.sections.forEach((section, s) => {
+        html += `<details class="section" data-g="${g}" data-s="${s}">
+          <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${section.title}<span class="count" data-count></span></summary>
+          <div class="items">`;
+        section.items.forEach((label, i) => {
+          const id = itemId(g, s, i);
+          html += `<div class="item" data-id="${id}">
+            <div class="item-row">
+              <label class="tick"><input type="checkbox" data-check="${id}"><span>${label}</span></label>
+              <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${label.replace(/"/g, "&quot;")}">Note</button>
+            </div>
+            <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
+          </div>`;
+        });
+        html += `</div></details>`;
+        // Alarm counts slot in right after Common Areas, like the paper form
+        if (group.label === "Shared Spaces" && section.title === "Common Areas") {
+          html += `<details class="section" id="alarmCounts" open>
+            <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Alarm Counts<span class="count" data-static></span></summary>
+            <div class="counts-grid">${COUNTS.map(c =>
+              `<div class="count-field"><label for="cnt-${c.id}">${c.label}</label>
+               <input id="cnt-${c.id}" type="number" min="0" inputmode="numeric" data-cnt="${c.id}"></div>`).join("")}
+            </div></details>`;
+        }
+      });
+    });
+    app.innerHTML = html;
+  }
+
+  function hydrate() {
+    const s = load();
+    document.getElementById("house").value = s.house || "";
+    document.getElementById("date").value = s.date || "";
+    document.querySelectorAll("[data-check]").forEach(cb => {
+      const st = s.items[cb.dataset.check];
+      cb.checked = !!(st && st.done);
+    });
+    document.querySelectorAll("[data-note]").forEach(ta => {
+      const st = s.items[ta.dataset.note];
+      ta.value = (st && st.note) || "";
+      if (ta.value) {
+        ta.hidden = false;
+        document.querySelector(`[data-note-btn="${ta.dataset.note}"]`).classList.add("has-note");
+      }
+    });
+    document.querySelectorAll("[data-cnt]").forEach(inp => {
+      inp.value = s.counts[inp.dataset.cnt] ?? "";
+    });
+    refresh();
+  }
+
+  function refresh() {
+    let done = 0, total = 0;
+    document.querySelectorAll("details.section[data-g]").forEach(det => {
+      const boxes = det.querySelectorAll("[data-check]");
+      const d = [...boxes].filter(b => b.checked).length;
+      done += d; total += boxes.length;
+      const c = det.querySelector("[data-count]");
+      c.textContent = `${d}/${boxes.length}`;
+      c.classList.toggle("complete", d === boxes.length);
+      boxes.forEach(b => b.closest(".item").classList.toggle("done", b.checked));
+    });
+    document.getElementById("fill").style.width = total ? (done / total * 100) + "%" : "0%";
+    document.getElementById("progressText").textContent = `${done} of ${total} items checked`;
+  }
+
+  function persist() {
+    const s = load();
+    s.house = document.getElementById("house").value;
+    s.date = document.getElementById("date").value;
+    s.items = {};
+    document.querySelectorAll("[data-check]").forEach(cb => {
+      const id = cb.dataset.check;
+      const note = document.querySelector(`[data-note="${id}"]`).value.trim();
+      if (cb.checked || note) s.items[id] = { done: cb.checked, note };
+    });
+    s.counts = {};
+    document.querySelectorAll("[data-cnt]").forEach(inp => {
+      if (inp.value !== "") s.counts[inp.dataset.cnt] = inp.value;
+    });
+    save(s);
+  }
+
+  function buildReport() {
+    const s = load();
+    const lines = [];
+    lines.push(`MAINTENANCE HOUSE VISIT`);
+    lines.push(`House: ${s.house || "(not set)"}   Date: ${s.date || "(not set)"}`);
+    lines.push("");
+    let done = 0, total = 0;
+    const missed = [], noted = [];
+    GROUPS.forEach((group, g) => group.sections.forEach((section, sec) => {
+      section.items.forEach((label, i) => {
+        total++;
+        const st = s.items[itemId(g, sec, i)];
+        if (st && st.done) done++;
+        else missed.push(`  [ ] ${group.label} / ${section.title}: ${label}`);
+        if (st && st.note) noted.push(`  • ${group.label} / ${section.title}: ${label}\n    → ${st.note}`);
+      });
+    }));
+    lines.push(`Completed: ${done} of ${total}`);
+    lines.push("");
+    lines.push("ALARM COUNTS");
+    COUNTS.forEach(c => lines.push(`  ${c.label}: ${s.counts[c.id] ?? "—"}`));
+    if (noted.length) { lines.push("", "NOTES / ISSUES FOUND"); lines.push(...noted); }
+    if (missed.length) { lines.push("", "NOT COMPLETED"); lines.push(...missed); }
+    return lines.join("\n");
+  }
+
+  document.addEventListener("change", e => { persist(); refresh(); });
+  document.addEventListener("input", e => {
+    if (e.target.matches("[data-note], #house, [data-cnt]")) persist();
+  });
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-note-btn]");
+    if (btn) {
+      const ta = document.querySelector(`[data-note="${btn.dataset.noteBtn}"]`);
+      ta.hidden = !ta.hidden;
+      if (!ta.hidden) ta.focus();
+      btn.classList.toggle("has-note", !!ta.value.trim() || !ta.hidden);
+    }
+  });
+
+  document.getElementById("copyReport").addEventListener("click", async () => {
+    const text = buildReport();
+    const out = document.getElementById("reportOut");
+    out.style.display = "block";
+    out.value = text;
+    let copied = false;
+    try { await navigator.clipboard.writeText(text); copied = true; } catch {}
+    const btn = document.getElementById("copyReport");
+    btn.textContent = copied ? "Copied ✓ (also shown below)" : "Report shown below — select & copy";
+    out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    setTimeout(() => { btn.textContent = "Copy visit report"; }, 3000);
+  });
+
+  document.getElementById("newVisit").addEventListener("click", () => {
+    if (!confirm("Start a new visit? This clears all checks, notes, and counts.")) return;
+    save(blank());
+    document.getElementById("reportOut").style.display = "none";
+    hydrate();
+  });
+
+  build();
+  hydrate();
+</script>
+
+</html>
