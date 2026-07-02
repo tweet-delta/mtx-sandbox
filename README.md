@@ -14,6 +14,10 @@ pull requests, just like a real project.
 3. Open a pull request
 4. Review and merge
 
+## Learning Log
+
+- Learned what Claude Code, git, GitHub, branches, commits, and PRs are.
+
 ## License
 
 MIT
