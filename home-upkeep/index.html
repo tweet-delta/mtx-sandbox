@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Upkeep</title>
+<style>
+  :root {
+    --ground: #F4F6F5;
+    --card: #FFFFFF;
+    --ink: #22302B;
+    --muted: #5C6B64;
+    --line: #DDE4E1;
+    --accent: #2F5D62;
+    --accent-ink: #FFFFFF;
+    --overdue: #A63A2B;
+    --overdue-bg: #F7E9E6;
+    --soon: #8A5E10;
+    --soon-bg: #F6EDDA;
+    --ok: #2E7D4F;
+    --ok-bg: #E6F1EA;
+    --never: #5C6B64;
+    --never-bg: #EBEEEC;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--ground); }
+  body {
+    margin: 0;
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header h1 {
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    margin: 0 0 4px;
+    text-wrap: balance;
+  }
+  header p.sub { margin: 0 0 20px; color: var(--muted); font-size: 0.95rem; }
+
+  .summary {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .stat {
+    flex: 1 1 120px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+  .stat .num {
+    font-size: 1.5rem; font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    display: block;
+  }
+  .stat .lbl {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .stat.overdue .num { color: var(--overdue); }
+  .stat.soon .num { color: var(--soon); }
+  .stat.ok .num { color: var(--ok); }
+
+  .tasks { display: flex; flex-direction: column; gap: 10px; }
+  .task {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .task .info { flex: 1 1 auto; min-width: 0; }
+  .task .name { font-weight: 600; font-size: 0.98rem; }
+  .task .meta {
+    color: var(--muted); font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .pill {
+    font-size: 0.66rem; font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 3px 9px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill.overdue { color: var(--overdue); background: var(--overdue-bg); }
+  .pill.soon { color: var(--soon); background: var(--soon-bg); }
+  .pill.ok { color: var(--ok); background: var(--ok-bg); }
+  .pill.never { color: var(--never); background: var(--never-bg); }
+
+  button.done {
+    font: inherit; font-size: 0.85rem; font-weight: 600;
+    color: var(--accent-ink); background: var(--accent);
+    border: none; border-radius: 6px;
+    padding: 8px 14px; cursor: pointer;
+    white-space: nowrap;
+  }
+  button.done:hover { background: #24494D; }
+  button.done:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  button.undo {
+    font: inherit; font-size: 0.8rem;
+    color: var(--muted); background: none;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 12px; cursor: pointer;
+    white-space: nowrap;
+  }
+  button.undo:hover { color: var(--ink); border-color: var(--muted); }
+  button.undo:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  footer {
+    margin-top: 28px; color: var(--muted); font-size: 0.8rem;
+  }
+  @media (max-width: 480px) {
+    .task { flex-wrap: wrap; }
+    .task .info { flex-basis: 100%; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Home Upkeep</h1>
+    <p class="sub">Recurring maintenance, sorted by what needs attention first. Tap “Done” when you finish a task and the next due date is set automatically.</p>
+  </header>
+
+  <div class="summary" id="summary"></div>
+  <div class="tasks" id="tasks"></div>
+
+  <footer>Progress is saved in this browser. “Due soon” means due within 14 days.</footer>
+</div>
+
+<script>
+  // Each task: id, name, interval in days, and a hint shown under the name.
+  const TASKS = [
+    { id: "furnace-filter",   name: "Replace furnace / HVAC filter",          days: 90,  hint: "1&#8221; filters every 1&#8211;3 months; thicker ones last longer" },
+    { id: "alarm-test",       name: "Test smoke, CO & water-leak alarms",     days: 30,  hint: "Press the test button on each unit" },
+    { id: "alarm-batteries",  name: "Replace alarm batteries",                days: 365, hint: "Smoke, CO, and water-leak sensors" },
+    { id: "softener-salt",    name: "Check water softener salt level",        days: 30,  hint: "Top up if below half full" },
+    { id: "dryer-vent",       name: "Clean dryer vent duct",                  days: 180, hint: "The duct to outside, not just the lint trap" },
+    { id: "bulb-walkthrough", name: "Light bulb walk-through",                days: 90,  hint: "Check every fixture inside and out" },
+    { id: "gfci-test",        name: "Test GFCI outlets",                      days: 180, hint: "Press TEST then RESET on outlets in kitchen, bath, garage" },
+    { id: "sump-pump",        name: "Test sump pump",                         days: 90,  hint: "Pour a bucket of water into the pit; pump should kick on" },
+    { id: "gutters",          name: "Clean gutters & downspouts",             days: 180, hint: "Spring and fall at minimum" },
+    { id: "water-heater",     name: "Flush water heater",                     days: 365, hint: "Drain sediment from the tank" },
+    { id: "fridge-coils",     name: "Vacuum refrigerator coils",              days: 180, hint: "Behind or beneath the fridge" },
+    { id: "extinguisher",     name: "Check fire extinguisher gauge",          days: 180, hint: "Needle should be in the green zone" },
+    { id: "leak-check",       name: "Under-sink & toilet leak check",         days: 180, hint: "Look for drips, corrosion, soft cabinet floors" },
+    { id: "garage-door",      name: "Lubricate garage door hardware",         days: 365, hint: "Rollers, hinges, springs; test auto-reverse" },
+    { id: "hvac-service",     name: "Professional HVAC service",              days: 365, hint: "Furnace tune-up in fall or AC in spring" },
+  ];
+
+  const SOON_DAYS = 14;
+  const STORE_KEY = "home-upkeep-v1";
+
+  // localStorage with an in-memory fallback so the page never crashes.
+  let memory = {};
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+    catch { return memory; }
+  }
+  function saveState(state) {
+    memory = state;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
+  }
+
+  function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+  function today() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+
+  function status(task, state) {
+    const last = state[task.id] ? new Date(state[task.id]) : null;
+    if (!last) return { kind: "never", sort: -9999, label: "Not tracked yet" };
+    const due = new Date(last); due.setDate(due.getDate() + task.days);
+    const left = daysBetween(today(), due);
+    if (left < 0)          return { kind: "overdue", sort: left, label: `Overdue by ${-left} day${left === -1 ? "" : "s"}`, last };
+    if (left <= SOON_DAYS) return { kind: "soon",    sort: left, label: left === 0 ? "Due today" : `Due in ${left} day${left === 1 ? "" : "s"}`, last };
+    return { kind: "ok", sort: left, label: `Due in ${left} days`, last };
+  }
+
+  function fmt(d) { return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+
+  function render() {
+    const state = loadState();
+    const rows = TASKS.map(t => ({ task: t, st: status(t, state) }));
+
+    // Overdue first, then due soon, then never-tracked, then everything else.
+    const rank = { overdue: 0, soon: 1, never: 2, ok: 3 };
+    rows.sort((a, b) => rank[a.st.kind] - rank[b.st.kind] || a.st.sort - b.st.sort);
+
+    const counts = { overdue: 0, soon: 0, ok: 0, never: 0 };
+    rows.forEach(r => counts[r.st.kind]++);
+
+    document.getElementById("summary").innerHTML = `
+      <div class="stat overdue"><span class="num">${counts.overdue}</span><span class="lbl">Overdue</span></div>
+      <div class="stat soon"><span class="num">${counts.soon}</span><span class="lbl">Due soon</span></div>
+      <div class="stat ok"><span class="num">${counts.ok}</span><span class="lbl">On track</span></div>
+      <div class="stat"><span class="num">${counts.never}</span><span class="lbl">Not tracked</span></div>`;
+
+    const pillText = { overdue: "Overdue", soon: "Due soon", ok: "On track", never: "New" };
+    document.getElementById("tasks").innerHTML = rows.map(({ task, st }) => `
+      <div class="task">
+        <div class="info">
+          <div class="name">${task.name} <span class="pill ${st.kind}">${pillText[st.kind]}</span></div>
+          <div class="meta">${st.label}${st.last ? ` &middot; last done ${fmt(st.last)}` : ""} &middot; every ${task.days >= 365 ? "year" : task.days >= 28 ? Math.round(task.days / 30) + " mo" : task.days + " days"} &middot; ${task.hint}</div>
+        </div>
+        ${doneToday(task, state)
+          ? `<button class="undo" data-undo="${task.id}">Undo</button>`
+          : `<button class="done" data-done="${task.id}">Done</button>`}
+      </div>`).join("");
+  }
+
+  function doneToday(task, state) {
+    return state[task.id] && daysBetween(new Date(state[task.id]), today()) === 0;
+  }
+
+  document.addEventListener("click", e => {
+    const doneId = e.target.dataset && e.target.dataset.done;
+    const undoId = e.target.dataset && e.target.dataset.undo;
+    if (!doneId && !undoId) return;
+    const state = loadState();
+    if (doneId) state[doneId] = today().toISOString();
+    if (undoId) delete state[undoId];
+    saveState(state);
+    render();
+  });
+
+  render();
+</script>
+
+</html>
