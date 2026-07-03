@@ -14,6 +14,9 @@
     --accent: #2D5580;
     --accent-ink: #FFFFFF;
     --done: #2E7D4F;
+    --done-bg: #E6F1EA;
+    --bad: #A63A2B;
+    --bad-bg: #F7E9E6;
     --note: #8A5E10;
     --note-bg: #F6EDDA;
     --resident: #2D5580;
@@ -97,12 +100,15 @@
     margin-left: auto;
     font-size: 0.78rem; font-weight: 600; color: var(--muted);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .count.complete { color: var(--done); }
+  .count .flag { color: var(--bad); }
 
   .items { border-top: 1px solid var(--line); padding: 4px 0; }
-  .item { padding: 4px 14px; }
-  .item-row { display: flex; align-items: flex-start; gap: 10px; }
+  .item { padding: 6px 14px; }
+  .item + .item { border-top: 1px solid #EEF1F4; }
+  .item-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
   .item label.tick {
     display: flex; align-items: flex-start; gap: 10px;
     flex: 1 1 auto; cursor: pointer; padding: 6px 0;
@@ -113,22 +119,44 @@
     accent-color: var(--done);
     margin: 0;
   }
-  .item.done label.tick { color: var(--muted); }
+  .item.done .qtext { color: var(--muted); }
+  .item.flagged { background: var(--bad-bg); border-radius: 6px; }
+
+  .qtext { flex: 1 1 auto; font-size: 0.92rem; padding: 6px 0; min-width: 160px; }
+
+  .yn { display: flex; gap: 6px; flex: none; padding-top: 3px; }
+  .yn-btn {
+    font: inherit; font-size: 0.82rem; font-weight: 650;
+    min-width: 48px; padding: 7px 12px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); color: var(--muted);
+    cursor: pointer;
+  }
+  .yn-btn.sel-good { background: var(--done); border-color: var(--done); color: #fff; }
+  .yn-btn.sel-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .yn-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
   .note-btn {
     font: inherit; font-size: 0.75rem; font-weight: 600;
     color: var(--muted); background: none;
     border: 1px solid var(--line); border-radius: 6px;
-    padding: 5px 9px; cursor: pointer; flex: none;
+    padding: 6px 9px; cursor: pointer; flex: none;
     margin-top: 4px;
   }
   .note-btn.has-note { color: var(--note); background: var(--note-bg); border-color: transparent; }
   .note-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .item textarea {
     font: inherit; font-size: 0.88rem;
-    width: 100%; margin: 4px 0 6px 32px; max-width: calc(100% - 32px);
+    width: 100%; margin: 4px 0 6px;
     border: 1px solid var(--line); border-radius: 6px;
     padding: 7px 9px; min-height: 44px; resize: vertical;
     background: #FFFDF5;
+  }
+  .item textarea.reason { border-color: var(--bad); background: #FFF9F7; }
+  .reason-label {
+    font-size: 0.72rem; font-weight: 700; color: var(--bad);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 2px 0;
   }
 
   /* Alarm counts */
@@ -189,9 +217,12 @@
 </div>
 
 <script>
-  // Checklist data, structured per the real building layout:
-  // duplex-style group home — Resident level + RS (Residential Supervisor)
-  // unit, each with own kitchen/bath(s); mechanical, outside, generator shared.
+  // Checklist data. Two kinds of entries:
+  //   "plain string"            → action item, simple checkbox
+  //   { q: "...", bad: "yes" }  → yes/no question; the `bad` answer
+  //                               reveals a required "reason why" box.
+  //     bad: "yes" → "anything wrong?" questions (Yes = problem)
+  //     bad: "no"  → "working properly?" questions (No = problem)
   const GROUPS = [
     { label: "Whole House", cls: "shared", sections: [
       { title: "All Areas", items: [
@@ -199,112 +230,112 @@
         "Change water alarm batteries (yearly)",
         "Test CO2 detectors (within 10' of all bedrooms) — how many?",
         "Check dates on all smoke & CO2 detectors",
-        "Check fixture bulbs (60W soft white LED) — fixtures secure?",
-        "Any damaged switches / receptacles?",
-        "Any wall damage needing patching / painting?",
+        { q: "Fixture bulbs OK (60W soft white LED) & fixtures secure?", bad: "no" },
+        { q: "Any damaged switches / receptacles?", bad: "yes" },
+        { q: "Any wall damage needing patching / painting?", bad: "yes" },
         "Check all swings for wear — replace any worn parts",
-        "Home has both toilet & sink plungers",
-        "Any water damage? Check walls, ceilings, sink & bath areas",
-        "Check attic ventilation — exhaust vents attached, no water damage",
+        { q: "Home has both toilet & sink plungers?", bad: "no" },
+        { q: "Any water damage? (walls, ceilings, sink & bath areas)", bad: "yes" },
+        { q: "Attic ventilation OK? (exhaust vents attached, no water damage)", bad: "no" },
       ]},
     ]},
     { label: "Resident Level", cls: "resident", sections: [
       { title: "Kitchen", items: [
         "Check water alarms — under sink & dishwasher",
         "Check faucet & sprayer",
-        "Any water damage or new leaks?",
+        { q: "Any water damage or new leaks?", bad: "yes" },
         "Run Dishwasher Magic & fill Jet Dry in dishwasher",
         "Check GFCIs for proper function",
-        "Cabinets & drawers working properly",
+        { q: "Cabinets & drawers working properly?", bad: "no" },
         "Vacuum refrigerator coils (front/back)",
         "Sharpen knives",
-        "Fire extinguisher up to date and accessible",
+        { q: "Fire extinguisher up to date and accessible?", bad: "no" },
         "Check fire stops / kitchen fire extinguishers",
-        "Felt protectors on table & chair legs (laminate floors)",
-        "Garbage disposal operating correctly — run disposal cleaner",
+        { q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
+        { q: "Garbage disposal operating correctly? (run disposal cleaner)", bad: "no" },
         "Run cleaning tablets in HE washers",
       ]},
       { title: "Bathroom #1", items: [
-        "Water temp not to exceed 110° (record highest temp)",
-        "Water alarms (toilet, sink & tub)",
-        "Faucet & showerhead working properly",
+        { q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
+        "Check water alarms (toilet, sink & tub)",
+        { q: "Faucet & showerhead working properly?", bad: "no" },
         "Check hoses under tub for leaks / moisture / mold",
         "Renew failing caulk",
         "Clean exhaust fan",
         "Check emergency bathroom alarms",
-        "Check for new water leaks / damage",
+        { q: "Any new water leaks / damage?", bad: "yes" },
       ]},
       { title: "Bathroom #2", items: [
-        "Water temp not to exceed 110° (record highest temp)",
-        "Water alarms (toilet, sink & tub)",
-        "Faucet & showerhead working properly",
+        { q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
+        "Check water alarms (toilet, sink & tub)",
+        { q: "Faucet & showerhead working properly?", bad: "no" },
         "Check hoses under tub for leaks / moisture / mold",
         "Renew failing caulk",
         "Clean exhaust fan",
         "Check emergency bathroom alarms",
-        "Check for new water leaks / damage",
+        { q: "Any new water leaks / damage?", bad: "yes" },
       ]},
       { title: "Bedrooms", items: [
-        "Bed rails tight & functioning",
-        "Door transitions in good shape",
-        "Windows functioning properly",
-        "Closet doors functioning properly",
-        "Doors open / close properly",
+        { q: "Bed rails tight & functioning?", bad: "no" },
+        { q: "Door transitions in good shape?", bad: "no" },
+        { q: "Windows functioning properly?", bad: "no" },
+        { q: "Closet doors functioning properly?", bad: "no" },
+        { q: "Doors open / close properly?", bad: "no" },
       ]},
     ]},
     { label: "RS Unit", cls: "rs", sections: [
       { title: "Kitchen", items: [
         "Check water alarms — under sink & dishwasher",
         "Check faucet & sprayer for proper operation",
-        "Any water damage or new leaks?",
+        { q: "Any water damage or new leaks?", bad: "yes" },
         "Renew failing caulk (sinks, backsplashes, etc.)",
         "Check GFCIs for proper function",
-        "Cabinets & drawers working properly",
+        { q: "Cabinets & drawers working properly?", bad: "no" },
         "Vacuum refrigerator coils (front/back)",
-        "Felt protectors on table & chair legs (laminate floors)",
+        { q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
       ]},
       { title: "Bathroom", items: [
-        "Water alarms (toilet, sink & tub)",
-        "Faucet & showerhead working properly",
+        "Check water alarms (toilet, sink & tub)",
+        { q: "Faucet & showerhead working properly?", bad: "no" },
         "Renew failing caulk",
         "Clean exhaust fan",
-        "Check for new water leaks / damage",
+        { q: "Any new water leaks / damage?", bad: "yes" },
       ]},
     ]},
     { label: "Shared Spaces", cls: "shared", sections: [
       { title: "Mechanical Room", items: [
-        "Area free of clutter",
-        "Gas & water shutoffs clearly identified",
-        "Water alarms (water heater, softener, washer)",
-        "Any holes / leaks in duct work or stove pipe?",
+        { q: "Area free of clutter?", bad: "no" },
+        { q: "Gas & water shutoffs clearly identified?", bad: "no" },
+        "Check water alarms (water heater, softener, washer)",
+        { q: "Any holes / leaks in duct work or stove pipe?", bad: "yes" },
         "Change furnace filter (4\" ≈ 90 days, 1\" ≈ 30 days)",
         "Check furnace dampers for seasonal adjustment",
         "Clean air exchanger — clean pre-filters",
         "Check water softener salt level & educate RS",
-        "Check basement for moisture (window condensation)",
+        { q: "Any basement moisture / window condensation?", bad: "yes" },
         "Lift sump pump float, verify operation (lower level & outdoor egress windows)",
       ]},
       { title: "Common Areas", items: [
-        "Any water damage or new leaks?",
+        { q: "Any water damage or new leaks?", bad: "yes" },
         "Check spring hinges & door sweeps",
         "Check doorknobs, hinges & latches for tightness",
-        "All windows open / close properly",
-        "Fire extinguisher up to date and accessible",
+        { q: "All windows open / close properly?", bad: "no" },
+        { q: "Fire extinguisher up to date and accessible?", bad: "no" },
       ]},
       { title: "Outside", items: [
         "Walk around house — paint / siding issues; fix or make a MTX ticket",
-        "Downspouts & extensions attached, not plugged or dented",
-        "Landscape drains away from house — no sinkholes",
+        { q: "Downspouts & extensions attached, not plugged or dented?", bad: "no" },
+        { q: "Landscape drains away from house, no sinkholes?", bad: "no" },
         "If gutters need cleaning / repair, create a ticket",
         "Light fixtures working — change bulbs",
-        "Sidewalks / driveway free of trip & fall hazards",
+        { q: "Sidewalks / driveway free of trip & fall hazards?", bad: "no" },
         "Clean A/C coils",
         "Clean all dryer vents",
         "Check brick and windows — make needed repairs",
         "Clean front of house of dirt / cobwebs / debris",
         "Clear sidewalks / driveway of snow & ice",
-        "Roof coils secure & operational — GFCI switch operational",
-        "Snowblower / lawnmower starts properly",
+        { q: "Roof coils secure & operational? GFCI switch operational?", bad: "no" },
+        { q: "Snowblower / lawnmower starts properly?", bad: "no" },
         "Drive house vehicle — notify RS of maintenance issues",
         "Clean Q-Straint tracks — check fire extinguisher",
       ]},
@@ -353,7 +384,7 @@
     { id: "rs-co2",    label: "RS CO2 alarms" },
   ];
 
-  const STORE_KEY = "route-checklist-v1";
+  const STORE_KEY = "route-checklist-v2";
   let memory = null;
   function load() {
     try { return JSON.parse(localStorage.getItem(STORE_KEY)) || blank(); }
@@ -367,8 +398,9 @@
     return { house: "", date: new Date().toISOString().slice(0, 10), items: {}, counts: {} };
   }
 
-  // Stable ids: group index / section index / item index
   function itemId(g, s, i) { return `g${g}s${s}i${i}`; }
+  function isYN(item) { return typeof item === "object"; }
+  function itemLabel(item) { return isYN(item) ? item.q : item; }
 
   function build() {
     const app = document.getElementById("app");
@@ -379,18 +411,33 @@
         html += `<details class="section" data-g="${g}" data-s="${s}">
           <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${section.title}<span class="count" data-count></span></summary>
           <div class="items">`;
-        section.items.forEach((label, i) => {
+        section.items.forEach((item, i) => {
           const id = itemId(g, s, i);
-          html += `<div class="item" data-id="${id}">
-            <div class="item-row">
-              <label class="tick"><input type="checkbox" data-check="${id}"><span>${label}</span></label>
-              <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${label.replace(/"/g, "&quot;")}">Note</button>
-            </div>
-            <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
-          </div>`;
+          const safeLabel = itemLabel(item).replace(/"/g, "&quot;");
+          if (isYN(item)) {
+            html += `<div class="item" data-id="${id}" data-bad="${item.bad}">
+              <div class="item-row">
+                <span class="qtext">${item.q}</span>
+                <span class="yn" role="group" aria-label="${safeLabel}">
+                  <button class="yn-btn" data-yn="${id}" data-val="yes">Yes</button>
+                  <button class="yn-btn" data-yn="${id}" data-val="no">No</button>
+                </span>
+                <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}">Note</button>
+              </div>
+              <div class="reason-label" data-reason-label="${id}" hidden>Reason / what needs follow-up</div>
+              <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
+            </div>`;
+          } else {
+            html += `<div class="item" data-id="${id}">
+              <div class="item-row">
+                <label class="tick"><input type="checkbox" data-check="${id}"><span class="qtext">${item}</span></label>
+                <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}">Note</button>
+              </div>
+              <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
+            </div>`;
+          }
         });
         html += `</div></details>`;
-        // Alarm counts slot in right after Common Areas, like the paper form
         if (group.label === "Shared Spaces" && section.title === "Common Areas") {
           html += `<details class="section" id="alarmCounts" open>
             <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Alarm Counts<span class="count" data-static></span></summary>
@@ -402,6 +449,35 @@
       });
     });
     app.innerHTML = html;
+  }
+
+  // Reflect one yes/no item's answer in its buttons + reason box.
+  function paintYN(id, answer) {
+    const itemEl = document.querySelector(`.item[data-id="${id}"]`);
+    if (!itemEl) return;
+    const bad = itemEl.dataset.bad;
+    const isBad = answer && answer === bad;
+    itemEl.querySelectorAll(`[data-yn="${id}"]`).forEach(b => {
+      const sel = answer === b.dataset.val;
+      b.classList.toggle("sel-good", sel && !isBad);
+      b.classList.toggle("sel-bad", sel && isBad);
+      b.setAttribute("aria-pressed", sel ? "true" : "false");
+    });
+    itemEl.classList.toggle("flagged", !!isBad);
+    itemEl.classList.toggle("done", !!answer && !isBad);
+    const ta = itemEl.querySelector(`[data-note="${id}"]`);
+    const lbl = itemEl.querySelector(`[data-reason-label="${id}"]`);
+    if (isBad) {
+      ta.hidden = false;
+      ta.classList.add("reason");
+      ta.placeholder = "What's wrong? What needs to happen?";
+      lbl.hidden = false;
+    } else {
+      ta.classList.remove("reason");
+      ta.placeholder = "Comment / issue found…";
+      lbl.hidden = true;
+      if (!ta.value.trim()) ta.hidden = true;
+    }
   }
 
   function hydrate() {
@@ -420,6 +496,10 @@
         document.querySelector(`[data-note-btn="${ta.dataset.note}"]`).classList.add("has-note");
       }
     });
+    document.querySelectorAll(".item[data-bad]").forEach(el => {
+      const st = s.items[el.dataset.id];
+      paintYN(el.dataset.id, st && st.answer);
+    });
     document.querySelectorAll("[data-cnt]").forEach(inp => {
       inp.value = s.counts[inp.dataset.cnt] ?? "";
     });
@@ -427,35 +507,67 @@
   }
 
   function refresh() {
-    let done = 0, total = 0;
+    const s = load();
+    let done = 0, total = 0, flags = 0;
     document.querySelectorAll("details.section[data-g]").forEach(det => {
-      const boxes = det.querySelectorAll("[data-check]");
-      const d = [...boxes].filter(b => b.checked).length;
-      done += d; total += boxes.length;
+      let d = 0, t = 0, f = 0;
+      det.querySelectorAll(".item").forEach(el => {
+        t++;
+        const cb = el.querySelector("[data-check]");
+        if (cb) {
+          if (cb.checked) d++;
+          el.classList.toggle("done", cb.checked);
+        } else {
+          const st = s.items[el.dataset.id];
+          if (st && st.answer) {
+            d++;
+            if (st.answer === el.dataset.bad) f++;
+          }
+        }
+      });
+      done += d; total += t; flags += f;
       const c = det.querySelector("[data-count]");
-      c.textContent = `${d}/${boxes.length}`;
-      c.classList.toggle("complete", d === boxes.length);
-      boxes.forEach(b => b.closest(".item").classList.toggle("done", b.checked));
+      c.innerHTML = `${f ? `<span class="flag">⚑ ${f}</span> ` : ""}${d}/${t}`;
+      c.classList.toggle("complete", d === t);
     });
     document.getElementById("fill").style.width = total ? (done / total * 100) + "%" : "0%";
-    document.getElementById("progressText").textContent = `${done} of ${total} items checked`;
+    document.getElementById("progressText").textContent =
+      `${done} of ${total} items answered${flags ? ` — ${flags} issue${flags === 1 ? "" : "s"} flagged` : ""}`;
   }
 
   function persist() {
     const s = load();
     s.house = document.getElementById("house").value;
     s.date = document.getElementById("date").value;
-    s.items = {};
-    document.querySelectorAll("[data-check]").forEach(cb => {
-      const id = cb.dataset.check;
-      const note = document.querySelector(`[data-note="${id}"]`).value.trim();
-      if (cb.checked || note) s.items[id] = { done: cb.checked, note };
+    const items = {};
+    document.querySelectorAll(".item").forEach(el => {
+      const id = el.dataset.id;
+      const note = el.querySelector(`[data-note="${id}"]`).value.trim();
+      const cb = el.querySelector("[data-check]");
+      if (cb) {
+        if (cb.checked || note) items[id] = { done: cb.checked, note };
+      } else {
+        const prev = s.items[id];
+        const answer = (prev && prev.answer) || null;
+        if (answer || note) items[id] = { answer, note };
+      }
     });
+    s.items = items;
     s.counts = {};
     document.querySelectorAll("[data-cnt]").forEach(inp => {
       if (inp.value !== "") s.counts[inp.dataset.cnt] = inp.value;
     });
     save(s);
+  }
+
+  function setAnswer(id, val) {
+    const s = load();
+    const prev = s.items[id] || {};
+    const answer = prev.answer === val ? null : val;   // tap again to clear
+    s.items[id] = { ...prev, answer };
+    save(s);
+    paintYN(id, answer);
+    refresh();
   }
 
   function buildReport() {
@@ -465,30 +577,49 @@
     lines.push(`House: ${s.house || "(not set)"}   Date: ${s.date || "(not set)"}`);
     lines.push("");
     let done = 0, total = 0;
-    const missed = [], noted = [];
+    const missed = [], issues = [], notes = [];
     GROUPS.forEach((group, g) => group.sections.forEach((section, sec) => {
-      section.items.forEach((label, i) => {
+      section.items.forEach((item, i) => {
         total++;
-        const st = s.items[itemId(g, sec, i)];
-        if (st && st.done) done++;
-        else missed.push(`  [ ] ${group.label} / ${section.title}: ${label}`);
-        if (st && st.note) noted.push(`  • ${group.label} / ${section.title}: ${label}\n    → ${st.note}`);
+        const id = itemId(g, sec, i);
+        const st = s.items[id];
+        const where = `${group.label} / ${section.title}`;
+        const label = itemLabel(item);
+        if (isYN(item)) {
+          if (st && st.answer) {
+            done++;
+            if (st.answer === item.bad) {
+              issues.push(`  ⚑ ${where}: ${label}  — answered ${st.answer.toUpperCase()}${st.note ? `\n    Reason: ${st.note}` : "\n    Reason: (none given)"}`);
+            } else if (st.note) {
+              notes.push(`  • ${where}: ${label}\n    → ${st.note}`);
+            }
+          } else {
+            missed.push(`  [ ] ${where}: ${label}`);
+          }
+        } else {
+          if (st && st.done) done++;
+          else missed.push(`  [ ] ${where}: ${label}`);
+          if (st && st.note) notes.push(`  • ${where}: ${label}\n    → ${st.note}`);
+        }
       });
     }));
     lines.push(`Completed: ${done} of ${total}`);
     lines.push("");
     lines.push("ALARM COUNTS");
     COUNTS.forEach(c => lines.push(`  ${c.label}: ${s.counts[c.id] ?? "—"}`));
-    if (noted.length) { lines.push("", "NOTES / ISSUES FOUND"); lines.push(...noted); }
+    if (issues.length) { lines.push("", `ISSUES FLAGGED (${issues.length})`); lines.push(...issues); }
+    if (notes.length) { lines.push("", "OTHER NOTES"); lines.push(...notes); }
     if (missed.length) { lines.push("", "NOT COMPLETED"); lines.push(...missed); }
     return lines.join("\n");
   }
 
-  document.addEventListener("change", e => { persist(); refresh(); });
+  document.addEventListener("change", () => { persist(); refresh(); });
   document.addEventListener("input", e => {
     if (e.target.matches("[data-note], #house, [data-cnt]")) persist();
   });
   document.addEventListener("click", e => {
+    const yn = e.target.closest("[data-yn]");
+    if (yn) { setAnswer(yn.dataset.yn, yn.dataset.val); persist(); return; }
     const btn = e.target.closest("[data-note-btn]");
     if (btn) {
       const ta = document.querySelector(`[data-note="${btn.dataset.noteBtn}"]`);
@@ -512,7 +643,7 @@
   });
 
   document.getElementById("newVisit").addEventListener("click", () => {
-    if (!confirm("Start a new visit? This clears all checks, notes, and counts.")) return;
+    if (!confirm("Start a new visit? This clears all checks, answers, notes, and counts.")) return;
     save(blank());
     document.getElementById("reportOut").style.display = "none";
     hydrate();
