@@ -12,22 +12,37 @@ bathroom(s); the mechanical room, garage, outside, and generator are
 **shared**. Built from a real Excel route checklist the user's team uses.
 
 A maintenance tech opens it on a phone or computer during a house visit,
-checks items off area by area, flags problems, records alarm counts, and
-copies a text report to paste into the site survey / email to Steve.
+picks the house, checks items off area by area, flags problems, records
+alarm counts, and fills out the end-of-visit survey in a popup window.
 
 ## Where it lives
 
 - **Repo:** `tweet-delta/mtx-sandbox`
 - **Working branch:** `claude/claude-code-tutorial-5l5ew2`
-- **App file (the master copy):** `route-checklist/index.html`
-  (single self-contained HTML file — HTML + CSS + JS, no dependencies)
-- **Live artifact link:** https://claude.ai/code/artifact/96afb5f0-1ede-4db8-b62e-12d0f5c4ccf1
+- **App files (the master copy):**
+  - `route-checklist/index.html` — the app (HTML + CSS + JS, no deps)
+  - `route-checklist/house-data.js` — per-house roster (loaded via
+    `<script src>` so it works from `file://`)
+  - `route-checklist/house-codes.local.js` — door/entry codes.
+    **Gitignored, on-device only, never commit.** Optional; app works
+    without it. Copy manually to devices that should show codes.
 - There is also a separate earlier practice app at `home-upkeep/index.html`
   (a generic homeowner maintenance tracker — not the work one).
 
 ## Current features
 
-- Sticky header: House name + visit date, plus a progress bar.
+- Sticky header: **Your name** (persists across visits), House, visit
+  date, plus a progress bar.
+- **☰ Houses sidebar**: searchable house picker + "House info" panel
+  (paint location, attic access, door codes if the local codes file is
+  present). Picking a house tailors the checklist (see below).
+- **Per-house tailoring** (data in `house-data.js`):
+  - 📍 inline notes under matching items (fire extinguisher locations,
+    furnace filter size, shutoff locations, med lock type, etc.).
+  - Equipment flags set to `false` hide items (sump pump, roof coils,
+    garbage disposal, HE washers…) or whole sections (Generator).
+  - Houses so far: **Dogwood**, **Roselawn** (from the user's xlsx notes;
+    source files were key/value sheets, one per house).
 - Sections grouped by area: Whole House, Resident Level (Kitchen,
   Bathroom #1, Bathroom #2, Bedrooms), RS Unit (Kitchen, Bathroom),
   Shared Spaces (Mechanical Room, Common Areas, Outside, Generator,
@@ -43,37 +58,55 @@ copies a text report to paste into the site survey / email to Steve.
 - Any item also has an optional freeform **Note** button.
 - **Alarm Counts** block (Resident water/CO2, RS water/CO2) placed after
   Common Areas, matching the paper form.
-- **Copy visit report** button: builds a plain-text summary — house, date,
-  completion count, alarm counts, all flagged ISSUES with reasons, other
-  notes, and a NOT COMPLETED list — and copies it to the clipboard.
+- **Visit survey** button opens a modal `<dialog>` mirroring the real
+  "Maintenance House Visit Survey" MS form (name/date/house + 7
+  questions). Answers start blank; questions with a related checklist
+  answer get an editable suggestion (snow/ice ← sidewalk-hazard item,
+  live-in condition ← flagged RS items, other concerns ← all flagged
+  issues). **Save & Send** validates name/date/house and saves;
+  **actual sending to SharePoint is a TODO** (marked in code) — the
+  survey currently lives in a SharePoint/MS Forms list the user's team
+  submits after each visit.
 - **New visit** button clears everything for the next house.
 - Progress saves automatically in the browser (localStorage).
 
 ## How it's built (for whoever edits next)
 
-- All content is in the `GROUPS` array near the top of the `<script>`.
-  - A plain string = action item (checkbox).
-  - An object `{ q: "...", bad: "yes" }` or `{ q: "...", bad: "no" }` =
-    yes/no question. `bad` marks which answer triggers the red flag +
-    reason box.
-- Alarm count fields are in the `COUNTS` array.
-- State is stored under localStorage key `route-checklist-v2`. If the
-  data model changes in a breaking way, bump that version string.
+- All checklist content is in the `GROUPS` array near the top of the
+  `<script>`; `COUNTS` = alarm count fields; `SURVEY` = survey questions.
+- Per-house logic: `NOTE_RULES` maps item text (regex) → `notes` key
+  and/or `equipment` flag; `SECTION_FLAGS` maps section title →
+  equipment flag. House shape is documented at the top of
+  `house-data.js`.
+- Survey suggestions come from `surveySuggestions()`.
+- State is stored under localStorage key `route-checklist-v2`
+  (`route-checklist-name` for the tech's name). If the data model
+  changes in a breaking way, bump the version string.
+- Item IDs are positional (`g{group}s{section}i{item}`), so
+  adding/removing checklist items shifts saved answers for in-progress
+  visits.
 
 ## Known limitations / things a user should know
 
 - **State is per-browser.** A visit filled out on the phone will NOT
-  appear on the computer, and vice versa. Each device keeps its own copy.
-  (Fixing this would require a real backend / sync — not built yet.)
-- The downloaded HTML file and the artifact link are separate copies;
-  editing one doesn't update the other. The repo file is the master.
-- A few structural guesses were made from the Excel sheet and confirmed
-  with the user; "Common Areas" is currently under Shared Spaces.
+  appear on the computer, and vice versa. (Needs a backend to fix.)
+- **Survey "Send" doesn't send yet** — needs a SharePoint/Power Automate
+  endpoint from the user. Their survey list:
+  `acrhomes123.sharepoint.com/departments/maintenance` (House Notes list
+  also lives there — couldn't be read directly; Chrome extension wasn't
+  connected).
+- Door codes must never be pushed — the repo is public. Keep them in
+  `house-codes.local.js` only.
+- The user's raw house notes live locally in
+  `Desktop/mtx expl/*.xlsx` (Dogwood, roselawn) — outside the repo.
+- A stray empty git repo sits at `route-checklist/MTX Route/` locally
+  (user-created, untracked; left alone).
 
 ## Possible next steps (not yet done)
 
-- Optionally handle houses with only one bathroom (hide Bathroom #2).
+- Wire **Save & Send** to SharePoint (Power Automate flow or REST).
+- Add more houses to `house-data.js` (user will drop more xlsx files;
+  30+ houses expected eventually).
+- Per-house bathroom count (hide Bathroom #2) via an equipment flag.
 - A field to record the actual water-temp reading (currently just a Y/N).
-- Export/share the report other ways (email link, save as file).
 - Multi-device sync (would need a backend).
-- Per-house presets (different houses have different equipment).

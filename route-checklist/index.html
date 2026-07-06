@@ -173,30 +173,121 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     background: var(--card); border-top: 1px solid var(--line);
     padding: 10px 14px;
-    display: flex; gap: 10px; justify-content: center;
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
   }
   .report-bar button {
     font: inherit; font-weight: 600; font-size: 0.92rem;
     border-radius: 8px; padding: 11px 18px; cursor: pointer;
   }
-  #copyReport { background: var(--accent); color: var(--accent-ink); border: none; flex: 1 1 auto; max-width: 400px; }
-  #copyReport:hover { background: #244568; }
+  #openSurvey { background: var(--accent); color: var(--accent-ink); border: none; flex: 1 1 auto; max-width: 400px; }
+  #openSurvey:hover { background: #244568; }
   #newVisit { background: none; color: var(--muted); border: 1px solid var(--line); }
   #newVisit:hover { color: var(--ink); border-color: var(--muted); }
+
+  /* Survey modal (small popup window) */
+  #surveyModal {
+    border: none; border-radius: 12px; padding: 0;
+    width: min(92vw, 560px); max-height: 88vh;
+    background: var(--card); color: var(--ink);
+    box-shadow: 0 12px 44px rgba(20, 30, 40, 0.28);
+  }
+  #surveyModal::backdrop { background: rgba(20, 30, 40, 0.45); }
+  .modal-card { display: flex; flex-direction: column; max-height: 88vh; margin: 0; }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .modal-head h2 { font-size: 1rem; margin: 0; flex: 1 1 auto; }
+  .modal-x { background: none; border: none; font-size: 1.05rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px 8px; }
+  .modal-x:hover { color: var(--ink); }
+  .modal-body { padding: 6px 16px 10px; overflow-y: auto; }
+  .modal-field { padding: 9px 0; }
+  .modal-field + .modal-field { border-top: 1px solid #EEF1F4; }
+  .modal-field label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 5px; }
+  .modal-field input, .modal-field textarea {
+    font: inherit; font-size: 0.9rem; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px;
+    background: var(--card); color: var(--ink); resize: vertical;
+  }
+  .modal-field.missing input, .modal-field.missing textarea { border-color: var(--bad); background: #FFF9F7; }
+  .modal-foot {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-top: 1px solid var(--line);
+  }
+  .modal-msg { flex: 1 1 auto; font-size: 0.8rem; color: var(--muted); }
+  .modal-msg.error { color: var(--bad); font-weight: 600; }
+  .modal-msg.ok { color: var(--done); font-weight: 600; }
+  .send-btn {
+    font: inherit; font-weight: 600; font-size: 0.92rem;
+    border: none; border-radius: 8px; padding: 11px 18px;
+    background: var(--accent); color: var(--accent-ink); cursor: pointer; flex: none;
+  }
+  .send-btn:hover { background: #244568; }
+  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .report-bar button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-  #reportOut {
-    display: none; width: 100%; margin-top: 14px;
-    font: 0.8rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    border: 1px solid var(--line); border-radius: 8px; padding: 10px;
-    min-height: 200px;
+  /* House picker sidebar */
+  .titlerow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .titlerow h1 { margin: 0; }
+  .menu-btn {
+    font: inherit; font-size: 0.82rem; font-weight: 600;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); color: var(--ink);
+    padding: 7px 11px; cursor: pointer; flex: none;
+  }
+  .menu-btn:hover { border-color: var(--muted); }
+  #sideBackdrop {
+    position: fixed; inset: 0; background: rgba(20, 30, 40, 0.35); z-index: 19;
+  }
+  #sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 20;
+    width: min(85vw, 300px);
+    background: var(--card); border-right: 1px solid var(--line);
+    padding: 14px; overflow-y: auto;
+    box-shadow: 0 0 30px rgba(20, 30, 40, 0.2);
+  }
+  #sidebar h2 { font-size: 0.95rem; margin: 0 0 10px; display: flex; align-items: center; }
+  #sidebar .modal-x { margin-left: auto; }
+  #houseSearch {
+    font: inherit; font-size: 0.9rem; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; margin-bottom: 10px;
+  }
+  .house-btn {
+    display: block; width: 100%; text-align: left;
+    font: inherit; font-size: 0.9rem; font-weight: 600;
+    background: none; border: 1px solid transparent; border-radius: 6px;
+    padding: 9px 10px; cursor: pointer; color: var(--ink);
+  }
+  .house-btn:hover { background: var(--ground); }
+  .house-btn.sel { background: var(--accent); color: var(--accent-ink); }
+  .house-btn.none { color: var(--muted); font-weight: 500; }
+  #houseInfo { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  #houseInfo h3 {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted); margin: 0 0 8px;
+  }
+  .info-item { font-size: 0.84rem; padding: 5px 0; border-top: 1px solid #EEF1F4; }
+  .info-item:first-of-type { border-top: none; }
+  .info-item b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .info-item.code b { color: var(--note); }
+
+  /* House-specific note under a checklist item */
+  .house-note {
+    font-size: 0.8rem; color: var(--accent);
+    background: #EDF3F9; border-radius: 6px;
+    padding: 6px 9px; margin: 2px 0 6px;
   }
 </style>
 
 <div class="wrapper">
   <div class="visit">
-    <h1>Maintenance House Visit</h1>
+    <div class="titlerow">
+      <button id="menuBtn" class="menu-btn" aria-label="Pick house">☰ Houses</button>
+      <h1>Maintenance House Visit</h1>
+    </div>
     <div class="fields">
+      <input type="text" id="name" placeholder="Your name" aria-label="Your name">
       <input type="text" id="house" placeholder="House" aria-label="House name">
       <input type="date" id="date" aria-label="Visit date">
     </div>
@@ -207,14 +298,39 @@
   </div>
 
   <div id="app"></div>
-
-  <textarea id="reportOut" aria-label="Visit report text"></textarea>
 </div>
+
+<dialog id="surveyModal" aria-label="Maintenance House Visit Survey">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Visit Survey</h2>
+      <button type="button" class="modal-x" id="surveyClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="surveyBody"></div>
+    <div class="modal-foot">
+      <span class="modal-msg" id="surveyMsg"></span>
+      <button type="button" id="surveySend" class="send-btn">Save &amp; Send</button>
+    </div>
+  </div>
+</dialog>
 
 <div class="report-bar">
-  <button id="copyReport">Copy visit report</button>
+  <button id="openSurvey">Visit survey</button>
   <button id="newVisit">New visit</button>
 </div>
+
+<div id="sideBackdrop" hidden></div>
+<aside id="sidebar" hidden aria-label="House picker">
+  <h2>Houses <button type="button" class="modal-x" id="sidebarClose" aria-label="Close">✕</button></h2>
+  <input type="search" id="houseSearch" placeholder="Search houses…" aria-label="Search houses">
+  <div id="houseList"></div>
+  <div id="houseInfo"></div>
+</aside>
+
+<!-- House data: house-data.js is the shared roster; house-codes.local.js
+     holds door codes and stays on-device (gitignored, optional). -->
+<script src="house-data.js"></script>
+<script src="house-codes.local.js"></script>
 
 <script>
   // Checklist data. Two kinds of entries:
@@ -369,7 +485,6 @@
     ]},
     { label: "Visit Wrap-Up", cls: "wrap", sections: [
       { title: "Before You Leave", items: [
-        "Fill out site survey online",
         "Check website for requests — update ones assigned to you",
         "Try to complete requests not assigned to you — request updates from others",
         "Email urgent issues to Steve",
@@ -384,7 +499,99 @@
     { id: "rs-co2",    label: "RS CO2 alarms" },
   ];
 
+  // End-of-visit survey (submitted after every house visit). Fields start
+  // BLANK. Where a checklist item relates to a question, surveySuggestions()
+  // supplies an editable suggested answer derived from the checklist; the rest
+  // stay blank for staff to fill in. Name / Date / House come from the header.
+  const SURVEY = [
+    { id: "cars",   q: "Were there cars parked on the street? If so, how many?" },
+    { id: "snow",   q: "Was the driveway and sidewalks free of snow/ice? If no, please provide details (N/A if not correct season)" },
+    { id: "lawn",   q: "Was the lawn mowed? If no, please provide details (N/A if not correct season)" },
+    { id: "yard",   q: "Was the yard free from weeds and other debris (toys, dog droppings, etc)? If no, please provide details" },
+    { id: "livein", q: "Live-In Space Condition (Please provide details if there are concerns)" },
+    { id: "reach",  q: "Was it easy to get ahold of the live-in to let you into the live-in space? (If no, please provide details i.e. you had to call multiple times, etc)" },
+    { id: "other",  q: "Any other concerns or positives?" },
+  ];
+
+  // Find a checklist item's saved state by section title + a substring of its
+  // question text. Returns {} if not found or unanswered.
+  function findItemState(sectionTitle, qIncludes) {
+    const s = load();
+    let res = {};
+    GROUPS.forEach((group, g) => group.sections.forEach((section, sec) => {
+      if (section.title !== sectionTitle) return;
+      section.items.forEach((item, i) => {
+        if (isYN(item) && item.q.indexOf(qIncludes) !== -1) res = s.items[itemId(g, sec, i)] || {};
+      });
+    }));
+    return res;
+  }
+
+  // Suggested survey answers derived from the checklist. Only questions with a
+  // related, answered checklist item get a suggestion; the rest stay blank.
+  function surveySuggestions() {
+    const s = load();
+    const sug = {};
+    const flags = [], rsFlags = [];
+    GROUPS.forEach((group, g) => group.sections.forEach((section, sec) => {
+      section.items.forEach((item, i) => {
+        if (!isYN(item)) return;
+        const st = s.items[itemId(g, sec, i)];
+        if (st && st.answer === item.bad) {
+          const entry = item.q + (st.note ? " — " + st.note : "");
+          flags.push(entry);
+          if (group.label === "RS Unit") rsFlags.push(entry);
+        }
+      });
+    }));
+    // Snow/ice ← Outside "Sidewalks / driveway free of trip & fall hazards?"
+    const hazard = findItemState("Outside", "Sidewalks / driveway free of trip");
+    if (hazard.answer === "yes") sug.snow = "Yes";
+    else if (hazard.answer === "no") sug.snow = "No" + (hazard.note ? " — " + hazard.note : "");
+    // Live-in space condition ← flagged RS Unit items
+    if (rsFlags.length) sug.livein = "Concerns: " + rsFlags.join("; ");
+    // Other concerns ← every flagged issue on the checklist
+    if (flags.length) sug.other = "From checklist:\n" + flags.map(f => "• " + f).join("\n");
+    return sug;
+  }
+
+  // ---- House-specific tailoring (data in house-data.js / house-codes.local.js) ----
+  const ALL_HOUSES = typeof HOUSES !== "undefined" ? HOUSES : [];
+  const ALL_CODES = typeof HOUSE_CODES !== "undefined" ? HOUSE_CODES : {};
+
+  // Connects checklist items (by text match) to house data:
+  //   note — key into house.notes, shown inline under the item.
+  //   flag — key into house.equipment; false hides the item for that house.
+  const NOTE_RULES = [
+    { match: /fire extinguisher/i,      note: "fireExtinguishers" },
+    { match: /furnace filter/i,         note: "furnaceFilter" },
+    { match: /refrigerator coils/i,     note: "fridgeCoils" },
+    { match: /water softener/i,         note: "waterSoftener", flag: "waterSoftener" },
+    { match: /gas & water shutoffs/i,   note: "shutoffs" },
+    { match: /sharpen knives/i,         note: "knives" },
+    { match: /med lock/i,               note: "medLock" },
+    { match: /attic ventilation/i,      note: "atticAccess" },
+    { match: /dryer vents/i,            note: "dryerVents" },
+    { match: /roof coils/i,             flag: "roofCoils" },
+    { match: /sump pump/i,              flag: "sumpPump" },
+    { match: /garbage disposal/i,       flag: "garbageDisposal" },
+    { match: /HE washers/i,             flag: "frontLoadWashers" },
+    { match: /air exchanger/i,          flag: "airExchanger" },
+  ];
+  // Whole sections hidden when the house lacks the equipment.
+  const SECTION_FLAGS = { "Generator": "generator" };
+
+  function currentHouse() {
+    const name = (load().house || "").trim().toLowerCase();
+    if (!name) return null;
+    return ALL_HOUSES.find(h => h.name.toLowerCase() === name) || null;
+  }
+
   const STORE_KEY = "route-checklist-v2";
+  // Route person's name persists across visits (same person each time).
+  const NAME_KEY = "route-checklist-name";
+  function loadName() { try { return localStorage.getItem(NAME_KEY) || ""; } catch { return ""; } }
+  function saveName(n) { try { localStorage.setItem(NAME_KEY, n); } catch {} }
   let memory = null;
   function load() {
     try { return JSON.parse(localStorage.getItem(STORE_KEY)) || blank(); }
@@ -395,7 +602,7 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {}
   }
   function blank() {
-    return { house: "", date: new Date().toISOString().slice(0, 10), items: {}, counts: {} };
+    return { house: "", date: new Date().toISOString().slice(0, 10), items: {}, counts: {}, survey: {} };
   }
 
   function itemId(g, s, i) { return `g${g}s${s}i${i}`; }
@@ -404,16 +611,29 @@
 
   function build() {
     const app = document.getElementById("app");
+    const house = currentHouse();
     let html = "";
     GROUPS.forEach((group, g) => {
       html += `<div class="group-label ${group.cls}">${group.label}</div>`;
       group.sections.forEach((section, s) => {
+        // Hide whole sections for equipment the selected house doesn't have.
+        const secFlag = SECTION_FLAGS[section.title];
+        if (house && secFlag && house.equipment && house.equipment[secFlag] === false) return;
         html += `<details class="section" data-g="${g}" data-s="${s}">
           <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${section.title}<span class="count" data-count></span></summary>
           <div class="items">`;
         section.items.forEach((item, i) => {
           const id = itemId(g, s, i);
-          const safeLabel = itemLabel(item).replace(/"/g, "&quot;");
+          const label = itemLabel(item);
+          const safeLabel = label.replace(/"/g, "&quot;");
+          // House tailoring: skip items for missing equipment; collect notes.
+          let houseNote = "";
+          if (house) {
+            const rules = NOTE_RULES.filter(r => r.match.test(label));
+            if (rules.some(r => r.flag && house.equipment && house.equipment[r.flag] === false)) return;
+            const texts = rules.map(r => r.note && house.notes && house.notes[r.note]).filter(Boolean);
+            if (texts.length) houseNote = `<div class="house-note">📍 ${texts.join(" · ").replace(/</g, "&lt;")}</div>`;
+          }
           if (isYN(item)) {
             html += `<div class="item" data-id="${id}" data-bad="${item.bad}">
               <div class="item-row">
@@ -424,6 +644,7 @@
                 </span>
                 <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}">Note</button>
               </div>
+              ${houseNote}
               <div class="reason-label" data-reason-label="${id}" hidden>Reason / what needs follow-up</div>
               <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
             </div>`;
@@ -433,6 +654,7 @@
                 <label class="tick"><input type="checkbox" data-check="${id}"><span class="qtext">${item}</span></label>
                 <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}">Note</button>
               </div>
+              ${houseNote}
               <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
             </div>`;
           }
@@ -482,6 +704,7 @@
 
   function hydrate() {
     const s = load();
+    document.getElementById("name").value = loadName();
     document.getElementById("house").value = s.house || "";
     document.getElementById("date").value = s.date || "";
     document.querySelectorAll("[data-check]").forEach(cb => {
@@ -557,7 +780,10 @@
     document.querySelectorAll("[data-cnt]").forEach(inp => {
       if (inp.value !== "") s.counts[inp.dataset.cnt] = inp.value;
     });
+    // Survey answers (s.survey) are managed by the survey modal, not scanned
+    // here; load() above preserves them.
     save(s);
+    saveName(document.getElementById("name").value);
   }
 
   function setAnswer(id, val) {
@@ -570,52 +796,27 @@
     refresh();
   }
 
-  function buildReport() {
+  function buildSurvey() {
     const s = load();
+    const answer = id => (s.survey && id in s.survey) ? s.survey[id] : "";
     const lines = [];
-    lines.push(`MAINTENANCE HOUSE VISIT`);
-    lines.push(`House: ${s.house || "(not set)"}   Date: ${s.date || "(not set)"}`);
+    lines.push("Maintenance House Visit Survey");
     lines.push("");
-    let done = 0, total = 0;
-    const missed = [], issues = [], notes = [];
-    GROUPS.forEach((group, g) => group.sections.forEach((section, sec) => {
-      section.items.forEach((item, i) => {
-        total++;
-        const id = itemId(g, sec, i);
-        const st = s.items[id];
-        const where = `${group.label} / ${section.title}`;
-        const label = itemLabel(item);
-        if (isYN(item)) {
-          if (st && st.answer) {
-            done++;
-            if (st.answer === item.bad) {
-              issues.push(`  ⚑ ${where}: ${label}  — answered ${st.answer.toUpperCase()}${st.note ? `\n    Reason: ${st.note}` : "\n    Reason: (none given)"}`);
-            } else if (st.note) {
-              notes.push(`  • ${where}: ${label}\n    → ${st.note}`);
-            }
-          } else {
-            missed.push(`  [ ] ${where}: ${label}`);
-          }
-        } else {
-          if (st && st.done) done++;
-          else missed.push(`  [ ] ${where}: ${label}`);
-          if (st && st.note) notes.push(`  • ${where}: ${label}\n    → ${st.note}`);
-        }
-      });
-    }));
-    lines.push(`Completed: ${done} of ${total}`);
+    lines.push(`Your Name: ${loadName() || "(not set)"}`);
+    lines.push(`Date: ${s.date || "(not set)"}`);
+    lines.push(`House Name: ${s.house || "(not set)"}`);
     lines.push("");
-    lines.push("ALARM COUNTS");
-    COUNTS.forEach(c => lines.push(`  ${c.label}: ${s.counts[c.id] ?? "—"}`));
-    if (issues.length) { lines.push("", `ISSUES FLAGGED (${issues.length})`); lines.push(...issues); }
-    if (notes.length) { lines.push("", "OTHER NOTES"); lines.push(...notes); }
-    if (missed.length) { lines.push("", "NOT COMPLETED"); lines.push(...missed); }
-    return lines.join("\n");
+    SURVEY.forEach(sv => {
+      lines.push(sv.q);
+      lines.push(`  ${answer(sv.id) || "(blank)"}`);
+      lines.push("");
+    });
+    return lines.join("\n").trimEnd();
   }
 
   document.addEventListener("change", () => { persist(); refresh(); });
   document.addEventListener("input", e => {
-    if (e.target.matches("[data-note], #house, [data-cnt]")) persist();
+    if (e.target.matches("[data-note], #house, #name, [data-cnt]")) persist();
   });
   document.addEventListener("click", e => {
     const yn = e.target.closest("[data-yn]");
@@ -629,24 +830,153 @@
     }
   });
 
-  document.getElementById("copyReport").addEventListener("click", async () => {
-    const text = buildReport();
-    const out = document.getElementById("reportOut");
-    out.style.display = "block";
-    out.value = text;
-    let copied = false;
-    try { await navigator.clipboard.writeText(text); copied = true; } catch {}
-    const btn = document.getElementById("copyReport");
-    btn.textContent = copied ? "Copied ✓ (also shown below)" : "Report shown below — select & copy";
-    out.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    setTimeout(() => { btn.textContent = "Copy visit report"; }, 3000);
+  // ---- Visit survey modal ----
+  const escAttr = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  const escHtml = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const surveyModal = document.getElementById("surveyModal");
+
+  function surveyModalHTML() {
+    const s = load();
+    const sug = surveySuggestions();
+    // Saved answer wins; otherwise the checklist-derived suggestion; else blank.
+    const val = id => (s.survey && id in s.survey) ? s.survey[id] : (sug[id] || "");
+    const rows = [
+      `<div class="modal-field" data-req="1"><label for="m-name">Your Name</label>
+        <input id="m-name" type="text" value="${escAttr(loadName())}"></div>`,
+      `<div class="modal-field" data-req="1"><label for="m-date">Date</label>
+        <input id="m-date" type="date" value="${escAttr(s.date || "")}"></div>`,
+      `<div class="modal-field" data-req="1"><label for="m-house">House Name</label>
+        <input id="m-house" type="text" value="${escAttr(s.house || "")}"></div>`,
+    ];
+    SURVEY.forEach(sv => {
+      rows.push(`<div class="modal-field"><label for="m-sv-${sv.id}">${escHtml(sv.q)}</label>
+        <textarea id="m-sv-${sv.id}" rows="2">${escHtml(val(sv.id))}</textarea></div>`);
+    });
+    return rows.join("");
+  }
+
+  // Read every modal field back into state (survey answers, name, date, house).
+  function syncModalToState() {
+    const s = load();
+    const nameEl = document.getElementById("m-name");
+    const dateEl = document.getElementById("m-date");
+    const houseEl = document.getElementById("m-house");
+    if (nameEl) { document.getElementById("name").value = nameEl.value; saveName(nameEl.value); }
+    if (dateEl) { s.date = dateEl.value; document.getElementById("date").value = dateEl.value; }
+    if (houseEl) { s.house = houseEl.value; document.getElementById("house").value = houseEl.value; }
+    s.survey = {};
+    SURVEY.forEach(sv => {
+      const el = document.getElementById("m-sv-" + sv.id);
+      if (el && el.value.trim()) s.survey[sv.id] = el.value;
+    });
+    save(s);
+  }
+
+  // Require the identity fields (name / date / house); the questions may be
+  // left blank (e.g. N/A). Returns true when valid.
+  function validateSurveyModal(mark) {
+    let ok = true;
+    document.querySelectorAll("#surveyBody .modal-field[data-req]").forEach(f => {
+      const ctrl = f.querySelector("input, textarea");
+      if (!ctrl.value.trim()) { ok = false; if (mark) f.classList.add("missing"); }
+      else f.classList.remove("missing");
+    });
+    document.getElementById("surveySend").disabled = !ok;
+    return ok;
+  }
+
+  function openSurveyModal() {
+    document.getElementById("surveyBody").innerHTML = surveyModalHTML();
+    const msg = document.getElementById("surveyMsg");
+    msg.textContent = ""; msg.className = "modal-msg";
+    validateSurveyModal(false);
+    surveyModal.showModal();
+  }
+
+  document.getElementById("openSurvey").addEventListener("click", openSurveyModal);
+  document.getElementById("surveyClose").addEventListener("click", () => surveyModal.close());
+  surveyModal.addEventListener("click", e => { if (e.target === surveyModal) surveyModal.close(); });
+  document.getElementById("surveyBody").addEventListener("input", () => {
+    syncModalToState();
+    validateSurveyModal(false);
   });
+  document.getElementById("surveySend").addEventListener("click", () => {
+    const msg = document.getElementById("surveyMsg");
+    syncModalToState();
+    if (!validateSurveyModal(true)) {
+      msg.textContent = "Please fill in the highlighted fields.";
+      msg.className = "modal-msg error";
+      return;
+    }
+    // The survey text is ready to send. SharePoint delivery isn't wired up yet.
+    // TODO: POST buildSurvey() to the SharePoint list / Power Automate flow.
+    msg.textContent = "✓ Saved. (Sending to SharePoint isn't connected yet.)";
+    msg.className = "modal-msg ok";
+  });
+
+  // ---- House picker sidebar ----
+  const sidebar = document.getElementById("sidebar");
+  const sideBackdrop = document.getElementById("sideBackdrop");
+
+  // Rebuild the checklist (used when the selected house changes, since house
+  // tailoring affects which items render). State is preserved via localStorage.
+  function rebuild() { build(); hydrate(); }
+
+  function renderHouseList() {
+    const filter = document.getElementById("houseSearch").value.trim().toLowerCase();
+    const cur = currentHouse();
+    const rows = [`<button type="button" class="house-btn none${cur ? "" : " sel"}" data-house="">(no house — full checklist)</button>`];
+    ALL_HOUSES
+      .filter(h => !filter || h.name.toLowerCase().includes(filter))
+      .forEach(h => {
+        const sel = cur && cur.name === h.name ? " sel" : "";
+        rows.push(`<button type="button" class="house-btn${sel}" data-house="${escAttr(h.name)}">${escHtml(h.name)}</button>`);
+      });
+    document.getElementById("houseList").innerHTML = rows.join("");
+  }
+
+  function renderHouseInfo() {
+    const box = document.getElementById("houseInfo");
+    const h = currentHouse();
+    if (!h) { box.innerHTML = ""; return; }
+    const rows = [`<h3>${escHtml(h.name)} — house info</h3>`];
+    (ALL_CODES[h.name] || []).forEach(([label, val]) =>
+      rows.push(`<div class="info-item code"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
+    (h.info || []).forEach(([label, val]) =>
+      rows.push(`<div class="info-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
+    box.innerHTML = rows.join("");
+  }
+
+  function openSidebar() {
+    renderHouseList();
+    renderHouseInfo();
+    sidebar.hidden = false;
+    sideBackdrop.hidden = false;
+    document.getElementById("houseSearch").focus();
+  }
+  function closeSidebar() { sidebar.hidden = true; sideBackdrop.hidden = true; }
+
+  document.getElementById("menuBtn").addEventListener("click", openSidebar);
+  document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
+  sideBackdrop.addEventListener("click", closeSidebar);
+  document.getElementById("houseSearch").addEventListener("input", renderHouseList);
+  document.getElementById("houseList").addEventListener("click", e => {
+    const btn = e.target.closest("[data-house]");
+    if (!btn) return;
+    document.getElementById("house").value = btn.dataset.house;
+    persist();
+    rebuild();
+    renderHouseList();
+    renderHouseInfo();
+    closeSidebar();
+  });
+  // Typing a house name by hand re-tailors once the field loses focus.
+  document.getElementById("house").addEventListener("change", () => { persist(); rebuild(); });
 
   document.getElementById("newVisit").addEventListener("click", () => {
     if (!confirm("Start a new visit? This clears all checks, answers, notes, and counts.")) return;
     save(blank());
-    document.getElementById("reportOut").style.display = "none";
-    hydrate();
+    rebuild();
   });
 
   build();
