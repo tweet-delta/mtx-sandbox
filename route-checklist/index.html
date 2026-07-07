@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Route Checklist — Maintenance House Visit</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2D5580">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Route Checklist">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root {
     --ground: #F2F4F6;
@@ -278,7 +285,84 @@
     background: #EDF3F9; border-radius: 6px;
     padding: 6px 9px; margin: 2px 0 6px;
   }
+
+  /* Login gate */
+  body.locked { overflow: hidden; }
+  #authGate {
+    position: fixed; inset: 0; z-index: 100;
+    background: var(--ground);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #authGate[hidden] { display: none; }
+  .auth-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 12px 44px rgba(20, 30, 40, 0.12);
+    padding: 24px 22px; width: min(94vw, 380px);
+  }
+  .auth-card h1 { font-size: 1.15rem; margin: 0 0 4px; }
+  .auth-sub { font-size: 0.9rem; color: var(--muted); margin: 0 0 16px; }
+  .auth-card label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .auth-card input {
+    font: inherit; font-size: 1rem; width: 100%;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--ink); margin-bottom: 12px;
+  }
+  .auth-card button {
+    font: inherit; font-weight: 600; font-size: 0.95rem;
+    width: 100%; padding: 11px 16px; border: none; border-radius: 8px;
+    background: var(--accent); color: var(--accent-ink); cursor: pointer;
+  }
+  .auth-card button:hover { background: #244568; }
+  .auth-msg { font-size: 0.85rem; margin: 12px 0 0; min-height: 1.2em; }
+  .auth-msg.ok { color: var(--done); }
+  .auth-msg.error { color: var(--bad); }
+  /* Account row in the houses sidebar */
+  #account {
+    margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px;
+    font-size: 0.82rem; color: var(--muted);
+  }
+  #account button {
+    font: inherit; font-size: 0.8rem; font-weight: 600;
+    margin-top: 6px; padding: 6px 10px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .auth-card button.auth-link {
+    background: none; color: var(--accent);
+    width: auto; padding: 0; margin-top: 12px;
+    font-size: 0.82rem; font-weight: 500;
+    text-decoration: underline; display: block;
+  }
+  #account > div:first-child { color: var(--ink); font-weight: 600; }
+  #account .setpw { margin: 8px 0; }
+  #account .setpw summary { cursor: pointer; font-size: 0.8rem; color: var(--accent); }
+  #account .setpw input {
+    font: inherit; font-size: 0.9rem; width: 100%;
+    padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; margin: 6px 0;
+  }
+  .pw-msg { display: block; font-size: 0.78rem; margin-top: 4px; }
+  .pw-msg.ok { color: var(--done); }
+  .pw-msg.error { color: var(--bad); }
 </style>
+</head>
+<body>
+
+<div id="authGate">
+  <div class="auth-card">
+    <h1>Route Checklist</h1>
+    <p class="auth-sub">Sign in to load your houses and save visits.</p>
+    <form id="loginForm">
+      <label for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" required>
+      <label for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" placeholder="Your password" autocomplete="current-password">
+      <button type="submit">Sign in</button>
+    </form>
+    <button type="button" id="magicLinkBtn" class="auth-link">First time, or forgot your password? Email me a login link instead</button>
+    <p class="auth-msg" id="authMsg"></p>
+  </div>
+</div>
 
 <div class="wrapper">
   <div class="visit">
@@ -325,169 +409,185 @@
   <input type="search" id="houseSearch" placeholder="Search houses…" aria-label="Search houses">
   <div id="houseList"></div>
   <div id="houseInfo"></div>
+  <div id="account">
+    <div>Signed in as <span id="whoami">…</span></div>
+    <details class="setpw">
+      <summary>Set / change password</summary>
+      <input type="password" id="newPassword" placeholder="New password (min 6 characters)" autocomplete="new-password">
+      <button type="button" id="setPasswordBtn">Save password</button>
+      <span class="pw-msg" id="pwMsg"></span>
+    </details>
+    <button type="button" id="signOutBtn">Sign out</button>
+  </div>
 </aside>
 
 <!-- House data: house-data.js is the shared roster; house-codes.local.js
      holds door codes and stays on-device (gitignored, optional). -->
 <script src="house-data.js"></script>
 <script src="house-codes.local.js"></script>
+<script src="supabase-config.js"></script>
 
 <script>
-  // Checklist data. Two kinds of entries:
-  //   "plain string"            → action item, simple checkbox
-  //   { q: "...", bad: "yes" }  → yes/no question; the `bad` answer
-  //                               reveals a required "reason why" box.
+  // Checklist data. Every item has a STABLE `key` — a permanent id that never
+  // changes even if the wording is fixed or items are reordered/inserted. Saved
+  // answers, notes, photos, and history are stored under this key (not by
+  // position), so editing the list never scrambles existing data. Keys must be
+  // unique across the whole checklist and must not be reused for a different item.
+  // Two kinds of entries:
+  //   { key, text }    → action item, simple checkbox
+  //   { key, q, bad }  → yes/no question; the `bad` answer reveals a required
+  //                      "reason why" box.
   //     bad: "yes" → "anything wrong?" questions (Yes = problem)
   //     bad: "no"  → "working properly?" questions (No = problem)
   const GROUPS = [
     { label: "Whole House", cls: "shared", sections: [
       { title: "All Areas", items: [
-        "Change all med lock batteries",
-        "Change water alarm batteries (yearly)",
-        "Test CO2 detectors (within 10' of all bedrooms) — how many?",
-        "Check dates on all smoke & CO2 detectors",
-        { q: "Fixture bulbs OK (60W soft white LED) & fixtures secure?", bad: "no" },
-        { q: "Any damaged switches / receptacles?", bad: "yes" },
-        { q: "Any wall damage needing patching / painting?", bad: "yes" },
-        "Check all swings for wear — replace any worn parts",
-        { q: "Home has both toilet & sink plungers?", bad: "no" },
-        { q: "Any water damage? (walls, ceilings, sink & bath areas)", bad: "yes" },
-        { q: "Attic ventilation OK? (exhaust vents attached, no water damage)", bad: "no" },
+        { key: "wh-med-lock-batteries", text: "Change all med lock batteries" },
+        { key: "wh-water-alarm-batteries", text: "Change water alarm batteries (yearly)" },
+        { key: "wh-test-co2-detectors", text: "Test CO2 detectors (within 10' of all bedrooms) — how many?" },
+        { key: "wh-detector-dates", text: "Check dates on all smoke & CO2 detectors" },
+        { key: "wh-fixture-bulbs", q: "Fixture bulbs OK (60W soft white LED) & fixtures secure?", bad: "no" },
+        { key: "wh-damaged-switches", q: "Any damaged switches / receptacles?", bad: "yes" },
+        { key: "wh-wall-damage", q: "Any wall damage needing patching / painting?", bad: "yes" },
+        { key: "wh-swings-wear", text: "Check all swings for wear — replace any worn parts" },
+        { key: "wh-plungers", q: "Home has both toilet & sink plungers?", bad: "no" },
+        { key: "wh-water-damage", q: "Any water damage? (walls, ceilings, sink & bath areas)", bad: "yes" },
+        { key: "wh-attic-ventilation", q: "Attic ventilation OK? (exhaust vents attached, no water damage)", bad: "no" },
       ]},
     ]},
     { label: "Resident Level", cls: "resident", sections: [
       { title: "Kitchen", items: [
-        "Check water alarms — under sink & dishwasher",
-        "Check faucet & sprayer",
-        { q: "Any water damage or new leaks?", bad: "yes" },
-        "Run Dishwasher Magic & fill Jet Dry in dishwasher",
-        "Check GFCIs for proper function",
-        { q: "Cabinets & drawers working properly?", bad: "no" },
-        "Vacuum refrigerator coils (front/back)",
-        "Sharpen knives",
-        { q: "Fire extinguisher up to date and accessible?", bad: "no" },
-        "Check fire stops / kitchen fire extinguishers",
-        { q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
-        { q: "Garbage disposal operating correctly? (run disposal cleaner)", bad: "no" },
-        "Run cleaning tablets in HE washers",
+        { key: "rk-water-alarms", text: "Check water alarms — under sink & dishwasher" },
+        { key: "rk-faucet-sprayer", text: "Check faucet & sprayer" },
+        { key: "rk-water-damage", q: "Any water damage or new leaks?", bad: "yes" },
+        { key: "rk-dishwasher-magic", text: "Run Dishwasher Magic & fill Jet Dry in dishwasher" },
+        { key: "rk-gfci", text: "Check GFCIs for proper function" },
+        { key: "rk-cabinets-drawers", q: "Cabinets & drawers working properly?", bad: "no" },
+        { key: "rk-fridge-coils", text: "Vacuum refrigerator coils (front/back)" },
+        { key: "rk-sharpen-knives", text: "Sharpen knives" },
+        { key: "rk-fire-extinguisher", q: "Fire extinguisher up to date and accessible?", bad: "no" },
+        { key: "rk-fire-stops", text: "Check fire stops / kitchen fire extinguishers" },
+        { key: "rk-felt-protectors", q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
+        { key: "rk-garbage-disposal", q: "Garbage disposal operating correctly? (run disposal cleaner)", bad: "no" },
+        { key: "rk-he-washers", text: "Run cleaning tablets in HE washers" },
       ]},
       { title: "Bathroom #1", items: [
-        { q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
-        "Check water alarms (toilet, sink & tub)",
-        { q: "Faucet & showerhead working properly?", bad: "no" },
-        "Check hoses under tub for leaks / moisture / mold",
-        "Renew failing caulk",
-        "Clean exhaust fan",
-        "Check emergency bathroom alarms",
-        { q: "Any new water leaks / damage?", bad: "yes" },
+        { key: "rb1-water-temp", q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
+        { key: "rb1-water-alarms", text: "Check water alarms (toilet, sink & tub)" },
+        { key: "rb1-faucet-showerhead", q: "Faucet & showerhead working properly?", bad: "no" },
+        { key: "rb1-tub-hoses", text: "Check hoses under tub for leaks / moisture / mold" },
+        { key: "rb1-caulk", text: "Renew failing caulk" },
+        { key: "rb1-exhaust-fan", text: "Clean exhaust fan" },
+        { key: "rb1-emergency-alarms", text: "Check emergency bathroom alarms" },
+        { key: "rb1-water-leaks", q: "Any new water leaks / damage?", bad: "yes" },
       ]},
       { title: "Bathroom #2", items: [
-        { q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
-        "Check water alarms (toilet, sink & tub)",
-        { q: "Faucet & showerhead working properly?", bad: "no" },
-        "Check hoses under tub for leaks / moisture / mold",
-        "Renew failing caulk",
-        "Clean exhaust fan",
-        "Check emergency bathroom alarms",
-        { q: "Any new water leaks / damage?", bad: "yes" },
+        { key: "rb2-water-temp", q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
+        { key: "rb2-water-alarms", text: "Check water alarms (toilet, sink & tub)" },
+        { key: "rb2-faucet-showerhead", q: "Faucet & showerhead working properly?", bad: "no" },
+        { key: "rb2-tub-hoses", text: "Check hoses under tub for leaks / moisture / mold" },
+        { key: "rb2-caulk", text: "Renew failing caulk" },
+        { key: "rb2-exhaust-fan", text: "Clean exhaust fan" },
+        { key: "rb2-emergency-alarms", text: "Check emergency bathroom alarms" },
+        { key: "rb2-water-leaks", q: "Any new water leaks / damage?", bad: "yes" },
       ]},
       { title: "Bedrooms", items: [
-        { q: "Bed rails tight & functioning?", bad: "no" },
-        { q: "Door transitions in good shape?", bad: "no" },
-        { q: "Windows functioning properly?", bad: "no" },
-        { q: "Closet doors functioning properly?", bad: "no" },
-        { q: "Doors open / close properly?", bad: "no" },
+        { key: "rbed-bed-rails", q: "Bed rails tight & functioning?", bad: "no" },
+        { key: "rbed-door-transitions", q: "Door transitions in good shape?", bad: "no" },
+        { key: "rbed-windows", q: "Windows functioning properly?", bad: "no" },
+        { key: "rbed-closet-doors", q: "Closet doors functioning properly?", bad: "no" },
+        { key: "rbed-doors", q: "Doors open / close properly?", bad: "no" },
       ]},
     ]},
     { label: "RS Unit", cls: "rs", sections: [
       { title: "Kitchen", items: [
-        "Check water alarms — under sink & dishwasher",
-        "Check faucet & sprayer for proper operation",
-        { q: "Any water damage or new leaks?", bad: "yes" },
-        "Renew failing caulk (sinks, backsplashes, etc.)",
-        "Check GFCIs for proper function",
-        { q: "Cabinets & drawers working properly?", bad: "no" },
-        "Vacuum refrigerator coils (front/back)",
-        { q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
+        { key: "rsk-water-alarms", text: "Check water alarms — under sink & dishwasher" },
+        { key: "rsk-faucet-sprayer", text: "Check faucet & sprayer for proper operation" },
+        { key: "rsk-water-damage", q: "Any water damage or new leaks?", bad: "yes" },
+        { key: "rsk-caulk", text: "Renew failing caulk (sinks, backsplashes, etc.)" },
+        { key: "rsk-gfci", text: "Check GFCIs for proper function" },
+        { key: "rsk-cabinets-drawers", q: "Cabinets & drawers working properly?", bad: "no" },
+        { key: "rsk-fridge-coils", text: "Vacuum refrigerator coils (front/back)" },
+        { key: "rsk-felt-protectors", q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
       ]},
       { title: "Bathroom", items: [
-        "Check water alarms (toilet, sink & tub)",
-        { q: "Faucet & showerhead working properly?", bad: "no" },
-        "Renew failing caulk",
-        "Clean exhaust fan",
-        { q: "Any new water leaks / damage?", bad: "yes" },
+        { key: "rsb-water-alarms", text: "Check water alarms (toilet, sink & tub)" },
+        { key: "rsb-faucet-showerhead", q: "Faucet & showerhead working properly?", bad: "no" },
+        { key: "rsb-caulk", text: "Renew failing caulk" },
+        { key: "rsb-exhaust-fan", text: "Clean exhaust fan" },
+        { key: "rsb-water-leaks", q: "Any new water leaks / damage?", bad: "yes" },
       ]},
     ]},
     { label: "Shared Spaces", cls: "shared", sections: [
       { title: "Mechanical Room", items: [
-        { q: "Area free of clutter?", bad: "no" },
-        { q: "Gas & water shutoffs clearly identified?", bad: "no" },
-        "Check water alarms (water heater, softener, washer)",
-        { q: "Any holes / leaks in duct work or stove pipe?", bad: "yes" },
-        "Change furnace filter (4\" ≈ 90 days, 1\" ≈ 30 days)",
-        "Check furnace dampers for seasonal adjustment",
-        "Clean air exchanger — clean pre-filters",
-        "Check water softener salt level & educate RS",
-        { q: "Any basement moisture / window condensation?", bad: "yes" },
-        "Lift sump pump float, verify operation (lower level & outdoor egress windows)",
+        { key: "mech-clutter", q: "Area free of clutter?", bad: "no" },
+        { key: "mech-shutoffs", q: "Gas & water shutoffs clearly identified?", bad: "no" },
+        { key: "mech-water-alarms", text: "Check water alarms (water heater, softener, washer)" },
+        { key: "mech-duct-leaks", q: "Any holes / leaks in duct work or stove pipe?", bad: "yes" },
+        { key: "mech-furnace-filter", text: "Change furnace filter (4\" ≈ 90 days, 1\" ≈ 30 days)" },
+        { key: "mech-furnace-dampers", text: "Check furnace dampers for seasonal adjustment" },
+        { key: "mech-air-exchanger", text: "Clean air exchanger — clean pre-filters" },
+        { key: "mech-water-softener", text: "Check water softener salt level & educate RS" },
+        { key: "mech-basement-moisture", q: "Any basement moisture / window condensation?", bad: "yes" },
+        { key: "mech-sump-pump", text: "Lift sump pump float, verify operation (lower level & outdoor egress windows)" },
       ]},
       { title: "Common Areas", items: [
-        { q: "Any water damage or new leaks?", bad: "yes" },
-        "Check spring hinges & door sweeps",
-        "Check doorknobs, hinges & latches for tightness",
-        { q: "All windows open / close properly?", bad: "no" },
-        { q: "Fire extinguisher up to date and accessible?", bad: "no" },
+        { key: "common-water-damage", q: "Any water damage or new leaks?", bad: "yes" },
+        { key: "common-hinges-sweeps", text: "Check spring hinges & door sweeps" },
+        { key: "common-doorknobs", text: "Check doorknobs, hinges & latches for tightness" },
+        { key: "common-windows", q: "All windows open / close properly?", bad: "no" },
+        { key: "common-fire-extinguisher", q: "Fire extinguisher up to date and accessible?", bad: "no" },
       ]},
       { title: "Outside", items: [
-        "Walk around house — paint / siding issues; fix or make a MTX ticket",
-        { q: "Downspouts & extensions attached, not plugged or dented?", bad: "no" },
-        { q: "Landscape drains away from house, no sinkholes?", bad: "no" },
-        "If gutters need cleaning / repair, create a ticket",
-        "Light fixtures working — change bulbs",
-        { q: "Sidewalks / driveway free of trip & fall hazards?", bad: "no" },
-        "Clean A/C coils",
-        "Clean all dryer vents",
-        "Check brick and windows — make needed repairs",
-        "Clean front of house of dirt / cobwebs / debris",
-        "Clear sidewalks / driveway of snow & ice",
-        { q: "Roof coils secure & operational? GFCI switch operational?", bad: "no" },
-        { q: "Snowblower / lawnmower starts properly?", bad: "no" },
-        "Drive house vehicle — notify RS of maintenance issues",
-        "Clean Q-Straint tracks — check fire extinguisher",
+        { key: "out-paint-siding", text: "Walk around house — paint / siding issues; fix or make a MTX ticket" },
+        { key: "out-downspouts", q: "Downspouts & extensions attached, not plugged or dented?", bad: "no" },
+        { key: "out-landscape-drainage", q: "Landscape drains away from house, no sinkholes?", bad: "no" },
+        { key: "out-gutters", text: "If gutters need cleaning / repair, create a ticket" },
+        { key: "out-light-fixtures", text: "Light fixtures working — change bulbs" },
+        { key: "out-trip-hazards", q: "Sidewalks / driveway free of trip & fall hazards?", bad: "no" },
+        { key: "out-ac-coils", text: "Clean A/C coils" },
+        { key: "out-dryer-vents", text: "Clean all dryer vents" },
+        { key: "out-brick-windows", text: "Check brick and windows — make needed repairs" },
+        { key: "out-clean-front", text: "Clean front of house of dirt / cobwebs / debris" },
+        { key: "out-snow-ice", text: "Clear sidewalks / driveway of snow & ice" },
+        { key: "out-roof-coils", q: "Roof coils secure & operational? GFCI switch operational?", bad: "no" },
+        { key: "out-snowblower-mower", q: "Snowblower / lawnmower starts properly?", bad: "no" },
+        { key: "out-drive-vehicle", text: "Drive house vehicle — notify RS of maintenance issues" },
+        { key: "out-qstraint-tracks", text: "Clean Q-Straint tracks — check fire extinguisher" },
       ]},
       { title: "Generator", items: [
-        "Check oil & filter",
-        "Start & run generator for 10 minutes",
-        "Test 15 & 20 amp receptacles with lamp / voltmeter",
-        "Pour generator gas into MTX or house van",
-        "Refill generator gas cans with new gas",
+        { key: "gen-oil-filter", text: "Check oil & filter" },
+        { key: "gen-run-10min", text: "Start & run generator for 10 minutes" },
+        { key: "gen-test-receptacles", text: "Test 15 & 20 amp receptacles with lamp / voltmeter" },
+        { key: "gen-pour-gas", text: "Pour generator gas into MTX or house van" },
+        { key: "gen-refill-gas", text: "Refill generator gas cans with new gas" },
       ]},
       { title: "Maintenance Cabinet Stock", items: [
-        "Wireless doorbell",
-        "50' extension cord",
-        "Door alarm (sensors)",
-        "Mouse / ant traps",
-        "Hinges (house specific)",
-        "Duct tape",
-        "Toilet seats",
-        "Nail / screw kit",
-        "Universal toilet handle",
-        "Shower head & holder",
-        "Toilet flapper (house size specific)",
-        "Star nuts (lawnmower / snowblower)",
-        "Toilet valve",
-        "Tool kit",
-        "Closet hardware (house specific)",
-        "Cover plates",
-        "Door knobs",
-        "Specialty bulbs",
+        { key: "stock-wireless-doorbell", text: "Wireless doorbell" },
+        { key: "stock-extension-cord", text: "50' extension cord" },
+        { key: "stock-door-alarm", text: "Door alarm (sensors)" },
+        { key: "stock-traps", text: "Mouse / ant traps" },
+        { key: "stock-hinges", text: "Hinges (house specific)" },
+        { key: "stock-duct-tape", text: "Duct tape" },
+        { key: "stock-toilet-seats", text: "Toilet seats" },
+        { key: "stock-nail-screw-kit", text: "Nail / screw kit" },
+        { key: "stock-toilet-handle", text: "Universal toilet handle" },
+        { key: "stock-shower-head", text: "Shower head & holder" },
+        { key: "stock-toilet-flapper", text: "Toilet flapper (house size specific)" },
+        { key: "stock-star-nuts", text: "Star nuts (lawnmower / snowblower)" },
+        { key: "stock-toilet-valve", text: "Toilet valve" },
+        { key: "stock-tool-kit", text: "Tool kit" },
+        { key: "stock-closet-hardware", text: "Closet hardware (house specific)" },
+        { key: "stock-cover-plates", text: "Cover plates" },
+        { key: "stock-door-knobs", text: "Door knobs" },
+        { key: "stock-specialty-bulbs", text: "Specialty bulbs" },
       ]},
     ]},
     { label: "Visit Wrap-Up", cls: "wrap", sections: [
       { title: "Before You Leave", items: [
-        "Check website for requests — update ones assigned to you",
-        "Try to complete requests not assigned to you — request updates from others",
-        "Email urgent issues to Steve",
+        { key: "wrap-check-requests", text: "Check website for requests — update ones assigned to you" },
+        { key: "wrap-complete-others", text: "Try to complete requests not assigned to you — request updates from others" },
+        { key: "wrap-email-steve", text: "Email urgent issues to Steve" },
       ]},
     ]},
   ];
@@ -518,10 +618,10 @@
   function findItemState(sectionTitle, qIncludes) {
     const s = load();
     let res = {};
-    GROUPS.forEach((group, g) => group.sections.forEach((section, sec) => {
+    GROUPS.forEach(group => group.sections.forEach(section => {
       if (section.title !== sectionTitle) return;
-      section.items.forEach((item, i) => {
-        if (isYN(item) && item.q.indexOf(qIncludes) !== -1) res = s.items[itemId(g, sec, i)] || {};
+      section.items.forEach(item => {
+        if (isYN(item) && item.q.indexOf(qIncludes) !== -1) res = s.items[item.key] || {};
       });
     }));
     return res;
@@ -533,10 +633,10 @@
     const s = load();
     const sug = {};
     const flags = [], rsFlags = [];
-    GROUPS.forEach((group, g) => group.sections.forEach((section, sec) => {
-      section.items.forEach((item, i) => {
+    GROUPS.forEach(group => group.sections.forEach(section => {
+      section.items.forEach(item => {
         if (!isYN(item)) return;
-        const st = s.items[itemId(g, sec, i)];
+        const st = s.items[item.key];
         if (st && st.answer === item.bad) {
           const entry = item.q + (st.note ? " — " + st.note : "");
           flags.push(entry);
@@ -556,8 +656,13 @@
   }
 
   // ---- House-specific tailoring (data in house-data.js / house-codes.local.js) ----
-  const ALL_HOUSES = typeof HOUSES !== "undefined" ? HOUSES : [];
+  let ALL_HOUSES = typeof HOUSES !== "undefined" ? HOUSES : [];
   const ALL_CODES = typeof HOUSE_CODES !== "undefined" ? HOUSE_CODES : {};
+  // The cloud layer (cloud.js) calls this after login to swap the local
+  // fallback roster for the houses loaded from Supabase.
+  window.applyHouses = function (houses) {
+    if (Array.isArray(houses)) { ALL_HOUSES = houses; rebuild(); }
+  };
 
   // Connects checklist items (by text match) to house data:
   //   note — key into house.notes, shown inline under the item.
@@ -587,7 +692,9 @@
     return ALL_HOUSES.find(h => h.name.toLowerCase() === name) || null;
   }
 
-  const STORE_KEY = "route-checklist-v2";
+  // Bumped to v3 when items moved from positional ids to stable keys (a breaking
+  // change: answers previously keyed by position won't map onto the new keys).
+  const STORE_KEY = "route-checklist-v3";
   // Route person's name persists across visits (same person each time).
   const NAME_KEY = "route-checklist-name";
   function loadName() { try { return localStorage.getItem(NAME_KEY) || ""; } catch { return ""; } }
@@ -605,9 +712,8 @@
     return { house: "", date: new Date().toISOString().slice(0, 10), items: {}, counts: {}, survey: {} };
   }
 
-  function itemId(g, s, i) { return `g${g}s${s}i${i}`; }
-  function isYN(item) { return typeof item === "object"; }
-  function itemLabel(item) { return isYN(item) ? item.q : item; }
+  function isYN(item) { return "q" in item; }
+  function itemLabel(item) { return isYN(item) ? item.q : item.text; }
 
   function build() {
     const app = document.getElementById("app");
@@ -622,8 +728,8 @@
         html += `<details class="section" data-g="${g}" data-s="${s}">
           <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${section.title}<span class="count" data-count></span></summary>
           <div class="items">`;
-        section.items.forEach((item, i) => {
-          const id = itemId(g, s, i);
+        section.items.forEach((item) => {
+          const id = item.key;
           const label = itemLabel(item);
           const safeLabel = label.replace(/"/g, "&quot;");
           // House tailoring: skip items for missing equipment; collect notes.
@@ -651,7 +757,7 @@
           } else {
             html += `<div class="item" data-id="${id}">
               <div class="item-row">
-                <label class="tick"><input type="checkbox" data-check="${id}"><span class="qtext">${item}</span></label>
+                <label class="tick"><input type="checkbox" data-check="${id}"><span class="qtext">${label}</span></label>
                 <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}">Note</button>
               </div>
               ${houseNote}
@@ -981,6 +1087,14 @@
 
   build();
   hydrate();
+
+  // Register the service worker so the app is installable and opens offline.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
 </script>
 
+<script type="module" src="cloud.js"></script>
+
+</body>
 </html>

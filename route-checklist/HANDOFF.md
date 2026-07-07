@@ -79,12 +79,15 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
   equipment flag. House shape is documented at the top of
   `house-data.js`.
 - Survey suggestions come from `surveySuggestions()`.
-- State is stored under localStorage key `route-checklist-v2`
+- State is stored under localStorage key `route-checklist-v3`
   (`route-checklist-name` for the tech's name). If the data model
   changes in a breaking way, bump the version string.
-- Item IDs are positional (`g{group}s{section}i{item}`), so
-  adding/removing checklist items shifts saved answers for in-progress
-  visits.
+- Every checklist item has a **stable `key`** (e.g. `rk-sharpen-knives`),
+  defined inline in the `GROUPS` data. Saved answers/notes are stored
+  under that key, so inserting or reordering items no longer scrambles
+  existing answers. Keys must stay unique and must not be reused for a
+  different item. (Before v3 the ids were positional `g#s#i#`, which
+  shifted every answer below any inserted item — that's now fixed.)
 
 ## Known limitations / things a user should know
 
