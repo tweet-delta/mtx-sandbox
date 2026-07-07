@@ -38,15 +38,85 @@ function showGate(locked) {
 
 // Pull the roster from the database and hand it to the checklist app. On any
 // error we keep the local fallback houses, so the app still works.
+// We keep the DB ids here (name → row) so saveVisit/lastDone below can turn
+// a house NAME (all the app knows) into the house_id the database needs.
+const housesByName = new Map();
 async function loadHouses() {
   const { data, error } = await supabase
     .from("houses")
-    .select("name, equipment, notes, info")
+    .select("id, name, equipment, notes, info")
     .eq("active", true)
     .order("name");
   if (error) { console.error("Could not load houses:", error.message); return; }
+  housesByName.clear();
+  data.forEach(h => housesByName.set(h.name.trim().toLowerCase(), h));
   if (window.applyHouses) window.applyHouses(data);
 }
+
+// ---- Visit history (the app calls these via window.cloud) ----
+
+// Save a completed visit: one `visits` row + one `visit_items` row per
+// answered item. Called from the survey's Save & Send. Passing the same
+// `existingId` back in (stored by the app after the first save) makes a
+// second Save & Send UPDATE that visit instead of duplicating it.
+async function saveVisit(v) {
+  const house = housesByName.get((v.houseName || "").trim().toLowerCase());
+  if (!house) return { error: `"${v.houseName}" isn't a house in the database.` };
+  const header = {
+    house_id: house.id,
+    visit_date: v.date,
+    status: "completed",
+    counts: v.counts || {},
+    survey: v.survey || {},
+    completed_at: new Date().toISOString(),
+  };
+  let visitId = v.existingId || null;
+  if (visitId) {
+    const { error } = await supabase.from("visits").update(header).eq("id", visitId);
+    if (error) return { error: error.message };
+  } else {
+    const { data, error } = await supabase.from("visits").insert(header).select("id").single();
+    if (error) return { error: error.message };
+    visitId = data.id;
+  }
+  const rows = (v.items || []).map(it => ({
+    visit_id: visitId, item_key: it.key, done: it.done, answer: it.answer, note: it.note,
+  }));
+  if (rows.length) {
+    // upsert: re-saving the same visit overwrites each item row, not duplicates it
+    const { error } = await supabase.from("visit_items")
+      .upsert(rows, { onConflict: "visit_id,item_key" });
+    if (error) return { error: error.message, visitId };
+  }
+  return { visitId };
+}
+
+// For each periodic item key, find the most recent completed visit at this
+// house where it was actually done. Returns { itemKey: "YYYY-MM-DD", … }.
+// Any failure returns {} — the app just shows no badge (never a wrong one).
+async function lastDone(houseName, itemKeys) {
+  const house = housesByName.get((houseName || "").trim().toLowerCase());
+  if (!house || !itemKeys?.length) return {};
+  const { data, error } = await supabase
+    .from("visits")
+    .select("visit_date, visit_items(item_key, done)")
+    .eq("house_id", house.id)
+    .eq("status", "completed")
+    .order("visit_date", { ascending: false })
+    .limit(40);
+  if (error) { console.error("Could not load visit history:", error.message); return {}; }
+  const out = {};
+  for (const visit of data) {
+    for (const it of visit.visit_items || []) {
+      if (it.done && itemKeys.includes(it.item_key) && !(it.item_key in out)) {
+        out[it.item_key] = visit.visit_date;   // newest first, so first hit wins
+      }
+    }
+  }
+  return out;
+}
+
+window.cloud = { saveVisit, lastDone };
 
 // Primary sign-in: email + password.
 form.addEventListener("submit", async (event) => {

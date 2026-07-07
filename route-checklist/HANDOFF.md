@@ -69,6 +69,21 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
   submits after each visit.
 - **New visit** button clears everything for the next house.
 - Progress saves automatically in the browser (localStorage).
+- **Cloud visit history (Supabase):** survey **Save & Send** now writes the
+  completed visit to `visits` + `visit_items` (idempotent — a second send
+  updates the same row via `cloudVisitId` kept in local state). Requires
+  `supabase/migrations/0002_visit_history.sql` to be applied.
+- **Periodic jobs + due badges:** items with `everyMonths` (currently only
+  `wh-water-alarm-batteries`) show a badge with when they were last done at
+  this house and when they're next due, read from cloud history. Not-due items
+  are dimmed and drop out of the progress totals (doing them early still counts
+  and re-stamps the date).
+- **Generator N/A:** one button marks the whole Generator section N/A
+  (stored per-item as `na: true`, saved to the DB as answer `'na'`).
+- **Up-front house picker:** when no house is chosen, a search-driven picker
+  (type-to-filter) appears above the checklist; sections render open by default.
+- **Phone layout:** under 600px the Yes/No buttons become two big full-width
+  thumb targets on their own row and the Note button collapses to its ✎ icon.
 
 ## How it's built (for whoever edits next)
 
@@ -104,6 +119,18 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
   `Desktop/mtx expl/*.xlsx` (Dogwood, roselawn) — outside the repo.
 - A stray empty git repo sits at `route-checklist/MTX Route/` locally
   (user-created, untracked; left alone).
+
+## Owner requests captured but NOT built yet (as of 2026-07-07)
+
+- **Start flow:** a page before the checklist — who you are → what you want
+  (checklist / requests / house notes) → checklist. "Requests" and "house
+  notes" are undefined features; ask the owner before designing.
+- **Walk-order restructure:** the owner says the current order (All Areas
+  first, then rooms) makes a tech "run around a lot"; wants the checklist to
+  follow the order techs actually walk a house. Waiting on the owner to
+  provide that order.
+- **More periodic jobs:** owner will list which jobs are due every N months
+  (besides yearly water-alarm batteries); add `everyMonths` to each.
 
 ## Possible next steps (not yet done)
 

@@ -21,7 +21,7 @@
     --accent: #2D5580;
     --accent-ink: #FFFFFF;
     --done: #2E7D4F;
-    --done-bg: #E6F1EA;
+    --done-bg: #f1e6ed;
     --bad: #A63A2B;
     --bad-bg: #F7E9E6;
     --note: #8A5E10;
@@ -166,6 +166,72 @@
     margin: 2px 0;
   }
 
+  /* Due-date badge on periodic jobs (e.g. yearly battery change) */
+  .due {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin: 2px 0 6px;
+    font-size: 0.76rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px;
+    background: #E7F0FA; color: var(--accent);
+  }
+  .due.ok { background: #E6F2EA; color: var(--done); }
+  .due.over { background: var(--bad-bg); color: var(--bad); }
+  .item.notdue { opacity: 0.72; }
+
+  /* Section / item N/A (e.g. no generator at this house) */
+  .item.na .qtext { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .na-row { padding: 10px 14px 4px; }
+  .na-btn {
+    font: inherit; font-size: 0.82rem; font-weight: 600;
+    width: 100%; padding: 9px 12px;
+    border: 1px dashed var(--line); border-radius: 8px;
+    background: none; color: var(--muted); cursor: pointer;
+  }
+  .na-btn.on { border-style: solid; border-color: var(--done); color: var(--done); background: #E6F2EA; }
+  .na-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* Up-front house picker (shown until a house is chosen) */
+  .pick-house {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; margin-bottom: 14px;
+  }
+  .pick-house h2 { font-size: 0.95rem; margin: 0 0 10px; }
+  #pickSearch {
+    font: inherit; font-size: 16px; /* 16px stops iOS zoom-on-focus */
+    width: 100%; padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--ground); color: var(--ink);
+  }
+  .pick-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; }
+  .pick-none { font-size: 0.85rem; color: var(--muted); margin: 6px 2px; }
+  .pick-btn {
+    font: inherit; font-size: 0.95rem; font-weight: 600; text-align: left;
+    padding: 13px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--ground); color: var(--ink); cursor: pointer;
+  }
+  .pick-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .pick-btn:focus-visible, .pick-skip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .pick-skip {
+    font: inherit; font-size: 0.78rem; color: var(--muted);
+    background: none; border: none; cursor: pointer;
+    margin-top: 10px; padding: 4px 0; text-decoration: underline;
+  }
+
+  /* Phone-size layout: question gets the full line, Yes/No become two big
+     side-by-side thumb targets on their own row, Note shrinks to its icon. */
+  @media (max-width: 600px) {
+    .item-row { flex-wrap: wrap; }
+    .qtext { min-width: 0; flex: 1 1 60%; }
+    .note-btn { order: 2; margin-top: 0; align-self: flex-start; }
+    .note-word { display: none; }
+    .note-btn { font-size: 0.9rem; padding: 6px 10px; }
+    .yn { order: 3; flex: 1 1 100%; padding-top: 0; margin: 6px 0 2px; }
+    .yn-btn { flex: 1 1 0; padding: 11px 0; font-size: 0.9rem; border-radius: 8px; }
+    .wrapper { padding: 10px 10px 80px; }
+    .visit h1 { font-size: 0.98rem; margin-bottom: 6px; }
+    .visit input[type="text"], .visit input[type="date"] { font-size: 16px; } /* stops iOS zoom-on-focus */
+  }
+
   /* Alarm counts */
   .counts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line); }
   .count-field label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 3px; }
@@ -298,7 +364,9 @@
   .auth-card {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
     box-shadow: 0 12px 44px rgba(20, 30, 40, 0.12);
-    padding: 24px 22px; width: min(94vw, 380px);
+    /* 100% = the gate's inner width (its padding already keeps us off the
+       screen edges); 94vw could overflow on narrow phones. */
+    padding: 24px 22px; width: min(100%, 380px);
   }
   .auth-card h1 { font-size: 1.15rem; margin: 0 0 4px; }
   .auth-sub { font-size: 0.9rem; color: var(--muted); margin: 0 0 16px; }
@@ -443,7 +511,11 @@
     { label: "Whole House", cls: "shared", sections: [
       { title: "All Areas", items: [
         { key: "wh-med-lock-batteries", text: "Change all med lock batteries" },
-        { key: "wh-water-alarm-batteries", text: "Change water alarm batteries (yearly)" },
+        // everyMonths marks a PERIODIC job: due every N months, not every visit.
+        // The app looks up when it was last done at this house (cloud history)
+        // and shows a due/not-due badge. More jobs become periodic by adding
+        // everyMonths to them here.
+        { key: "wh-water-alarm-batteries", text: "Change water alarm batteries (yearly)", everyMonths: 12 },
         { key: "wh-test-co2-detectors", text: "Test CO2 detectors (within 10' of all bedrooms) — how many?" },
         { key: "wh-detector-dates", text: "Check dates on all smoke & CO2 detectors" },
         { key: "wh-fixture-bulbs", q: "Fixture bulbs OK (60W soft white LED) & fixtures secure?", bad: "no" },
@@ -692,6 +764,56 @@
     return ALL_HOUSES.find(h => h.name.toLowerCase() === name) || null;
   }
 
+  // ---- Periodic jobs (items with everyMonths) ----
+  const ITEM_BY_KEY = {};
+  GROUPS.forEach(g => g.sections.forEach(sec => sec.items.forEach(it => { ITEM_BY_KEY[it.key] = it; })));
+  const PERIODIC_KEYS = Object.keys(ITEM_BY_KEY).filter(k => ITEM_BY_KEY[k].everyMonths);
+
+  // Last-done dates for periodic items at the CURRENT house, from cloud history.
+  let LAST_DONE = {};
+  async function refreshDueInfo() {
+    LAST_DONE = {};
+    const h = currentHouse();
+    if (h && window.cloud && PERIODIC_KEYS.length) {
+      LAST_DONE = await window.cloud.lastDone(h.name, PERIODIC_KEYS);
+    }
+    paintDue();
+  }
+
+  function addMonths(iso, m) { const d = new Date(iso + "T00:00:00"); d.setMonth(d.getMonth() + m); return d; }
+  function fmtMY(d) { return d.toLocaleDateString(undefined, { month: "short", year: "numeric" }); }
+
+  // Fill each periodic item's badge and dim it when it isn't due yet.
+  // A dimmed ("notdue") item drops out of the progress totals unless the tech
+  // checks it anyway (doing it early is always allowed and still recorded).
+  function paintDue() {
+    document.querySelectorAll("[data-due]").forEach(sp => {
+      const key = sp.dataset.due;
+      const el = sp.closest(".item");
+      const every = ITEM_BY_KEY[key].everyMonths;
+      const last = LAST_DONE[key];
+      let notdue = false;
+      if (!last) {
+        sp.className = "due";
+        sp.textContent = `↻ Every ${every === 12 ? "year" : every + " months"} — no visit on record yet`;
+      } else {
+        const lastD = new Date(last + "T00:00:00");
+        const dueD = addMonths(last, every);
+        if (new Date() < dueD) {
+          notdue = true;
+          sp.className = "due ok";
+          sp.textContent = `✓ Done ${fmtMY(lastD)} · not due till ${fmtMY(dueD)}`;
+        } else {
+          sp.className = "due over";
+          sp.textContent = `⚠ Due now — last done ${fmtMY(lastD)}`;
+        }
+      }
+      sp.hidden = false;
+      el.classList.toggle("notdue", notdue);
+    });
+    refresh();
+  }
+
   // Bumped to v3 when items moved from positional ids to stable keys (a breaking
   // change: answers previously keyed by position won't map onto the new keys).
   const STORE_KEY = "route-checklist-v3";
@@ -715,19 +837,44 @@
   function isYN(item) { return "q" in item; }
   function itemLabel(item) { return isYN(item) ? item.q : item.text; }
 
+  // The tech can dismiss the up-front house picker to run the full generic list.
+  let pickerDismissed = false;
+
+  function pickListHTML(filter) {
+    const f = (filter || "").trim().toLowerCase();
+    const matches = ALL_HOUSES.filter(h => !f || h.name.toLowerCase().includes(f));
+    if (!matches.length) return `<p class="pick-none">No house matches "${filter.replace(/</g, "&lt;")}".</p>`;
+    return matches.map(h =>
+      `<button type="button" class="pick-btn" data-pick-house="${h.name.replace(/"/g, "&quot;")}">${h.name.replace(/</g, "&lt;")}</button>`).join("");
+  }
+
   function build() {
     const app = document.getElementById("app");
     const house = currentHouse();
     let html = "";
+    // No house picked yet → type-to-find picker (scales to 40+ houses).
+    if (!house && !pickerDismissed) {
+      html += `<div class="pick-house">
+        <h2>Which house are you at?</h2>
+        <input type="search" id="pickSearch" placeholder="Type the house name…" aria-label="Search houses">
+        <div class="pick-list" id="pickList">${pickListHTML("")}</div>
+        <button type="button" class="pick-skip" data-pick-house="">Skip — use the full checklist</button>
+      </div>`;
+    }
     GROUPS.forEach((group, g) => {
       html += `<div class="group-label ${group.cls}">${group.label}</div>`;
       group.sections.forEach((section, s) => {
         // Hide whole sections for equipment the selected house doesn't have.
         const secFlag = SECTION_FLAGS[section.title];
         if (house && secFlag && house.equipment && house.equipment[secFlag] === false) return;
-        html += `<details class="section" data-g="${g}" data-s="${s}">
+        html += `<details class="section" data-g="${g}" data-s="${s}" open>
           <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${section.title}<span class="count" data-count></span></summary>
           <div class="items">`;
+        // Generator isn't at every house: one tap marks the whole section N/A
+        // (shown when the house's equipment is unknown or no house is picked).
+        if (section.title === "Generator") {
+          html += `<div class="na-row"><button type="button" class="na-btn" data-na-sec aria-pressed="false">No generator at this house — mark section N/A</button></div>`;
+        }
         section.items.forEach((item) => {
           const id = item.key;
           const label = itemLabel(item);
@@ -740,6 +887,9 @@
             const texts = rules.map(r => r.note && house.notes && house.notes[r.note]).filter(Boolean);
             if (texts.length) houseNote = `<div class="house-note">📍 ${texts.join(" · ").replace(/</g, "&lt;")}</div>`;
           }
+          // Periodic jobs get a badge slot; paintDue() fills it from history.
+          const dueSlot = item.everyMonths ? `<span class="due" data-due="${id}" hidden></span>` : "";
+          const noteBtn = `<button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}"><span aria-hidden="true">✎</span><span class="note-word"> Note</span></button>`;
           if (isYN(item)) {
             html += `<div class="item" data-id="${id}" data-bad="${item.bad}">
               <div class="item-row">
@@ -748,9 +898,9 @@
                   <button class="yn-btn" data-yn="${id}" data-val="yes">Yes</button>
                   <button class="yn-btn" data-yn="${id}" data-val="no">No</button>
                 </span>
-                <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}">Note</button>
+                ${noteBtn}
               </div>
-              ${houseNote}
+              ${houseNote}${dueSlot}
               <div class="reason-label" data-reason-label="${id}" hidden>Reason / what needs follow-up</div>
               <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
             </div>`;
@@ -758,9 +908,9 @@
             html += `<div class="item" data-id="${id}">
               <div class="item-row">
                 <label class="tick"><input type="checkbox" data-check="${id}"><span class="qtext">${label}</span></label>
-                <button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}">Note</button>
+                ${noteBtn}
               </div>
-              ${houseNote}
+              ${houseNote}${dueSlot}
               <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
             </div>`;
           }
@@ -839,15 +989,25 @@
     const s = load();
     let done = 0, total = 0, flags = 0;
     document.querySelectorAll("details.section[data-g]").forEach(det => {
-      let d = 0, t = 0, f = 0;
+      let d = 0, t = 0, f = 0, naCount = 0, itemCount = 0;
       det.querySelectorAll(".item").forEach(el => {
-        t++;
+        itemCount++;
+        const st = s.items[el.dataset.id];
+        const na = !!(st && st.na);
+        el.classList.toggle("na", na);
         const cb = el.querySelector("[data-check]");
+        // A not-due periodic job doesn't count toward progress unless the tech
+        // does it anyway (early is fine — it still records a fresh date).
+        if (el.classList.contains("notdue") && !na && !(cb ? cb.checked : st && st.answer)) {
+          el.classList.remove("done");
+          return;
+        }
+        t++;
+        if (na) { naCount++; d++; el.classList.add("done"); return; }
         if (cb) {
           if (cb.checked) d++;
           el.classList.toggle("done", cb.checked);
         } else {
-          const st = s.items[el.dataset.id];
           if (st && st.answer) {
             d++;
             if (st.answer === el.dataset.bad) f++;
@@ -857,7 +1017,17 @@
       done += d; total += t; flags += f;
       const c = det.querySelector("[data-count]");
       c.innerHTML = `${f ? `<span class="flag">⚑ ${f}</span> ` : ""}${d}/${t}`;
-      c.classList.toggle("complete", d === t);
+      c.classList.toggle("complete", d === t && t > 0);
+      // Reflect the section N/A button (Generator) if this section has one.
+      const naBtn = det.querySelector("[data-na-sec]");
+      if (naBtn) {
+        const allNA = naCount === itemCount && itemCount > 0;
+        naBtn.setAttribute("aria-pressed", allNA ? "true" : "false");
+        naBtn.classList.toggle("on", allNA);
+        naBtn.textContent = allNA
+          ? "✓ Section marked N/A — tap to undo"
+          : "No generator at this house — mark section N/A";
+      }
     });
     document.getElementById("fill").style.width = total ? (done / total * 100) + "%" : "0%";
     document.getElementById("progressText").textContent =
@@ -873,12 +1043,13 @@
       const id = el.dataset.id;
       const note = el.querySelector(`[data-note="${id}"]`).value.trim();
       const cb = el.querySelector("[data-check]");
+      const na = !!(s.items[id] && s.items[id].na);   // N/A lives in state, not the DOM
       if (cb) {
-        if (cb.checked || note) items[id] = { done: cb.checked, note };
+        if (cb.checked || note || na) items[id] = { done: cb.checked, note, ...(na && { na }) };
       } else {
         const prev = s.items[id];
         const answer = (prev && prev.answer) || null;
-        if (answer || note) items[id] = { answer, note };
+        if (answer || note || na) items[id] = { answer, note, ...(na && { na }) };
       }
     });
     s.items = items;
@@ -897,9 +1068,29 @@
     const prev = s.items[id] || {};
     const answer = prev.answer === val ? null : val;   // tap again to clear
     s.items[id] = { ...prev, answer };
+    delete s.items[id].na;   // a real Yes/No answer overrides section N/A
     save(s);
     paintYN(id, answer);
     refresh();
+  }
+
+  // Generator section N/A: one tap marks every item in the section N/A;
+  // tapping again clears it.
+  function toggleSectionNA(det) {
+    const s = load();
+    const keys = [...det.querySelectorAll(".item")].map(el => el.dataset.id);
+    const allNA = keys.every(k => s.items[k] && s.items[k].na);
+    keys.forEach(k => {
+      if (allNA) {
+        delete s.items[k];
+      } else {
+        s.items[k] = { ...(s.items[k] || {}), na: true };
+        delete s.items[k].answer;
+        delete s.items[k].done;
+      }
+    });
+    save(s);
+    hydrate();   // repaint checkboxes / buttons / counts from state
   }
 
   function buildSurvey() {
@@ -923,8 +1114,21 @@
   document.addEventListener("change", () => { persist(); refresh(); });
   document.addEventListener("input", e => {
     if (e.target.matches("[data-note], #house, #name, [data-cnt]")) persist();
+    if (e.target.matches("#pickSearch")) {
+      document.getElementById("pickList").innerHTML = pickListHTML(e.target.value);
+    }
   });
   document.addEventListener("click", e => {
+    const pick = e.target.closest("[data-pick-house]");
+    if (pick) {
+      if (!pick.dataset.pickHouse) pickerDismissed = true;
+      document.getElementById("house").value = pick.dataset.pickHouse;
+      persist();
+      rebuild();
+      return;
+    }
+    const naBtn = e.target.closest("[data-na-sec]");
+    if (naBtn) { toggleSectionNA(naBtn.closest("details.section")); return; }
     const yn = e.target.closest("[data-yn]");
     if (yn) { setAnswer(yn.dataset.yn, yn.dataset.val); persist(); return; }
     const btn = e.target.closest("[data-note-btn]");
@@ -1006,18 +1210,61 @@
     syncModalToState();
     validateSurveyModal(false);
   });
-  document.getElementById("surveySend").addEventListener("click", () => {
+  // Turn the saved local state into the shape cloud.saveVisit() expects:
+  // one row per item that carries information (done / answered / N/A / note).
+  function visitPayload() {
+    const s = load();
+    const items = Object.entries(s.items).map(([key, st]) => ({
+      key,
+      done: st.na ? null : (typeof st.done === "boolean" ? st.done : null),
+      answer: st.na ? "na" : (st.answer || null),
+      note: (st.note || "").trim() || null,
+    })).filter(it => it.done || it.answer || it.note);
+    return {
+      houseName: (s.house || "").trim(),
+      date: s.date,
+      counts: s.counts,
+      survey: s.survey,
+      items,
+      existingId: s.cloudVisitId || null,
+    };
+  }
+
+  document.getElementById("surveySend").addEventListener("click", async () => {
     const msg = document.getElementById("surveyMsg");
+    const sendBtn = document.getElementById("surveySend");
     syncModalToState();
     if (!validateSurveyModal(true)) {
       msg.textContent = "Please fill in the highlighted fields.";
       msg.className = "modal-msg error";
       return;
     }
-    // The survey text is ready to send. SharePoint delivery isn't wired up yet.
-    // TODO: POST buildSurvey() to the SharePoint list / Power Automate flow.
-    msg.textContent = "✓ Saved. (Sending to SharePoint isn't connected yet.)";
-    msg.className = "modal-msg ok";
+    // Save the completed visit to the cloud. This is also what stamps the
+    // "last done" dates that future visits' due badges read.
+    // TODO (Phase 3+): also POST buildSurvey() to SharePoint / Power Automate.
+    if (!window.cloud) {
+      msg.textContent = "Cloud isn't loaded — visit kept on this device only.";
+      msg.className = "modal-msg error";
+      return;
+    }
+    sendBtn.disabled = true;
+    msg.textContent = "Saving to cloud…";
+    msg.className = "modal-msg";
+    try {
+      const res = await window.cloud.saveVisit(visitPayload());
+      if (res.error) {
+        msg.textContent = "Couldn't save to cloud — visit kept on this device. " + res.error;
+        msg.className = "modal-msg error";
+      } else {
+        const s = load();
+        s.cloudVisitId = res.visitId;   // re-sending updates, never duplicates
+        save(s);
+        msg.textContent = "✓ Visit saved to the cloud. (SharePoint send isn't connected yet.)";
+        msg.className = "modal-msg ok";
+      }
+    } finally {
+      sendBtn.disabled = false;
+    }
   });
 
   // ---- House picker sidebar ----
@@ -1026,7 +1273,7 @@
 
   // Rebuild the checklist (used when the selected house changes, since house
   // tailoring affects which items render). State is preserved via localStorage.
-  function rebuild() { build(); hydrate(); }
+  function rebuild() { build(); hydrate(); refreshDueInfo(); }
 
   function renderHouseList() {
     const filter = document.getElementById("houseSearch").value.trim().toLowerCase();
@@ -1085,8 +1332,7 @@
     rebuild();
   });
 
-  build();
-  hydrate();
+  rebuild();
 
   // Register the service worker so the app is installable and opens offline.
   if ("serviceWorker" in navigator) {
