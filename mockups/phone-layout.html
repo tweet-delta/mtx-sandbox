@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — phone layout & context</title>
+<style>
+  :root {
+    --ground: #F2F4F6; --card: #FFFFFF; --ink: #1C2733; --muted: #5D6B7A;
+    --line: #D9DFE6; --accent: #2D5580; --done: #2E7D4F; --bad: #A63A2B;
+    --bad-bg: #F7E9E6; --note: #8A5E10; --note-bg: #F6EDDA;
+    --due-bg: #E7F0FA; --due-ink: #2D5580;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E4E8EC; color: var(--ink);
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.4; }
+  .page { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+  .page > h1 { font-size: 1.2rem; margin: 0 0 4px; }
+  .page > p.lede { color: var(--muted); font-size: 0.9rem; margin: 0 0 24px; max-width: 640px; }
+  .compare { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; }
+  .col { flex: 1 1 320px; max-width: 380px; }
+  .col > h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 8px; text-align: center; }
+  .col.after > h2 { color: var(--done); }
+  /* phone frame */
+  .phone { background: var(--ground); border: 10px solid #222; border-radius: 26px;
+    padding: 10px 8px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  .phone-inner { width: 100%; }
+
+  .hdr { position: sticky; top: 0; background: var(--ground); padding: 4px 6px 8px;
+    border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+  .hdr h3 { font-size: 1rem; margin: 0 0 6px; }
+  .hdr .fields { display: flex; gap: 6px; }
+  .hdr input { font: inherit; font-size: 0.85rem; padding: 6px 8px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--card); min-width: 0; }
+  .hdr .h-house { flex: 1 1 auto; }
+  .bar { height: 6px; border-radius: 999px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 46%; background: var(--done); }
+
+  .sec { background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin: 0 4px 8px; }
+  .sec-head { padding: 12px 12px; font-weight: 600; font-size: 0.92rem; display: flex; gap: 8px; align-items: center; }
+  .sec-head .cnt { margin-left: auto; font-size: 0.76rem; color: var(--muted); }
+  .items { border-top: 1px solid var(--line); }
+
+  /* ---- BEFORE item styles (current) ---- */
+  .b-item { padding: 6px 12px; border-top: 1px solid #EEF1F4; }
+  .b-item:first-child { border-top: none; }
+  .b-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+  .b-q { flex: 1 1 auto; font-size: 0.92rem; padding: 6px 0; min-width: 160px; }
+  .b-yn { display: flex; gap: 6px; padding-top: 3px; }
+  .b-yn button { font: inherit; font-size: 0.82rem; font-weight: 650; min-width: 48px;
+    padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--muted); }
+  .b-note { font: inherit; font-size: 0.75rem; font-weight: 600; color: var(--muted); background: none;
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; margin-top: 4px; }
+  .b-check { display: flex; gap: 8px; align-items: flex-start; }
+  .b-check input { width: 22px; height: 22px; margin: 4px 0 0; accent-color: var(--done); }
+
+  /* ---- AFTER item styles (tightened for phone) ---- */
+  .a-item { padding: 10px 12px; border-top: 1px solid #EEF1F4; }
+  .a-item:first-child { border-top: none; }
+  .a-top { display: flex; align-items: flex-start; gap: 10px; }
+  .a-check { width: 26px; height: 26px; flex: none; margin: 0; accent-color: var(--done); }
+  .a-q { flex: 1 1 auto; font-size: 0.95rem; padding-top: 2px; }
+  .a-note-ico { flex: none; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 6px;
+    background: none; color: var(--muted); font-size: 0.9rem; }
+  .a-note-ico.has { background: var(--note-bg); color: var(--note); border-color: transparent; }
+  /* yes/no on its own full row, big targets */
+  .a-yn { display: flex; gap: 8px; margin-top: 8px; }
+  .a-yn button { flex: 1 1 0; font: inherit; font-size: 0.9rem; font-weight: 650; padding: 11px 0;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--muted); }
+  .a-yn button.good { background: var(--done); border-color: var(--done); color: #fff; }
+  .a-yn button.bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+  /* context badge */
+  .due { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;
+    font-size: 0.76rem; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: var(--due-bg); color: var(--due-ink); }
+  .due.ok { background: #E6F2EA; color: var(--done); }
+  .a-item.notdue { opacity: 0.72; }
+  .a-item.notdue .a-check { accent-color: var(--muted); }
+  .callout { font-size: 0.82rem; color: var(--muted); background: var(--card); border: 1px dashed var(--line);
+    border-radius: 8px; padding: 10px 12px; margin: 14px 4px 0; }
+  .changes { margin: 30px auto 0; max-width: 640px; }
+  .changes h2 { font-size: 0.95rem; }
+  .changes li { font-size: 0.9rem; margin-bottom: 6px; color: #33404d; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Phone layout &amp; context — before / after</h1>
+  <p class="lede">Same checklist, same colors. Left is what you have now on a phone. Right is the tightened
+  version, plus the new "context" badge on periodic jobs like the yearly battery change. This is a sketch to
+  react to — nothing is built yet.</p>
+
+  <div class="compare">
+    <!-- BEFORE -->
+    <div class="col before">
+      <h2>Now</h2>
+      <div class="phone"><div class="phone-inner">
+        <div class="hdr">
+          <h3>House visit</h3>
+          <div class="fields">
+            <input class="h-house" value="Dogwood" readonly>
+            <input value="2026-07-07" readonly style="max-width:120px">
+          </div>
+          <div class="bar"><span></span></div>
+        </div>
+        <div class="sec">
+          <div class="sec-head">Whole House <span class="cnt">1 / 3</span></div>
+          <div class="items">
+            <div class="b-item">
+              <div class="b-check"><input type="checkbox">
+                <span class="b-q">Change water alarm batteries (yearly)</span></div>
+            </div>
+            <div class="b-item">
+              <div class="b-row">
+                <span class="b-q">Water alarms present &amp; working?</span>
+                <span class="b-yn"><button>Yes</button><button>No</button></span>
+                <button class="b-note">Note</button>
+              </div>
+            </div>
+            <div class="b-item">
+              <div class="b-row">
+                <span class="b-q">Smoke detectors working properly?</span>
+                <span class="b-yn"><button>Yes</button><button>No</button></span>
+                <button class="b-note">Note</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="callout">On a narrow phone the Yes / No buttons and Note button wrap under the question
+        awkwardly, and the yearly battery job looks identical to an every-visit check.</div>
+      </div></div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="col after">
+      <h2>Tightened for phone + context</h2>
+      <div class="phone"><div class="phone-inner">
+        <div class="hdr">
+          <h3>Dogwood &middot; Jul 7</h3>
+          <div class="fields">
+            <input class="h-house" value="Tap to switch house" readonly>
+          </div>
+          <div class="bar"><span></span></div>
+        </div>
+        <div class="sec">
+          <div class="sec-head">Whole House <span class="cnt">1 / 3</span></div>
+          <div class="items">
+            <div class="a-item notdue">
+              <div class="a-top">
+                <input class="a-check" type="checkbox">
+                <span class="a-q">Change water alarm batteries <em>(yearly)</em></span>
+                <button class="a-note-ico">✎</button>
+              </div>
+              <span class="due ok">✓ Done Aug 2025 · not due till Aug 2026</span>
+            </div>
+            <div class="a-item">
+              <div class="a-top">
+                <span class="a-q">Water alarms present &amp; working?</span>
+                <button class="a-note-ico">✎</button>
+              </div>
+              <span class="due">↻ Check every visit</span>
+              <div class="a-yn"><button class="good">Yes</button><button>No</button></div>
+            </div>
+            <div class="a-item">
+              <div class="a-top">
+                <span class="a-q">Smoke detectors working properly?</span>
+                <button class="a-note-ico has">✎</button>
+              </div>
+              <div class="a-yn"><button>Yes</button><button class="bad">No</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="callout">Question gets the full width; Yes / No are big, thumb-sized, side-by-side on their
+        own line. The yearly job shows when it was last done and that it isn't due — so you skip it but still
+        do the every-visit "present &amp; working?" check.</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="changes">
+    <h2>What the "after" is proposing</h2>
+    <ul>
+      <li><strong>Fitting:</strong> question on its own line, Yes / No as two big side-by-side buttons — no more wrapping.</li>
+      <li><strong>Fitting:</strong> Note becomes a small ✎ icon instead of a word, reclaiming width.</li>
+      <li><strong>Fitting:</strong> tighter, phone-tuned header — house + date on one line, one control to switch house.</li>
+      <li><strong>Context:</strong> periodic jobs (yearly, etc.) show a badge: last done + whether it's due now.</li>
+      <li><strong>Context:</strong> a not-due job is dimmed and pre-satisfied, so it doesn't nag — but its every-visit companion check stays front and center.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>
