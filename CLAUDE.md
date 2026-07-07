@@ -62,6 +62,23 @@ accessible, secret-safe).
 | Reminder trigger | On **completing** a visit, offer to notify the house **two ahead** in the rotation (with send-now / delay / customize options) |
 | Reminder recipient | The **upcoming house's RS / on-site contact** (each house stores a contact email) |
 
+## Compliance & the data boundary (important)
+
+This app handles data about **vulnerable adults**, so compliance requires the
+real data to **eventually live only in the company's Microsoft 365 / SharePoint
+tenant** — no outside vendor as the system of record. That's a "someday," not now.
+
+What this means for how we build **today**:
+- **Supabase is a working demo / proof of the app, not the system of record.**
+- **Only fake/sample data goes into Supabase or this public repo** — no real
+  house names, real photos, med-lock/door codes, or resident-adjacent details.
+  (The current Dogwood/Roselawn seed houses and their codes are already **fake
+  samples**, confirmed by the owner — safe to keep in the public demo.)
+- Keep a **hard line between app logic and the data layer** (the app talks to a
+  small data module — `cloud.js` — and never assumes Supabase directly), so a
+  later swap to **M365 (likely SPFx + document libraries + Microsoft Graph**; the
+  tenant disabled SharePoint Lists) stays contained work, not a rewrite.
+
 ## Supabase project
 
 - **Project URL:** `https://eccukivhjgiqwfnosevt.supabase.co`
