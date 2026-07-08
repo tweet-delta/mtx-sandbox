@@ -106,8 +106,13 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
   be resumed on another day/device. Picking a house checks for an in-progress
   cloud visit and offers to resume it (confirm dialog, won't silently clobber).
   Save & Send remains the finalize (`completed`).
-- **Requires migration `0003_dated_items_and_temps.sql`** (adds `done_on`,
-  `value` columns) run in the dashboard.
+- **Migration `0003_dated_items_and_temps.sql`** (adds `done_on`, `value`
+  columns) should be run in the dashboard. **Until it is, the cloud layer
+  degrades gracefully:** `cloud.js` detects the missing columns
+  (`isMissingColumn`) and retries saves/reads without `done_on`/`value`, so
+  visits still save. Dates/temps stay in the on-device buffer and sync on a
+  later save once the columns exist; the app shows a "(Dates/temps sync once
+  the DB update is applied.)" toast in that state.
 
 ## How it's built (for whoever edits next)
 

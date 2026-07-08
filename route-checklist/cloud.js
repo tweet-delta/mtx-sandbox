@@ -84,13 +84,30 @@ async function saveVisit(v, status = "completed") {
     visit_id: visitId, item_key: it.key, done: it.done, answer: it.answer, note: it.note,
     done_on: it.doneOn || null, value: it.value || null,
   }));
+  let degraded = false;
   if (rows.length) {
     // upsert: re-saving the same visit overwrites each item row, not duplicates it
-    const { error } = await supabase.from("visit_items")
+    let { error } = await supabase.from("visit_items")
       .upsert(rows, { onConflict: "visit_id,item_key" });
+    // If migration 0003 (done_on / value columns) hasn't been applied yet, retry
+    // WITHOUT those fields so the visit still saves. The dates/temps stay in the
+    // on-device buffer and will sync on a later save once the columns exist.
+    if (error && isMissingColumn(error)) {
+      const slim = rows.map(({ done_on, value, ...keep }) => keep);
+      ({ error } = await supabase.from("visit_items")
+        .upsert(slim, { onConflict: "visit_id,item_key" }));
+      degraded = !error;
+    }
     if (error) return { error: error.message, visitId };
   }
-  return { visitId };
+  return { visitId, degraded };
+}
+
+// True when a query failed because a column from a not-yet-applied migration
+// (done_on / value) is missing from the PostgREST schema cache.
+function isMissingColumn(error) {
+  return !!error && (error.code === "PGRST204" ||
+    /could not find the '.*' column|schema cache/i.test(error.message || ""));
 }
 
 // The signed-in tech's most recent IN-PROGRESS visit at this house, if any, in
@@ -100,15 +117,19 @@ async function loadInProgress(houseName) {
   if (!house) return null;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data, error } = await supabase
-    .from("visits")
-    .select("id, visit_date, counts, survey, visit_items(item_key, done, answer, note, done_on, value)")
-    .eq("house_id", house.id)
-    .eq("tech_id", user.id)
-    .eq("status", "in_progress")
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const full = "id, visit_date, counts, survey, visit_items(item_key, done, answer, note, done_on, value)";
+  const slim = "id, visit_date, counts, survey, visit_items(item_key, done, answer, note)";
+  let { data, error } = await supabase
+    .from("visits").select(full)
+    .eq("house_id", house.id).eq("tech_id", user.id).eq("status", "in_progress")
+    .order("started_at", { ascending: false }).limit(1).maybeSingle();
+  // Fall back if migration 0003's columns aren't there yet.
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase
+      .from("visits").select(slim)
+      .eq("house_id", house.id).eq("tech_id", user.id).eq("status", "in_progress")
+      .order("started_at", { ascending: false }).limit(1).maybeSingle());
+  }
   if (error || !data) return null;
   const items = {};
   for (const it of data.visit_items || []) {
@@ -135,13 +156,19 @@ async function loadInProgress(houseName) {
 async function lastDone(houseName, itemKeys) {
   const house = housesByName.get((houseName || "").trim().toLowerCase());
   if (!house || !itemKeys?.length) return {};
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("visits")
     .select("visit_date, visit_items(item_key, done, done_on)")
-    .eq("house_id", house.id)
-    .eq("status", "completed")
-    .order("visit_date", { ascending: false })
-    .limit(40);
+    .eq("house_id", house.id).eq("status", "completed")
+    .order("visit_date", { ascending: false }).limit(40);
+  // Before migration 0003, done_on doesn't exist — fall back to the visit date.
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase
+      .from("visits")
+      .select("visit_date, visit_items(item_key, done)")
+      .eq("house_id", house.id).eq("status", "completed")
+      .order("visit_date", { ascending: false }).limit(40));
+  }
   if (error) { console.error("Could not load visit history:", error.message); return {}; }
   const out = {};
   for (const visit of data) {

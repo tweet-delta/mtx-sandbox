@@ -1452,7 +1452,9 @@
         surveyModal.close();
         save(blank());
         rebuild();
-        toast("✓ Visit saved — ready for the next house.", "ok");
+        toast(res.degraded
+          ? "✓ Visit saved. (Dates/temps sync once the DB update is applied.)"
+          : "✓ Visit saved — ready for the next house.", "ok");
       }
     } finally {
       sendBtn.disabled = false;
@@ -1566,7 +1568,9 @@
       if (res.error) { toast("Saved on this device only. " + res.error, "error"); }
       else {
         const s2 = load(); s2.cloudVisitId = res.visitId; save(s2);
-        toast("✓ Progress saved — resume it on any device.", "ok");
+        toast(res.degraded
+          ? "✓ Progress saved. (Dates/temps sync once the DB update is applied.)"
+          : "✓ Progress saved — resume it on any device.", "ok");
       }
     } finally { btn.disabled = false; }
   });
