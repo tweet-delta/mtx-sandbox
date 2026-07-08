@@ -951,6 +951,10 @@
         if (section.title === "Generator") {
           html += `<div class="na-row"><button type="button" class="na-btn" data-na-sec aria-pressed="false">No generator at this house — mark section N/A</button></div>`;
         }
+        // Cabinet stock is usually all present: one tap checks the whole list.
+        if (section.title === "Maintenance Cabinet Stock") {
+          html += `<div class="na-row"><button type="button" class="na-btn" data-check-all aria-pressed="false">Check all — full stock</button></div>`;
+        }
         section.items.forEach((item) => {
           const id = item.key;
           const label = itemLabel(item);
@@ -1151,6 +1155,15 @@
           ? "✓ Section marked N/A — tap to undo"
           : "No generator at this house — mark section N/A";
       }
+      // Reflect the "Check all" button (Cabinet Stock) if this section has one.
+      const caBtn = det.querySelector("[data-check-all]");
+      if (caBtn) {
+        const boxes = det.querySelectorAll("[data-check]");
+        const allChecked = boxes.length > 0 && [...boxes].every(cb => cb.checked);
+        caBtn.setAttribute("aria-pressed", allChecked ? "true" : "false");
+        caBtn.classList.toggle("on", allChecked);
+        caBtn.textContent = allChecked ? "✓ All checked — tap to clear" : "Check all — full stock";
+      }
     });
     document.getElementById("fill").style.width = total ? (done / total * 100) + "%" : "0%";
     document.getElementById("progressText").textContent =
@@ -1217,6 +1230,16 @@
     paintDue();   // repaint this badge + progress
   }
 
+  // Cabinet stock "Check all": one tap ticks every checkbox in the section;
+  // if they're already all ticked, it clears them.
+  function toggleCheckAll(det) {
+    const boxes = [...det.querySelectorAll("[data-check]")];
+    const allChecked = boxes.length > 0 && boxes.every(cb => cb.checked);
+    boxes.forEach(cb => { cb.checked = !allChecked; });
+    persist();
+    refresh();
+  }
+
   // Generator section N/A: one tap marks every item in the section N/A;
   // tapping again clears it.
   function toggleSectionNA(det) {
@@ -1279,6 +1302,8 @@
     }
     const naBtn = e.target.closest("[data-na-sec]");
     if (naBtn) { toggleSectionNA(naBtn.closest("details.section")); return; }
+    const caBtn = e.target.closest("[data-check-all]");
+    if (caBtn) { toggleCheckAll(caBtn.closest("details.section")); return; }
     const upd = e.target.closest("[data-update]");
     if (upd) {
       // Reveal the date picker and open it. Default to today if empty, so the
