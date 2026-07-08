@@ -178,6 +178,30 @@
   .due.over { background: var(--bad-bg); color: var(--bad); }
   .item.notdue { opacity: 0.72; }
 
+  /* Date-tracked jobs: "Update date" button + the (revealed) date picker */
+  .update-btn {
+    font: inherit; font-size: 0.78rem; font-weight: 600;
+    color: var(--accent); background: none;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; flex: none; margin-top: 4px;
+  }
+  .update-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .item.dated.done .update-btn { color: var(--done); border-color: var(--done); }
+  .date-field {
+    font: inherit; font-size: 0.9rem; margin: 4px 0 2px;
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px;
+    background: var(--card); color: var(--ink);
+  }
+
+  /* Water-temp reading field, revealed when the box is checked */
+  .temp-wrap { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; padding-left: 32px; }
+  .temp-wrap label { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+  .temp-wrap input {
+    font: inherit; font-size: 1rem; width: 90px;
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px;
+    background: #FFFDF5; color: var(--ink);
+  }
+
   /* Section / item N/A (e.g. no generator at this house) */
   .item.na .qtext { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
   .na-row { padding: 10px 14px 4px; }
@@ -254,8 +278,24 @@
   }
   #openSurvey { background: var(--accent); color: var(--accent-ink); border: none; flex: 1 1 auto; max-width: 400px; }
   #openSurvey:hover { background: #244568; }
+  #saveProgress { background: none; color: var(--accent); border: 1px solid var(--accent); }
+  #saveProgress:hover { background: #EAF1F8; }
+  #saveProgress:disabled { opacity: 0.6; cursor: default; }
   #newVisit { background: none; color: var(--muted); border: 1px solid var(--line); }
   #newVisit:hover { color: var(--ink); border-color: var(--muted); }
+
+  /* Transient status toast (Save progress feedback) */
+  #toast {
+    position: fixed; left: 50%; bottom: 74px; z-index: 60;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--ink); color: #fff; max-width: 90vw;
+    padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 500;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.ok { background: var(--done); }
+  #toast.error { background: var(--bad); }
+  @media (prefers-reduced-motion: reduce) { #toast { transition: opacity 0.2s ease; } }
 
   /* Survey modal (small popup window) */
   #surveyModal {
@@ -467,6 +507,7 @@
 </dialog>
 
 <div class="report-bar">
+  <button id="saveProgress">Save progress</button>
   <button id="openSurvey">Visit survey</button>
   <button id="newVisit">New visit</button>
 </div>
@@ -510,21 +551,21 @@
   const GROUPS = [
     { label: "Whole House", cls: "shared", sections: [
       { title: "All Areas", items: [
-        { key: "wh-med-lock-batteries", text: "Change all med lock batteries" },
-        // everyMonths marks a PERIODIC job: due every N months, not every visit.
-        // The app looks up when it was last done at this house (cloud history)
-        // and shows a due/not-due badge. More jobs become periodic by adding
-        // everyMonths to them here.
-        { key: "wh-water-alarm-batteries", text: "Change water alarm batteries (yearly)", everyMonths: 12 },
+        // dateTracked → the tech records the ACTUAL date the job was done via an
+        // "Update" date picker (not auto-today). The app shows a badge with when
+        // it was last done at this house (from cloud history). Add everyMonths
+        // too and the badge also computes a due/not-due date.
+        { key: "wh-med-lock-batteries", text: "Change all med lock batteries", dateTracked: true },
+        { key: "wh-water-alarm-batteries", text: "Change water alarm batteries (yearly)", dateTracked: true, everyMonths: 12 },
         { key: "wh-test-co2-detectors", text: "Test CO2 detectors (within 10' of all bedrooms) — how many?" },
-        { key: "wh-detector-dates", text: "Check dates on all smoke & CO2 detectors" },
-        { key: "wh-fixture-bulbs", q: "Fixture bulbs OK (60W soft white LED) & fixtures secure?", bad: "no" },
+        { key: "wh-detector-dates", text: "Check dates on all smoke & CO2 detectors", dateTracked: true },
+        { key: "wh-fixture-bulbs", text: "Check / change fixture bulbs (60W soft white LED); fixtures secure" },
         { key: "wh-damaged-switches", q: "Any damaged switches / receptacles?", bad: "yes" },
-        { key: "wh-wall-damage", q: "Any wall damage needing patching / painting?", bad: "yes" },
+        { key: "wh-wall-damage", text: "Check walls — patching / painting as needed" },
         { key: "wh-swings-wear", text: "Check all swings for wear — replace any worn parts" },
-        { key: "wh-plungers", q: "Home has both toilet & sink plungers?", bad: "no" },
+        { key: "wh-plungers", text: "Confirm home has both toilet & sink plungers" },
         { key: "wh-water-damage", q: "Any water damage? (walls, ceilings, sink & bath areas)", bad: "yes" },
-        { key: "wh-attic-ventilation", q: "Attic ventilation OK? (exhaust vents attached, no water damage)", bad: "no" },
+        { key: "wh-attic-ventilation", text: "Check attic ventilation (exhaust vents attached, no water damage)" },
       ]},
     ]},
     { label: "Resident Level", cls: "resident", sections: [
@@ -534,19 +575,19 @@
         { key: "rk-water-damage", q: "Any water damage or new leaks?", bad: "yes" },
         { key: "rk-dishwasher-magic", text: "Run Dishwasher Magic & fill Jet Dry in dishwasher" },
         { key: "rk-gfci", text: "Check GFCIs for proper function" },
-        { key: "rk-cabinets-drawers", q: "Cabinets & drawers working properly?", bad: "no" },
+        { key: "rk-cabinets-drawers", text: "Check cabinets & drawers operate properly" },
         { key: "rk-fridge-coils", text: "Vacuum refrigerator coils (front/back)" },
         { key: "rk-sharpen-knives", text: "Sharpen knives" },
-        { key: "rk-fire-extinguisher", q: "Fire extinguisher up to date and accessible?", bad: "no" },
+        { key: "rk-fire-extinguisher", text: "Fire extinguisher up to date & accessible", dateTracked: true },
         { key: "rk-fire-stops", text: "Check fire stops / kitchen fire extinguishers" },
-        { key: "rk-felt-protectors", q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
+        { key: "rk-felt-protectors", text: "Check felt protectors on table & chair legs (laminate floors)" },
         { key: "rk-garbage-disposal", q: "Garbage disposal operating correctly? (run disposal cleaner)", bad: "no" },
         { key: "rk-he-washers", text: "Run cleaning tablets in HE washers" },
       ]},
       { title: "Bathroom #1", items: [
-        { key: "rb1-water-temp", q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
+        { key: "rb1-water-temp", text: "Check water temp (target ≤ 110°) — record highest reading", tempInput: true },
         { key: "rb1-water-alarms", text: "Check water alarms (toilet, sink & tub)" },
-        { key: "rb1-faucet-showerhead", q: "Faucet & showerhead working properly?", bad: "no" },
+        { key: "rb1-faucet-showerhead", text: "Check faucet & showerhead operate properly" },
         { key: "rb1-tub-hoses", text: "Check hoses under tub for leaks / moisture / mold" },
         { key: "rb1-caulk", text: "Renew failing caulk" },
         { key: "rb1-exhaust-fan", text: "Clean exhaust fan" },
@@ -554,9 +595,9 @@
         { key: "rb1-water-leaks", q: "Any new water leaks / damage?", bad: "yes" },
       ]},
       { title: "Bathroom #2", items: [
-        { key: "rb2-water-temp", q: "Water temp at or below 110°? (record highest temp)", bad: "no" },
+        { key: "rb2-water-temp", text: "Check water temp (target ≤ 110°) — record highest reading", tempInput: true },
         { key: "rb2-water-alarms", text: "Check water alarms (toilet, sink & tub)" },
-        { key: "rb2-faucet-showerhead", q: "Faucet & showerhead working properly?", bad: "no" },
+        { key: "rb2-faucet-showerhead", text: "Check faucet & showerhead operate properly" },
         { key: "rb2-tub-hoses", text: "Check hoses under tub for leaks / moisture / mold" },
         { key: "rb2-caulk", text: "Renew failing caulk" },
         { key: "rb2-exhaust-fan", text: "Clean exhaust fan" },
@@ -564,11 +605,11 @@
         { key: "rb2-water-leaks", q: "Any new water leaks / damage?", bad: "yes" },
       ]},
       { title: "Bedrooms", items: [
-        { key: "rbed-bed-rails", q: "Bed rails tight & functioning?", bad: "no" },
-        { key: "rbed-door-transitions", q: "Door transitions in good shape?", bad: "no" },
-        { key: "rbed-windows", q: "Windows functioning properly?", bad: "no" },
-        { key: "rbed-closet-doors", q: "Closet doors functioning properly?", bad: "no" },
-        { key: "rbed-doors", q: "Doors open / close properly?", bad: "no" },
+        { key: "rbed-bed-rails", text: "Check bed rails tight & functioning" },
+        { key: "rbed-door-transitions", text: "Check door transitions in good shape" },
+        { key: "rbed-windows", text: "Check windows function properly" },
+        { key: "rbed-closet-doors", text: "Check closet doors function properly" },
+        { key: "rbed-doors", text: "Check doors open / close properly" },
       ]},
     ]},
     { label: "RS Unit", cls: "rs", sections: [
@@ -578,13 +619,13 @@
         { key: "rsk-water-damage", q: "Any water damage or new leaks?", bad: "yes" },
         { key: "rsk-caulk", text: "Renew failing caulk (sinks, backsplashes, etc.)" },
         { key: "rsk-gfci", text: "Check GFCIs for proper function" },
-        { key: "rsk-cabinets-drawers", q: "Cabinets & drawers working properly?", bad: "no" },
+        { key: "rsk-cabinets-drawers", text: "Check cabinets & drawers operate properly" },
         { key: "rsk-fridge-coils", text: "Vacuum refrigerator coils (front/back)" },
-        { key: "rsk-felt-protectors", q: "Felt protectors on table & chair legs? (laminate floors)", bad: "no" },
+        { key: "rsk-felt-protectors", text: "Check felt protectors on table & chair legs (laminate floors)" },
       ]},
       { title: "Bathroom", items: [
         { key: "rsb-water-alarms", text: "Check water alarms (toilet, sink & tub)" },
-        { key: "rsb-faucet-showerhead", q: "Faucet & showerhead working properly?", bad: "no" },
+        { key: "rsb-faucet-showerhead", text: "Check faucet & showerhead operate properly" },
         { key: "rsb-caulk", text: "Renew failing caulk" },
         { key: "rsb-exhaust-fan", text: "Clean exhaust fan" },
         { key: "rsb-water-leaks", q: "Any new water leaks / damage?", bad: "yes" },
@@ -596,7 +637,7 @@
         { key: "mech-shutoffs", q: "Gas & water shutoffs clearly identified?", bad: "no" },
         { key: "mech-water-alarms", text: "Check water alarms (water heater, softener, washer)" },
         { key: "mech-duct-leaks", q: "Any holes / leaks in duct work or stove pipe?", bad: "yes" },
-        { key: "mech-furnace-filter", text: "Change furnace filter (4\" ≈ 90 days, 1\" ≈ 30 days)" },
+        { key: "mech-furnace-filter", text: "Change furnace filter (4\" ≈ 90 days, 1\" ≈ 30 days)", dateTracked: true },
         { key: "mech-furnace-dampers", text: "Check furnace dampers for seasonal adjustment" },
         { key: "mech-air-exchanger", text: "Clean air exchanger — clean pre-filters" },
         { key: "mech-water-softener", text: "Check water softener salt level & educate RS" },
@@ -608,7 +649,7 @@
         { key: "common-hinges-sweeps", text: "Check spring hinges & door sweeps" },
         { key: "common-doorknobs", text: "Check doorknobs, hinges & latches for tightness" },
         { key: "common-windows", q: "All windows open / close properly?", bad: "no" },
-        { key: "common-fire-extinguisher", q: "Fire extinguisher up to date and accessible?", bad: "no" },
+        { key: "common-fire-extinguisher", text: "Fire extinguisher up to date & accessible", dateTracked: true },
       ]},
       { title: "Outside", items: [
         { key: "out-paint-siding", text: "Walk around house — paint / siding issues; fix or make a MTX ticket" },
@@ -764,49 +805,63 @@
     return ALL_HOUSES.find(h => h.name.toLowerCase() === name) || null;
   }
 
-  // ---- Periodic jobs (items with everyMonths) ----
+  // ---- Date-tracked jobs (items with dateTracked and/or everyMonths) ----
+  // dateTracked: the tech records the actual date the job was done (Update
+  // button → date picker). everyMonths: also compute a due date from that.
   const ITEM_BY_KEY = {};
   GROUPS.forEach(g => g.sections.forEach(sec => sec.items.forEach(it => { ITEM_BY_KEY[it.key] = it; })));
-  const PERIODIC_KEYS = Object.keys(ITEM_BY_KEY).filter(k => ITEM_BY_KEY[k].everyMonths);
+  const DATED_KEYS = Object.keys(ITEM_BY_KEY).filter(k => ITEM_BY_KEY[k].dateTracked || ITEM_BY_KEY[k].everyMonths);
 
-  // Last-done dates for periodic items at the CURRENT house, from cloud history.
+  // Last-done dates for these items at the CURRENT house, from cloud history.
   let LAST_DONE = {};
   async function refreshDueInfo() {
     LAST_DONE = {};
     const h = currentHouse();
-    if (h && window.cloud && PERIODIC_KEYS.length) {
-      LAST_DONE = await window.cloud.lastDone(h.name, PERIODIC_KEYS);
+    if (h && window.cloud && DATED_KEYS.length) {
+      LAST_DONE = await window.cloud.lastDone(h.name, DATED_KEYS);
     }
     paintDue();
   }
 
   function addMonths(iso, m) { const d = new Date(iso + "T00:00:00"); d.setMonth(d.getMonth() + m); return d; }
+  function fmtDate(iso) { return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
   function fmtMY(d) { return d.toLocaleDateString(undefined, { month: "short", year: "numeric" }); }
 
-  // Fill each periodic item's badge and dim it when it isn't due yet.
-  // A dimmed ("notdue") item drops out of the progress totals unless the tech
-  // checks it anyway (doing it early is always allowed and still recorded).
+  // Fill each date-tracked item's badge. A date entered THIS visit (local
+  // state) wins over history. everyMonths items dim when not yet due (and drop
+  // out of the progress totals until done — doing them early is always fine).
   function paintDue() {
+    const s = load();
     document.querySelectorAll("[data-due]").forEach(sp => {
       const key = sp.dataset.due;
       const el = sp.closest(".item");
       const every = ITEM_BY_KEY[key].everyMonths;
-      const last = LAST_DONE[key];
+      const thisVisit = s.items[key] && s.items[key].doneOn;   // date set on this visit
+      const last = thisVisit || LAST_DONE[key];
       let notdue = false;
       if (!last) {
         sp.className = "due";
-        sp.textContent = `↻ Every ${every === 12 ? "year" : every + " months"} — no visit on record yet`;
-      } else {
-        const lastD = new Date(last + "T00:00:00");
+        sp.textContent = every
+          ? `↻ Every ${every === 12 ? "year" : every + " months"} — no record yet`
+          : "↻ No date on record yet";
+      } else if (every) {
         const dueD = addMonths(last, every);
-        if (new Date() < dueD) {
+        if (!thisVisit && new Date() < dueD) {
           notdue = true;
           sp.className = "due ok";
-          sp.textContent = `✓ Done ${fmtMY(lastD)} · not due till ${fmtMY(dueD)}`;
+          sp.textContent = `✓ Done ${fmtMY(new Date(last + "T00:00:00"))} · not due till ${fmtMY(dueD)}`;
+        } else if (thisVisit) {
+          sp.className = "due ok";
+          sp.textContent = `✓ Recorded ${fmtDate(thisVisit)}`;
         } else {
           sp.className = "due over";
-          sp.textContent = `⚠ Due now — last done ${fmtMY(lastD)}`;
+          sp.textContent = `⚠ Due now — last done ${fmtMY(new Date(last + "T00:00:00"))}`;
         }
+      } else {
+        sp.className = "due ok";
+        sp.textContent = thisVisit
+          ? `✓ Recorded ${fmtDate(thisVisit)}`
+          : `Last done ${fmtDate(last)}`;
       }
       sp.hidden = false;
       el.classList.toggle("notdue", notdue);
@@ -887,10 +942,37 @@
             const texts = rules.map(r => r.note && house.notes && house.notes[r.note]).filter(Boolean);
             if (texts.length) houseNote = `<div class="house-note">📍 ${texts.join(" · ").replace(/</g, "&lt;")}</div>`;
           }
-          // Periodic jobs get a badge slot; paintDue() fills it from history.
-          const dueSlot = item.everyMonths ? `<span class="due" data-due="${id}" hidden></span>` : "";
+          // Date-tracked jobs get a badge slot; paintDue() fills it from history
+          // and any date entered this visit.
+          const dueSlot = (item.dateTracked || item.everyMonths) ? `<span class="due" data-due="${id}" hidden></span>` : "";
           const noteBtn = `<button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}"><span aria-hidden="true">✎</span><span class="note-word"> Note</span></button>`;
-          if (isYN(item)) {
+          if (item.dateTracked) {
+            // No checkbox: recording the actual date IS the completion.
+            html += `<div class="item dated" data-id="${id}">
+              <div class="item-row">
+                <span class="qtext">${label}</span>
+                <button class="update-btn" data-update="${id}">Update date</button>
+                ${noteBtn}
+              </div>
+              ${houseNote}${dueSlot}
+              <input type="date" class="date-field" data-date="${id}" aria-label="Date done for: ${safeLabel}" hidden>
+              <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
+            </div>`;
+          } else if (item.tempInput) {
+            // Checkbox that, when checked, reveals a number field for the reading.
+            html += `<div class="item" data-id="${id}" data-tempinput="1">
+              <div class="item-row">
+                <label class="tick"><input type="checkbox" data-check="${id}"><span class="qtext">${label}</span></label>
+                ${noteBtn}
+              </div>
+              ${houseNote}
+              <div class="temp-wrap" data-temp-wrap="${id}" hidden>
+                <label for="temp-${id}">Highest reading °F</label>
+                <input id="temp-${id}" type="number" inputmode="decimal" data-temp="${id}" placeholder="e.g. 108">
+              </div>
+              <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
+            </div>`;
+          } else if (isYN(item)) {
             html += `<div class="item" data-id="${id}" data-bad="${item.bad}">
               <div class="item-row">
                 <span class="qtext">${item.q}</span>
@@ -900,7 +982,7 @@
                 </span>
                 ${noteBtn}
               </div>
-              ${houseNote}${dueSlot}
+              ${houseNote}
               <div class="reason-label" data-reason-label="${id}" hidden>Reason / what needs follow-up</div>
               <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
             </div>`;
@@ -910,7 +992,7 @@
                 <label class="tick"><input type="checkbox" data-check="${id}"><span class="qtext">${label}</span></label>
                 ${noteBtn}
               </div>
-              ${houseNote}${dueSlot}
+              ${houseNote}
               <textarea data-note="${id}" placeholder="Comment / issue found…" hidden></textarea>
             </div>`;
           }
@@ -979,10 +1061,23 @@
       const st = s.items[el.dataset.id];
       paintYN(el.dataset.id, st && st.answer);
     });
+    // Date-tracked items: put any recorded date back in the (hidden) picker.
+    document.querySelectorAll("[data-date]").forEach(inp => {
+      const st = s.items[inp.dataset.date];
+      inp.value = (st && st.doneOn) || "";
+    });
+    // Water-temp items: restore the reading and reveal it if the box is checked.
+    document.querySelectorAll("[data-temp]").forEach(inp => {
+      const st = s.items[inp.dataset.temp];
+      inp.value = (st && st.temp) || "";
+      const wrap = document.querySelector(`[data-temp-wrap="${inp.dataset.temp}"]`);
+      const cb = document.querySelector(`[data-check="${inp.dataset.temp}"]`);
+      if (wrap) wrap.hidden = !(cb && cb.checked);
+    });
     document.querySelectorAll("[data-cnt]").forEach(inp => {
       inp.value = s.counts[inp.dataset.cnt] ?? "";
     });
-    refresh();
+    paintDue();
   }
 
   function refresh() {
@@ -996,9 +1091,16 @@
         const na = !!(st && st.na);
         el.classList.toggle("na", na);
         const cb = el.querySelector("[data-check]");
-        // A not-due periodic job doesn't count toward progress unless the tech
-        // does it anyway (early is fine — it still records a fresh date).
-        if (el.classList.contains("notdue") && !na && !(cb ? cb.checked : st && st.answer)) {
+        const dated = el.classList.contains("dated");
+        // Is this item satisfied this visit? (checkbox ticked / date recorded /
+        // yes-no answered)
+        const answered = cb ? cb.checked
+          : dated ? !!(st && st.doneOn)
+          : el.dataset.bad ? !!(st && st.answer)
+          : false;
+        // A not-due date-tracked job doesn't count toward progress unless the
+        // tech does it anyway (early is fine — it records a fresh date).
+        if (el.classList.contains("notdue") && !na && !answered) {
           el.classList.remove("done");
           return;
         }
@@ -1007,7 +1109,10 @@
         if (cb) {
           if (cb.checked) d++;
           el.classList.toggle("done", cb.checked);
-        } else {
+        } else if (dated) {
+          if (answered) d++;
+          el.classList.toggle("done", answered);
+        } else if (el.dataset.bad) {
           if (st && st.answer) {
             d++;
             if (st.answer === el.dataset.bad) f++;
@@ -1043,12 +1148,18 @@
       const id = el.dataset.id;
       const note = el.querySelector(`[data-note="${id}"]`).value.trim();
       const cb = el.querySelector("[data-check]");
-      const na = !!(s.items[id] && s.items[id].na);   // N/A lives in state, not the DOM
-      if (cb) {
-        if (cb.checked || note || na) items[id] = { done: cb.checked, note, ...(na && { na }) };
+      const prev = s.items[id] || {};
+      const na = !!prev.na;   // N/A and the recorded date live in state, not the DOM
+      if (el.classList.contains("dated")) {
+        const doneOn = prev.doneOn || null;
+        if (doneOn || note || na) items[id] = { doneOn, note, ...(na && { na }) };
+      } else if (cb) {
+        const tempEl = el.querySelector(`[data-temp="${id}"]`);
+        const temp = tempEl ? tempEl.value.trim() : "";
+        if (cb.checked || note || na || temp)
+          items[id] = { done: cb.checked, note, ...(temp && { temp }), ...(na && { na }) };
       } else {
-        const prev = s.items[id];
-        const answer = (prev && prev.answer) || null;
+        const answer = prev.answer || null;
         if (answer || note || na) items[id] = { answer, note, ...(na && { na }) };
       }
     });
@@ -1072,6 +1183,20 @@
     save(s);
     paintYN(id, answer);
     refresh();
+  }
+
+  // Date-tracked item: record the actual date the job was done (may differ
+  // from the visit date). Clearing the field un-records it.
+  function setDate(id, val) {
+    const s = load();
+    const prev = s.items[id] || {};
+    if (val) { s.items[id] = { ...prev, doneOn: val }; delete s.items[id].na; }
+    else {
+      delete prev.doneOn;
+      if (prev.note || prev.na) s.items[id] = prev; else delete s.items[id];
+    }
+    save(s);
+    paintDue();   // repaint this badge + progress
   }
 
   // Generator section N/A: one tap marks every item in the section N/A;
@@ -1111,9 +1236,18 @@
     return lines.join("\n").trimEnd();
   }
 
-  document.addEventListener("change", () => { persist(); refresh(); });
+  document.addEventListener("change", e => {
+    // Recording a date routes through setDate (keeps the badge + progress live).
+    if (e.target.matches("[data-date]")) { setDate(e.target.dataset.date, e.target.value); return; }
+    // Toggling a water-temp checkbox shows/hides its reading field.
+    if (e.target.matches("[data-check]")) {
+      const wrap = document.querySelector(`[data-temp-wrap="${e.target.dataset.check}"]`);
+      if (wrap) wrap.hidden = !e.target.checked;
+    }
+    persist(); refresh();
+  });
   document.addEventListener("input", e => {
-    if (e.target.matches("[data-note], #house, #name, [data-cnt]")) persist();
+    if (e.target.matches("[data-note], #house, #name, [data-cnt], [data-temp]")) persist();
     if (e.target.matches("#pickSearch")) {
       document.getElementById("pickList").innerHTML = pickListHTML(e.target.value);
     }
@@ -1125,10 +1259,23 @@
       document.getElementById("house").value = pick.dataset.pickHouse;
       persist();
       rebuild();
+      if (pick.dataset.pickHouse) maybeResume(pick.dataset.pickHouse);
       return;
     }
     const naBtn = e.target.closest("[data-na-sec]");
     if (naBtn) { toggleSectionNA(naBtn.closest("details.section")); return; }
+    const upd = e.target.closest("[data-update]");
+    if (upd) {
+      // Reveal the date picker and open it. Default to today if empty, so the
+      // common case (done today) is one tap, but the tech can change it.
+      const inp = document.querySelector(`[data-date="${upd.dataset.update}"]`);
+      inp.hidden = false;
+      if (!inp.value) inp.value = new Date().toISOString().slice(0, 10);
+      inp.focus();
+      if (inp.showPicker) { try { inp.showPicker(); } catch {} }
+      setDate(upd.dataset.update, inp.value);
+      return;
+    }
     const yn = e.target.closest("[data-yn]");
     if (yn) { setAnswer(yn.dataset.yn, yn.dataset.val); persist(); return; }
     const btn = e.target.closest("[data-note-btn]");
@@ -1216,10 +1363,13 @@
     const s = load();
     const items = Object.entries(s.items).map(([key, st]) => ({
       key,
-      done: st.na ? null : (typeof st.done === "boolean" ? st.done : null),
+      // A recorded date counts as done for that item.
+      done: st.na ? null : (typeof st.done === "boolean" ? st.done : (st.doneOn ? true : null)),
       answer: st.na ? "na" : (st.answer || null),
       note: (st.note || "").trim() || null,
-    })).filter(it => it.done || it.answer || it.note);
+      doneOn: st.doneOn || null,      // date-tracked jobs → visit_items.done_on
+      value: (st.temp || "").trim() || null,   // water-temp reading → visit_items.value
+    })).filter(it => it.done || it.answer || it.note || it.doneOn || it.value);
     return {
       houseName: (s.house || "").trim(),
       date: s.date,
@@ -1322,15 +1472,78 @@
     renderHouseList();
     renderHouseInfo();
     closeSidebar();
+    maybeResume(btn.dataset.house);
   });
   // Typing a house name by hand re-tailors once the field loses focus.
-  document.getElementById("house").addEventListener("change", () => { persist(); rebuild(); });
+  document.getElementById("house").addEventListener("change", (e) => { persist(); rebuild(); maybeResume(e.target.value); });
 
   document.getElementById("newVisit").addEventListener("click", () => {
     if (!confirm("Start a new visit? This clears all checks, answers, notes, and counts.")) return;
     save(blank());
     rebuild();
   });
+
+  // ---- Toast + Save progress + resume ----
+  function toast(text, kind) {
+    let t = document.getElementById("toast");
+    if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+    t.textContent = text;
+    t.className = "show" + (kind ? " " + kind : "");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.className = ""; }, 3200);
+  }
+
+  // Save an in-progress visit to the cloud so it can be resumed on another day
+  // or device. Local state already persists per-device; this is the cross-device
+  // buffer. Idempotent via cloudVisitId.
+  document.getElementById("saveProgress").addEventListener("click", async (e) => {
+    persist();
+    const s = load();
+    if (!(s.house || "").trim()) { toast("Pick a house first.", "error"); return; }
+    if (!window.cloud) { toast("Saved on this device (cloud not loaded).", "error"); return; }
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    toast("Saving progress…");
+    try {
+      const res = await window.cloud.saveVisit(visitPayload(), "in_progress");
+      if (res.error) { toast("Saved on this device only. " + res.error, "error"); }
+      else {
+        const s2 = load(); s2.cloudVisitId = res.visitId; save(s2);
+        toast("✓ Progress saved — resume it on any device.", "ok");
+      }
+    } finally { btn.disabled = false; }
+  });
+
+  // Replace the on-screen visit with one loaded from the cloud.
+  function applyCloudVisit(v) {
+    const s = load();
+    s.house = v.house || s.house;
+    s.date = v.date || s.date;
+    s.counts = v.counts || {};
+    s.survey = v.survey || {};
+    s.items = v.items || {};
+    s.cloudVisitId = v.visitId;
+    save(s);
+    rebuild();
+  }
+
+  // After picking a house, offer to resume an in-progress cloud visit for it.
+  async function maybeResume(houseName) {
+    if (!window.cloud || !(houseName || "").trim()) return;
+    let inProg;
+    try { inProg = await window.cloud.loadInProgress(houseName); } catch { return; }
+    if (!inProg) return;
+    const s = load();
+    if (s.cloudVisitId && s.cloudVisitId === inProg.visitId) return;   // already on it
+    const when = inProg.date ? " from " + fmtDate(inProg.date) : "";
+    const hasLocalWork = Object.keys(s.items || {}).length > 0
+      && (s.house || "").trim().toLowerCase() === houseName.trim().toLowerCase();
+    const msg = hasLocalWork
+      ? `There's a saved in-progress visit for ${houseName}${when} in the cloud. Load it? This replaces what's on the screen now.`
+      : `Resume your in-progress visit for ${houseName}${when}?`;
+    if (confirm(msg)) applyCloudVisit(inProg);
+  }
+  window.maybeResume = maybeResume;
 
   rebuild();
 

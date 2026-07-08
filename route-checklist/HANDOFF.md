@@ -84,6 +84,25 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
   (type-to-filter) appears above the checklist; sections render open by default.
 - **Phone layout:** under 600px the Yes/No buttons become two big full-width
   thumb targets on their own row and the Note button collapses to its ✎ icon.
+- **Date-tracked jobs (`dateTracked: true`):** med-lock batteries, water-alarm
+  batteries, both fire extinguishers, detector dates, furnace filter. No
+  checkbox — an **Update date** button opens a date picker so the tech records
+  the ACTUAL date done (defaults to today, editable). The recorded date drives
+  the badge and is stored in `visit_items.done_on`. Add `everyMonths` too (as
+  water-alarm has) and the badge also shows due/not-due.
+- **Water-temp items (`tempInput: true`):** `rb1-water-temp` / `rb2-water-temp`
+  are now checkboxes that reveal a number field for the highest reading, stored
+  in `visit_items.value` (number only — no separate date, per owner).
+- **Many former Yes/No items are now plain checkboxes** (owner request), keeping
+  their stable keys: fixture bulbs, wall/patching, plungers, attic, both
+  cabinets & drawers, both felt protectors, all three faucet & showerhead, and
+  all five Bedroom items. Their stored shape changed from `answer` to `done`.
+- **Save progress** button: writes an `in_progress` visit to the cloud so it can
+  be resumed on another day/device. Picking a house checks for an in-progress
+  cloud visit and offers to resume it (confirm dialog, won't silently clobber).
+  Save & Send remains the finalize (`completed`).
+- **Requires migration `0003_dated_items_and_temps.sql`** (adds `done_on`,
+  `value` columns) run in the dashboard.
 
 ## How it's built (for whoever edits next)
 
