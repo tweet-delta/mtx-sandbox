@@ -256,8 +256,11 @@
     .visit input[type="text"], .visit input[type="date"] { font-size: 16px; } /* stops iOS zoom-on-focus */
   }
 
-  /* Alarm counts */
-  .counts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  /* Alarm counts — one row per level (Resident / RS), three fields across */
+  .counts-body { padding: 12px 14px; border-top: 1px solid var(--line); }
+  .count-group + .count-group { margin-top: 12px; }
+  .count-group-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+  .counts-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .count-field label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 3px; }
   .count-field input {
     font: inherit; font-size: 1rem; width: 100%;
@@ -705,14 +708,33 @@
     ]},
   ];
 
+  // Alarm counts, grouped by level so each level renders as its own row.
   const COUNTS = [
-    { id: "res-water", label: "Resident water alarms" },
-    { id: "res-co2",   label: "Resident CO2 alarms" },
-    { id: "res-smoke", label: "Resident smoke detectors" },
-    { id: "rs-water",  label: "RS water alarms" },
-    { id: "rs-co2",    label: "RS CO2 alarms" },
-    { id: "rs-smoke",  label: "RS smoke detectors" },
+    { id: "res-water", label: "Water", group: "Resident" },
+    { id: "res-co2",   label: "CO2",   group: "Resident" },
+    { id: "res-smoke", label: "Smoke", group: "Resident" },
+    { id: "rs-water",  label: "Water", group: "RS" },
+    { id: "rs-co2",    label: "CO2",   group: "RS" },
+    { id: "rs-smoke",  label: "Smoke", group: "RS" },
   ];
+  // Build the counts markup once (it doesn't depend on state; values are
+  // filled in by hydrate()). One row per group, three fields across.
+  function countsBodyHTML() {
+    const groups = [];
+    COUNTS.forEach(c => {
+      let g = groups.find(x => x.name === c.group);
+      if (!g) { g = { name: c.group, items: [] }; groups.push(g); }
+      g.items.push(c);
+    });
+    return `<div class="counts-body">${groups.map(g => `
+      <div class="count-group">
+        <div class="count-group-label">${g.name}</div>
+        <div class="counts-row">${g.items.map(c =>
+          `<div class="count-field"><label for="cnt-${c.id}">${c.label}</label>
+           <input id="cnt-${c.id}" type="number" min="0" inputmode="numeric" data-cnt="${c.id}"></div>`).join("")}
+        </div>
+      </div>`).join("")}</div>`;
+  }
 
   // End-of-visit survey (submitted after every house visit). Fields start
   // BLANK. Where a checklist item relates to a question, surveySuggestions()
@@ -1003,10 +1025,7 @@
         if (group.label === "Shared Spaces" && section.title === "Common Areas") {
           html += `<details class="section" id="alarmCounts" open>
             <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Alarm Counts<span class="count" data-static></span></summary>
-            <div class="counts-grid">${COUNTS.map(c =>
-              `<div class="count-field"><label for="cnt-${c.id}">${c.label}</label>
-               <input id="cnt-${c.id}" type="number" min="0" inputmode="numeric" data-cnt="${c.id}"></div>`).join("")}
-            </div></details>`;
+            ${countsBodyHTML()}</details>`;
         }
       });
     });
