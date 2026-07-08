@@ -284,8 +284,6 @@
   #saveProgress { background: none; color: var(--accent); border: 1px solid var(--accent); }
   #saveProgress:hover { background: #EAF1F8; }
   #saveProgress:disabled { opacity: 0.6; cursor: default; }
-  #newVisit { background: none; color: var(--muted); border: 1px solid var(--line); }
-  #newVisit:hover { color: var(--ink); border-color: var(--muted); }
 
   /* Transient status toast (Save progress feedback) */
   #toast {
@@ -512,7 +510,6 @@
 <div class="report-bar">
   <button id="saveProgress">Save progress</button>
   <button id="openSurvey">Visit survey</button>
-  <button id="newVisit">New visit</button>
 </div>
 
 <div id="sideBackdrop" hidden></div>
@@ -1277,10 +1274,7 @@
     const pick = e.target.closest("[data-pick-house]");
     if (pick) {
       if (!pick.dataset.pickHouse) pickerDismissed = true;
-      document.getElementById("house").value = pick.dataset.pickHouse;
-      persist();
-      rebuild();
-      if (pick.dataset.pickHouse) maybeResume(pick.dataset.pickHouse);
+      selectHouse(pick.dataset.pickHouse);
       return;
     }
     const naBtn = e.target.closest("[data-na-sec]");
@@ -1427,11 +1421,13 @@
         msg.textContent = "Couldn't save to cloud — visit kept on this device. " + res.error;
         msg.className = "modal-msg error";
       } else {
-        const s = load();
-        s.cloudVisitId = res.visitId;   // re-sending updates, never duplicates
-        save(s);
-        msg.textContent = "✓ Visit saved to the cloud. (SharePoint send isn't connected yet.)";
-        msg.className = "modal-msg ok";
+        // Saved. Finishing a visit clears the screen so the next house starts
+        // blank (this replaces the old "New visit" button). Keep the tech's
+        // name (stored separately). Only clears on a SUCCESSFUL save.
+        surveyModal.close();
+        save(blank());
+        rebuild();
+        toast("✓ Visit saved — ready for the next house.", "ok");
       }
     } finally {
       sendBtn.disabled = false;
@@ -1487,22 +1483,37 @@
   document.getElementById("houseList").addEventListener("click", e => {
     const btn = e.target.closest("[data-house]");
     if (!btn) return;
-    document.getElementById("house").value = btn.dataset.house;
-    persist();
-    rebuild();
+    selectHouse(btn.dataset.house);
     renderHouseList();
     renderHouseInfo();
     closeSidebar();
-    maybeResume(btn.dataset.house);
   });
   // Typing a house name by hand re-tailors once the field loses focus.
-  document.getElementById("house").addEventListener("change", (e) => { persist(); rebuild(); maybeResume(e.target.value); });
+  document.getElementById("house").addEventListener("change", (e) => { selectHouse(e.target.value); });
 
-  document.getElementById("newVisit").addEventListener("click", () => {
-    if (!confirm("Start a new visit? This clears all checks, answers, notes, and counts.")) return;
-    save(blank());
+  // Pick a house. Switching to a DIFFERENT house starts it fresh (answers never
+  // carry across houses). If the current checklist has unsaved entries, confirm
+  // first so we never silently wipe a tech's in-progress work. Then offer to
+  // resume that house's saved cloud visit, if any.
+  function selectHouse(name) {
+    const s = load();
+    const curName = (s.house || "").trim().toLowerCase();
+    const newName = (name || "").trim().toLowerCase();
+    if (newName === curName) { rebuild(); if (name) maybeResume(name); return true; }
+    const hasWork = Object.keys(s.items || {}).length > 0;
+    if (hasWork && !confirm(
+      `Start ${name || "the full checklist"}? This clears the current checklist` +
+      `${s.house ? ` for ${s.house}` : ""}. (Tip: tap Save progress first to keep it.)`)) {
+      document.getElementById("house").value = s.house || "";   // revert the picker
+      return false;
+    }
+    const fresh = blank();
+    fresh.house = name;
+    save(fresh);
     rebuild();
-  });
+    if (name) maybeResume(name);
+    return true;
+  }
 
   // ---- Toast + Save progress + resume ----
   function toast(text, kind) {

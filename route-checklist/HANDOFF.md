@@ -67,7 +67,12 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
   **actual sending to SharePoint is a TODO** (marked in code) — the
   survey currently lives in a SharePoint/MS Forms list the user's team
   submits after each visit.
-- **New visit** button clears everything for the next house.
+- **No "New visit" button** (removed by owner request). Clearing for the next
+  house happens two ways instead: (1) a successful survey **Save & Send** clears
+  the screen, and (2) picking a **different house** starts it fresh. Switching
+  away from a house that has unsaved entries **confirms first** (with a nudge to
+  Save progress) so a tech's in-progress work is never silently wiped —
+  `selectHouse()` owns this. The tech's name persists across all of it.
 - Progress saves automatically in the browser (localStorage).
 - **Cloud visit history (Supabase):** survey **Save & Send** now writes the
   completed visit to `visits` + `visit_items` (idempotent — a second send
