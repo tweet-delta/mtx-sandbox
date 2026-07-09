@@ -555,8 +555,8 @@
         // "Update" date picker (not auto-today). The app shows a badge with when
         // it was last done at this house (from cloud history). Add everyMonths
         // too and the badge also computes a due/not-due date.
-        { key: "wh-med-lock-batteries", text: "Change all med lock batteries", dateTracked: true },
-        { key: "wh-water-alarm-batteries", text: "Change water alarm batteries (yearly)", dateTracked: true, everyMonths: 12 },
+        { key: "wh-med-lock-batteries", text: "Change all med lock batteries", dateTracked: true, withCheckbox: true },
+        { key: "wh-water-alarm-batteries", text: "Change water alarm batteries (yearly)", dateTracked: true, everyMonths: 12, withCheckbox: true },
         { key: "wh-test-co2-detectors", text: "Test CO2 detectors (within 10' of all bedrooms) — how many?" },
         { key: "wh-detector-dates", text: "Check dates on all smoke & CO2 detectors", dateTracked: true },
         { key: "wh-fixture-bulbs", text: "Check / change fixture bulbs (60W soft white LED); fixtures secure" },
@@ -972,10 +972,15 @@
           const dueSlot = (item.dateTracked || item.everyMonths) ? `<span class="due" data-due="${id}" hidden></span>` : "";
           const noteBtn = `<button class="note-btn" data-note-btn="${id}" aria-label="Add note for: ${safeLabel}"><span aria-hidden="true">✎</span><span class="note-word"> Note</span></button>`;
           if (item.dateTracked) {
-            // No checkbox: recording the actual date IS the completion.
+            // Recording the actual date IS the completion. Items flagged
+            // withCheckbox also get a tick that stamps today's date (editable
+            // via the date field) — "checked" simply means "has a done date".
+            const label2 = item.withCheckbox
+              ? `<label class="tick"><input type="checkbox" data-datecheck="${id}"><span class="qtext">${label}</span></label>`
+              : `<span class="qtext">${label}</span>`;
             html += `<div class="item dated" data-id="${id}">
               <div class="item-row">
-                <span class="qtext">${label}</span>
+                ${label2}
                 <button class="update-btn" data-update="${id}">Update date</button>
                 ${noteBtn}
               </div>
@@ -1083,10 +1088,15 @@
       const st = s.items[el.dataset.id];
       paintYN(el.dataset.id, st && st.answer);
     });
-    // Date-tracked items: put any recorded date back in the (hidden) picker.
+    // Date-tracked items: put any recorded date back in the (hidden) picker,
+    // and for items with a checkbox, tick it (and reveal the field) when a
+    // date is recorded.
     document.querySelectorAll("[data-date]").forEach(inp => {
       const st = s.items[inp.dataset.date];
       inp.value = (st && st.doneOn) || "";
+      syncDateCheckbox(inp.dataset.date);
+      const cb = document.querySelector(`[data-datecheck="${inp.dataset.date}"]`);
+      if (cb && inp.value) inp.hidden = false;
     });
     // Water-temp items: restore the reading and reveal it if the box is checked.
     document.querySelectorAll("[data-temp]").forEach(inp => {
@@ -1279,7 +1289,29 @@
 
   document.addEventListener("change", e => {
     // Recording a date routes through setDate (keeps the badge + progress live).
-    if (e.target.matches("[data-date]")) { setDate(e.target.dataset.date, e.target.value); return; }
+    if (e.target.matches("[data-date]")) {
+      setDate(e.target.dataset.date, e.target.value);
+      syncDateCheckbox(e.target.dataset.date);   // keep the tick in sync with the date
+      refresh();
+      return;
+    }
+    // Checkbox on a date-tracked item: checking stamps today's date (editable
+    // via the field); unchecking clears it. "Done" = "has a date".
+    if (e.target.matches("[data-datecheck]")) {
+      const id = e.target.dataset.datecheck;
+      const inp = document.querySelector(`[data-date="${id}"]`);
+      if (e.target.checked) {
+        if (!inp.value) inp.value = new Date().toISOString().slice(0, 10);
+        inp.hidden = false;
+        setDate(id, inp.value);
+      } else {
+        inp.value = "";
+        inp.hidden = true;
+        setDate(id, "");
+      }
+      refresh();
+      return;
+    }
     // Toggling a water-temp checkbox shows/hides its reading field.
     if (e.target.matches("[data-check]")) {
       const wrap = document.querySelector(`[data-temp-wrap="${e.target.dataset.check}"]`);
@@ -1287,6 +1319,15 @@
     }
     persist(); refresh();
   });
+
+  // Reflect a date-tracked item's recorded date onto its checkbox (if it has
+  // one): a date present means checked. Called on hydrate and after date edits.
+  function syncDateCheckbox(id) {
+    const cb = document.querySelector(`[data-datecheck="${id}"]`);
+    if (!cb) return;
+    const inp = document.querySelector(`[data-date="${id}"]`);
+    cb.checked = !!(inp && inp.value);
+  }
   document.addEventListener("input", e => {
     if (e.target.matches("[data-note], #house, #name, [data-cnt], [data-temp]")) persist();
     if (e.target.matches("#pickSearch")) {

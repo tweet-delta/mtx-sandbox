@@ -212,8 +212,8 @@ grant select, insert, update, delete         on public.visit_items to authentica
 insert into public.houses (name, equipment, notes, info) values
 ('Dogwood',
  '{"roofCoils": true, "airExchanger": true, "frontLoadWashers": false}'::jsonb,
- '{"fireExtinguishers": "Up: laundry closet · Down: mech room · Garage: by main door · One in the van", "furnaceFilter": "20x25x20", "fridgeCoils": "Upstairs: front · Downstairs: back", "waterSoftener": "In the mechanical room", "shutoffs": "Gas & water: mech room. Outside water: mech room above softener + under RS kitchen sink", "knives": "Block on counter", "medLock": "Stelth 2256", "atticAccess": "Attic access: hallway by bathroom", "dryerVents": "Upstairs: NW side · Downstairs: NE side under deck"}'::jsonb,
- '[["Paint","Laundry closet"],["Fuse box","Garage by MTX cabinet"],["Med lock","Stelth 2256"],["Attic access","Hallway by bathroom"]]'::jsonb),
+ '{"fireExtinguishers": "Up: laundry closet · Down: mech room · Garage: by main door · One in the van", "furnaceFilter": "20x25x20", "fridgeCoils": "Upstairs: front · Downstairs: back", "waterSoftener": "In the mechanical room", "shutoffs": "Gas & water: mech room. Outside water: mech room above softener + under RS kitchen sink", "knives": "Block on counter", "medLock": "Stealth lock (code in local codes file)", "atticAccess": "Attic access: hallway by bathroom", "dryerVents": "Upstairs: NW side · Downstairs: NE side under deck"}'::jsonb,
+ '[["Paint","Laundry closet"],["Fuse box","Garage by MTX cabinet"],["Attic access","Hallway by bathroom"]]'::jsonb),
 ('Roselawn',
  '{"generator": true, "waterSoftener": true, "sumpPump": false, "roofCoils": false, "garbageDisposal": false, "frontLoadWashers": false}'::jsonb,
  '{"fireExtinguishers": "Up: kitchen sink, van, garage · Downstairs: kitchen sink", "furnaceFilter": "16x25x1 — change monthly", "shutoffs": "Main water: mech room by washing machine. Main gas: mech room by furnace. Outside: behind back-yard faucet in wall + mech room above softener", "medLock": "Magnet and key", "atticAccess": "Attic access: big closet in dining area"}'::jsonb,
