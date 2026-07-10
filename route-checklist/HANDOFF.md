@@ -3,6 +3,74 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
+## STATE AS OF 2026-07-09 — read this first
+
+**Database is complete: all 29 houses are in Supabase** (owner ran the
+18-house INSERT and confirmed). The permanent SQL record is
+`supabase/migrations/0004_more_houses.sql` (27 inserts; Dogwood/Roselawn
+are seeded by 0001). The temp paste-helper `NEW-18-houses.sql` has been
+deleted.
+
+**Known pitfall that burned us twice:** the owner copies SQL by hand into
+the Supabase dashboard. Twice they copied from VS Code's read-only
+"Bash tool output" tab (which embeds the shell command that produced the
+SQL) → `syntax error at or near "cd"`. Always hand them SQL as a **chat
+code block** or point them at a **real file**, and tell them to verify the
+first line before Run. Also: every SQL-editor tab runs against the same
+database — tabs are scratchpads; only the box's content matters.
+
+### Git state
+
+- Branch `claude/claude-code-tutorial-5l5ew2`. As of 2026-07-10 all house
+  work is committed AND pushed (owner approved): commit `aaf7929`
+  (9 houses, med-lock scrub, secret guard, battery checkboxes) plus a
+  follow-up commit adding the remaining 18 houses (29 total in
+  `house-data.js`), `0004_more_houses.sql` at 27 inserts, and this handoff
+  update. Working tree clean. Parse check before committing: headless
+  Chrome, `HOUSES.length` = 29, no duplicate names.
+
+### Security state (owner confirmed 2026-07-09)
+
+- **Dogwood and Roselawn are FAKE samples. All other 27 houses are REAL.**
+  Real door/apt/house/shed/med-lock/alarm/wifi codes live ONLY in the
+  gitignored `house-codes.local.js` — never in tracked files or the DB.
+- A fake med-lock combo (a brand name + 4 digits, from the Dogwood/Roselawn
+  samples) was scrubbed from tracked files; it remains in git history
+  knowingly (fake, so no rotation needed). The literal string is not
+  repeated here — it trips the pre-commit guard.
+- **Pre-commit secret guard:** `scripts/pre-commit-secret-guard.sh`,
+  installed via `bash scripts/install-hooks.sh` — run that once per clone.
+  Tested: blocks every code shape in use (incl. dash codes like 5-3-1),
+  passes clean files.
+- **Supabase auth:** public sign-ups OFF (verified), min password length 8,
+  magic-link fallback on. RLS: any signed-in user reads all houses —
+  acceptable because accounts are provisioned manually by the supervisor.
+
+### House-adding pipeline (established; more houses are coming)
+
+The owner pastes SharePoint screenshots of per-house key/value rows.
+For each house: (1) entry in `house-data.js` (offline fallback roster);
+(2) all codes → `house-codes.local.js` only; (3) INSERT appended to
+`0004_more_houses.sql` — safest generated from the parsed `house-data.js`
+via headless Chrome so quote-escaping is guaranteed (see this session's
+history); (4) verify `house-data.js` parses (headless Chrome,
+`HOUSES.length`), stage + run the guard, confirm no codes in tracked
+files; (5) hand the owner a paste-ready SQL chat block.
+
+Conventions: disposal "up yes / down no" → `garbageDisposal: true` + info
+note; `roofCoils` = the roof ice-melt cables item (switch location → info);
+med-lock brand in the note, combo → codes file; sparse sheets → leave
+unstated equipment flags default (shown); smokes/CO replacement dates →
+an info "Smokes/CO status" line.
+
+### New app behavior this session
+
+The two battery items (`wh-med-lock-batteries`, `wh-water-alarm-batteries`)
+have `withCheckbox: true`: they render a checkbox **and** the Update-date
+button. Checking stamps today's date (editable); unchecking clears it;
+"done" still means "has a `doneOn` date", so badges/progress/cloud save
+are unchanged. The other 4 `dateTracked` items are deliberately unchanged.
+
 ## What this app is
 
 A field checklist app for **group-home maintenance visits** (Minnesota
@@ -41,8 +109,15 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
     furnace filter size, shutoff locations, med lock type, etc.).
   - Equipment flags set to `false` hide items (sump pump, roof coils,
     garbage disposal, HE washers…) or whole sections (Generator).
-  - Houses so far: **Dogwood**, **Roselawn** (from the user's xlsx notes;
-    source files were key/value sheets, one per house).
+  - Houses so far: **29** — Dogwood + Roselawn (fake samples) plus 27 real
+    houses (140th Lane East/West, 16th Avenue, 92nd Crescent, Amble,
+    Barclay, Bicentennial, Boutwell, Brooks, Co. Rd. B2, Crestridge,
+    Cummings, Dale Court, Dawn, Fallgold, Fox Run Bay, Fulham, Hillcrest,
+    Ilex, James, Lancaster, Larch, Lydia Ave, Lydia West, Magnolia,
+    McAfee, McMenemy), transcribed from the owner's SharePoint house-notes
+    screenshots. The logged-in app loads houses from Supabase
+    (`cloud.js` → `applyHouses()`); `house-data.js` is the logged-out
+    fallback — keep both in sync when adding houses.
 - Sections grouped by area: Whole House, Resident Level (Kitchen,
   Bathroom #1, Bathroom #2, Bedrooms), RS Unit (Kitchen, Bathroom),
   Shared Spaces (Mechanical Room, Common Areas, Outside, Generator,
