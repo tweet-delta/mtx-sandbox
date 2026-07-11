@@ -943,7 +943,7 @@
         // Hide whole sections for equipment the selected house doesn't have.
         const secFlag = SECTION_FLAGS[section.title];
         if (house && secFlag && house.equipment && house.equipment[secFlag] === false) return;
-        html += `<details class="section" data-g="${g}" data-s="${s}" open>
+        html += `<details class="section" data-g="${g}" data-s="${s}">
           <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${section.title}<span class="count" data-count></span></summary>
           <div class="items">`;
         // Generator isn't at every house: one tap marks the whole section N/A
@@ -1029,7 +1029,7 @@
         });
         html += `</div></details>`;
         if (group.label === "Shared Spaces" && section.title === "Common Areas") {
-          html += `<details class="section" id="alarmCounts" open>
+          html += `<details class="section" id="alarmCounts">
             <summary><svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Alarm Counts<span class="count" data-static></span></summary>
             ${countsBodyHTML()}</details>`;
         }
