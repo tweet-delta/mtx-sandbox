@@ -3,6 +3,77 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
+## STATE AS OF 2026-07-11 (tech routes) — read this first
+
+**Tech routes feature complete & pending migration 0007 (owner must run it).**
+Introduced supervisor **Routes screen** (☰ Houses → Routes): assign techs to
+routes, put houses on routes. Tech's new-visit picker is now **route-scoped**
+(shows only assigned houses) with a **Show all houses…** button to bypass the
+filter (e.g. visiting an off-route house is allowed and works). Supervisors see
+all houses in their own picker (no scoping, no button). **Continue screen &
+House Notes remain unchanged** — both still list all in-progress / all houses
+respectively (the owner specifically requested this). SW cache bumped to
+`route-checklist-v6`. **Not yet pushed** — owner reviews.
+
+**Interfaces added:**
+- `window.cloud`: `getRoutes()` / `saveRoute()` / `setHouseRoute()` / 
+  `getMyHouses()`.
+- Migration `0007_tech_routes.sql`: `routes` table, `houses.route_id`,
+  `visit_routes` audit; RLS routes by tech + supervisor read-all.
+- App: Routes screen (new routes, assign tech, drag houses on); tech picker
+  route-scoped with Show-all; supervisor picker unscoped. Graceful fallback
+  ("run migration 0007") before the DB is ready.
+
+**End-to-end verification (owner participation — needs 0007 + at least one
+tech account):** See the full checklist in the plan's Task 6, Step 3.
+
+## STATE AS OF 2026-07-11 (existing) — technical detail
+
+**Outside → House Van split (committed & pushed, `f8a656e`).** The owner
+confirmed the app renders correctly on both laptop web and the phone PWA, then
+asked for a small content reorg:
+
+- `mech-furnace-filter` text simplified from `"Change furnace filter (4" ≈ 90
+  days, 1" ≈ 30 days)"` to just `"Change furnace filter"`. The per-house
+  `furnaceFilter` note (e.g. Dogwood's "20x25x20") is untouched and still
+  renders — only the generic parenthetical was removed.
+- New **"House Van"** section added to Shared Spaces, right after Outside and
+  before Generator, with 5 items: `van-drive-vehicle` ("Drive house vehicle —
+  notify RS of maintenance issues", moved from Outside), `van-qstraint-tracks`
+  ("Clean Q-Straint tracks", split out of an old combined item),
+  `van-fire-extinguisher` ("Check fire extinguisher", **new**, `dateTracked:
+  true`), `van-qstraint-rust` ("Check Q-Straints for rust or damage", new),
+  `van-straps` ("Check lap belts, shoulder straps, chest straps", new).
+- `out-drive-vehicle` and `out-qstraint-tracks` removed from Outside; every
+  other Outside item is unchanged and stayed in place (owner was explicit
+  about this — don't touch the rest of Outside).
+- `NOTE_RULES`' fire-extinguisher rule narrowed from `/fire extinguisher/i` to
+  `/fire extinguisher up to date/i` so the shared per-house `fireExtinguishers`
+  note (kitchen/garage/van location text) keeps showing under the Kitchen and
+  Common Area items but does **not** duplicate under the new House Van item.
+- SW cache bumped to `route-checklist-v5`.
+
+**Deliberately deferred:** splitting each house's single `fireExtinguishers`
+note string into three location-specific pieces (Kitchen / Common Area /
+House Van) so each item shows only its own relevant location. The owner asked
+for this, but with ~30 houses of ambiguous free text (e.g. `"(4) locations"`,
+`"(3) Van · west kitchen wall upstairs · under sink in basement apartment"`),
+splitting it accurately means guessing which fragment belongs to which item —
+that violates the "no guessing" rule, so it was explicitly punted rather than
+attempted. **Next session: if picked back up, go house-by-house with the
+owner** rather than auto-splitting; don't just start reformatting
+`house-data.js` notes.
+
+**Debugging note for next time something "doesn't show up" on the phone
+PWA:** the owner reported not seeing a change after a push. Cause was the
+service worker — bumping `CACHE` in `sw.js` isn't enough by itself; the old
+SW keeps controlling an already-open PWA instance until it's fully closed
+(swiped away, not just backgrounded/refreshed) and reopened. Worth checking
+early: (1) is this a `file://`/local view or the hosted/PWA view — a local
+`file://` open would never reflect a `git push` at all; (2) if hosted, has it
+actually been pushed yet (it hadn't been, that one time); (3) full close +
+reopen of the PWA, not just a refresh.
+
 ## STATE AS OF 2026-07-10 — read this first
 
 **Database is complete: all 47 houses are in Supabase** (owner ran the
@@ -188,8 +259,8 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
     fallback — keep both in sync when adding houses.
 - Sections grouped by area: Whole House, Resident Level (Kitchen,
   Bathroom #1, Bathroom #2, Bedrooms), RS Unit (Kitchen, Bathroom),
-  Shared Spaces (Mechanical Room, Common Areas, Outside, Generator,
-  Maintenance Cabinet Stock), Visit Wrap-Up. Each section is
+  Shared Spaces (Mechanical Room, Common Areas, Outside, **House Van**,
+  Generator, Maintenance Cabinet Stock), Visit Wrap-Up. Each section is
   collapsible and shows its own progress count.
 - Two kinds of checklist entries:
   - **Action items** = simple checkboxes (e.g. "Sharpen knives").
