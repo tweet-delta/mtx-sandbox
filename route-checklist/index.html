@@ -1763,18 +1763,28 @@
     return ALL_HOUSES.find(h => h.name.toLowerCase() === name) || null;
   }
 
-  // Every 📍 note this house shows on the checklist, with the item it's under.
+  // Human-readable label for each house.notes key, so House Notes can show
+  // ALL recorded notes — not just the ones that happen to have a matching,
+  // currently-visible checklist item (equipment flags hide items, which used
+  // to silently hide their notes too).
+  const NOTE_KEY_LABELS = {
+    fireExtinguishers: "Fire extinguishers",
+    furnaceFilter: "Furnace filter",
+    fridgeCoils: "Refrigerator coils",
+    waterSoftener: "Water softener",
+    shutoffs: "Gas & water shutoffs",
+    knives: "Sharpen knives",
+    medLock: "Med lock",
+    atticAccess: "Attic access",
+    dryerVents: "Dryer vents",
+  };
+
+  // Every note recorded for this house in house-data.js, shown in full
+  // regardless of whether its checklist item is currently visible.
   function itemNotesHTML(house) {
-    const rows = [];
-    GROUPS.forEach(group => group.sections.forEach(section => {
-      section.items.forEach(item => {
-        const label = itemLabel(item);
-        const texts = NOTE_RULES.filter(r => r.match.test(label))
-          .map(r => r.note && house.notes && house.notes[r.note]).filter(Boolean);
-        if (texts.length) rows.push(
-          `<div class="notes-item"><b>${escHtml(label)}</b>📍 ${escHtml(texts.join(" · "))}</div>`);
-      });
-    }));
+    const rows = Object.entries(house.notes || {})
+      .filter(([, text]) => text)
+      .map(([key, text]) => `<div class="notes-item"><b>${escHtml(NOTE_KEY_LABELS[key] || key)}</b>📍 ${escHtml(text)}</div>`);
     return rows.length ? rows.join("")
       : `<p class="screen-sub">No item notes recorded for this house.</p>`;
   }
