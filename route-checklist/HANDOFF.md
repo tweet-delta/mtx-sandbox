@@ -3,13 +3,20 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
-## STATE AS OF 2026-07-09 — read this first
+## STATE AS OF 2026-07-10 — read this first
 
-**Database is complete: all 29 houses are in Supabase** (owner ran the
-18-house INSERT and confirmed). The permanent SQL record is
-`supabase/migrations/0004_more_houses.sql` (27 inserts; Dogwood/Roselawn
-are seeded by 0001). The temp paste-helper `NEW-18-houses.sql` has been
-deleted.
+**Database is complete: all 47 houses are in Supabase** (owner ran the
+18-house batch and confirmed a `select count(*)` of 47). Two permanent SQL
+records now: `0004_more_houses.sql` (27 inserts; Dogwood/Roselawn seeded by
+0001) and `0005_more_houses.sql` (the 18 new houses added 2026-07-10, plus
+two idempotent UPDATEs fixing rows already in the DB — Cummings shed scrub
+and Ilex garage-key line). Both are re-runnable (`on conflict (name) do
+nothing`).
+
+**Supabase SQL Editor gotcha (cost us a round trip):** Run executes ONLY the
+highlighted text if any is selected. A count came back 29 because only part
+ran — fix was click into the box to clear the selection, then Run the whole
+script.
 
 **Known pitfall that burned us twice:** the owner copies SQL by hand into
 the Supabase dashboard. Twice they copied from VS Code's read-only
@@ -21,27 +28,40 @@ database — tabs are scratchpads; only the box's content matters.
 
 ### Git state
 
-- Branch `claude/claude-code-tutorial-5l5ew2`. As of 2026-07-10 all house
-  work is committed AND pushed (owner approved): commit `aaf7929`
-  (9 houses, med-lock scrub, secret guard, battery checkboxes) plus a
-  follow-up commit adding the remaining 18 houses (29 total in
-  `house-data.js`), `0004_more_houses.sql` at 27 inserts, and this handoff
-  update. Working tree clean. Parse check before committing: headless
-  Chrome, `HOUSES.length` = 29, no duplicate names.
+- Branch `claude/claude-code-tutorial-5l5ew2`. Earlier commits (pushed):
+  `aaf7929` (9 houses, med-lock scrub, secret guard, battery checkboxes) and
+  `75ad4f2` (remaining 18 → 29 total, `0004` at 27 inserts). The 2026-07-10
+  batch commit adds 18 more houses (**47 total** in `house-data.js`),
+  `0005_more_houses.sql`, the Cummings shed scrub in `0004`, and the guard
+  hardening below. Parse check before committing: headless Chrome,
+  `HOUSES.length` = 47, no duplicate names.
 
 ### Security state (owner confirmed 2026-07-09)
 
-- **Dogwood and Roselawn are FAKE samples. All other 27 houses are REAL.**
-  Real door/apt/house/shed/med-lock/alarm/wifi codes live ONLY in the
-  gitignored `house-codes.local.js` — never in tracked files or the DB.
+- **Dogwood and Roselawn are FAKE samples. All other 45 houses are REAL.**
+  Real door/apt/house/shed/med-lock/alarm/wifi codes and hidden-key
+  locations live ONLY in the gitignored `house-codes.local.js` — never in
+  tracked files or the DB.
 - A fake med-lock combo (a brand name + 4 digits, from the Dogwood/Roselawn
   samples) was scrubbed from tracked files; it remains in git history
   knowingly (fake, so no rotation needed). The literal string is not
   repeated here — it trips the pre-commit guard.
+- **⚠ REAL exposure found 2026-07-10 — needs physical rotation.** The
+  Cummings **shed combination** was a real code that had been committed and
+  pushed in tracked files (`house-data.js` + `0004`). It is now scrubbed from
+  tracked files and the DB (via `0005` UPDATE), but **it is still in git
+  history** and this repo is public. **Owner TODO: change the physical shed
+  combination**, then put the new one in `house-codes.local.js` only. Until
+  the physical lock is changed, treat that combo as compromised.
 - **Pre-commit secret guard:** `scripts/pre-commit-secret-guard.sh`,
   installed via `bash scripts/install-hooks.sh` — run that once per clone.
-  Tested: blocks every code shape in use (incl. dash codes like 5-3-1),
-  passes clean files.
+  **Hardened 2026-07-10** after the Cummings combo slipped through: a shared
+  `CODE` fragment now catches space/comma/plus/dash-separated sequences
+  (`01 03 17`, `1, 3, 5`, `2+4 then 3`), and new label patterns (shed, house
+  code, basement, office, downstairs, keyless entry, med cabinet/closet,
+  alarm code) anchor to the label's own quoted value so innocent lines like
+  `["Shed","Yes (no lock needed)"]` don't false-alarm. Self-test: 12/12 bad
+  blocked, 0 innocent flagged.
 - **Supabase auth:** public sign-ups OFF (verified), min password length 8,
   magic-link fallback on. RLS: any signed-in user reads all houses —
   acceptable because accounts are provisioned manually by the supervisor.
@@ -56,6 +76,20 @@ via headless Chrome so quote-escaping is guaranteed (see this session's
 history); (4) verify `house-data.js` parses (headless Chrome,
 `HOUSES.length`), stage + run the guard, confirm no codes in tracked
 files; (5) hand the owner a paste-ready SQL chat block.
+
+When a screenshot is too tall/large to come through chat (chat downsizes
+images past ~2000px, so long house sheets that arrive as two screenshots can
+fail), have the owner drop the PNGs in a folder and read them off disk with
+the Read tool instead — that bypasses the chat size limit. On this machine
+the owner's screenshots land in
+`C:\Users\hfwin\OneDrive\Pictures\Screenshots\`.
+
+New migrations: because 0004 was already applied, the 2026-07-10 batch went
+in a NEW file `0005_more_houses.sql` rather than editing 0004 (never edit an
+applied migration's inserts). Fixes to rows already in the DB are idempotent
+UPDATEs in the new file. Generated the same way — headless Chrome runs
+`scratchpad/gen-0005.html`, which loads `house-data.js` and prints escaped
+SQL.
 
 Conventions: disposal "up yes / down no" → `garbageDisposal: true` + info
 note; `roofCoils` = the roof ice-melt cables item (switch location → info);
@@ -109,13 +143,17 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
     furnace filter size, shutoff locations, med lock type, etc.).
   - Equipment flags set to `false` hide items (sump pump, roof coils,
     garbage disposal, HE washers…) or whole sections (Generator).
-  - Houses so far: **29** — Dogwood + Roselawn (fake samples) plus 27 real
-    houses (140th Lane East/West, 16th Avenue, 92nd Crescent, Amble,
-    Barclay, Bicentennial, Boutwell, Brooks, Co. Rd. B2, Crestridge,
-    Cummings, Dale Court, Dawn, Fallgold, Fox Run Bay, Fulham, Hillcrest,
-    Ilex, James, Lancaster, Larch, Lydia Ave, Lydia West, Magnolia,
-    McAfee, McMenemy), transcribed from the owner's SharePoint house-notes
-    screenshots. The logged-in app loads houses from Supabase
+  - Houses so far: **47** — Dogwood + Roselawn (fake samples) plus 45 real
+    houses transcribed from the owner's SharePoint house-notes screenshots.
+    First 27 (through 2026-07-09): 140th Lane East/West, 16th Avenue, 92nd
+    Crescent, Amble, Barclay, Bicentennial, Boutwell, Brooks, Co. Rd. B2,
+    Crestridge, Cummings, Dale Court, Dawn, Fallgold, Fox Run Bay, Fulham,
+    Hillcrest, Ilex, James, Lancaster, Larch, Lydia Ave, Lydia West,
+    Magnolia, McAfee, McMenemy. Added 2026-07-10: Alta Vista, Jennifer
+    Court, Oakwood, Regent, Riverdale, Robin Ave, Robin Court, Sherwood
+    Place, Skycroft, Sunbury, Tiller Lane, Toledo, Trenton Lane, Valders,
+    Oregon Brooklyn Park (OBP), Redwood, Oregon Golden Valley (OGV),
+    Riverton. The logged-in app loads houses from Supabase
     (`cloud.js` → `applyHouses()`); `house-data.js` is the logged-out
     fallback — keep both in sync when adding houses.
 - Sections grouped by area: Whole House, Resident Level (Kitchen,
