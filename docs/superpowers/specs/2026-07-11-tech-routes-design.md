@@ -131,15 +131,22 @@ what actually enforces supervisor-only writes.
 
 ## Turnover walkthrough (the scenario that shaped this design)
 
-Bob quits; Maria replaces him on Route 2:
+Bob quits; Billy, a brand-new hire who has never used the app and has no
+account yet, takes over Route 2:
 
-1. Supervisor creates Maria's account in the Supabase dashboard (her
-   `profiles` row is created automatically by the existing trigger).
+1. Supervisor creates Billy's account in the Supabase dashboard
+   ("Add user → Create new user", Auto Confirm on). His `profiles` row is
+   created automatically by the existing trigger — so he's assignable
+   in-app immediately, before he has ever logged in.
 2. Supervisor opens the in-app Routes screen, changes Route 2's tech from
-   Bob to Maria. One dropdown.
-3. Supervisor sends Maria the invite e-mail (just credentials — no code).
-4. Maria logs in; her Home screen already shows Route 2's houses.
+   Bob to Billy. One dropdown.
+3. Supervisor sends Billy the invite e-mail (just credentials — no code).
+4. Billy logs in for the first time; his Home screen already shows Route
+   2's houses.
 5. (Cleanup, outside this feature: disable Bob's account in the dashboard.)
+
+The same flow, minus step 1, covers handing a route to an *existing* tech
+(e.g. Route 2 goes to someone already on staff).
 
 ## Out of scope (explicitly deferred)
 
