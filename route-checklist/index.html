@@ -741,7 +741,7 @@
         { key: "mech-shutoffs", q: "Gas & water shutoffs clearly identified?", bad: "no" },
         { key: "mech-water-alarms", text: "Check water alarms (water heater, softener, washer)" },
         { key: "mech-duct-leaks", q: "Any holes / leaks in duct work or stove pipe?", bad: "yes" },
-        { key: "mech-furnace-filter", text: "Change furnace filter (4\" ≈ 90 days, 1\" ≈ 30 days)", dateTracked: true },
+        { key: "mech-furnace-filter", text: "Change furnace filter", dateTracked: true },
         { key: "mech-furnace-dampers", text: "Check furnace dampers for seasonal adjustment" },
         { key: "mech-air-exchanger", text: "Clean air exchanger — clean pre-filters" },
         { key: "mech-water-softener", text: "Check water softener salt level & educate RS" },
@@ -769,8 +769,13 @@
         { key: "out-snow-ice", text: "Clear sidewalks / driveway of snow & ice" },
         { key: "out-roof-coils", q: "Roof coils secure & operational? GFCI switch operational?", bad: "no" },
         { key: "out-snowblower-mower", q: "Snowblower / lawnmower starts properly?", bad: "no" },
-        { key: "out-drive-vehicle", text: "Drive house vehicle — notify RS of maintenance issues" },
-        { key: "out-qstraint-tracks", text: "Clean Q-Straint tracks — check fire extinguisher" },
+      ]},
+      { title: "House Van", items: [
+        { key: "van-drive-vehicle", text: "Drive house vehicle — notify RS of maintenance issues" },
+        { key: "van-qstraint-tracks", text: "Clean Q-Straint tracks" },
+        { key: "van-fire-extinguisher", text: "Check fire extinguisher", dateTracked: true },
+        { key: "van-qstraint-rust", text: "Check Q-Straints for rust or damage" },
+        { key: "van-straps", text: "Check lap belts, shoulder straps, chest straps" },
       ]},
       { title: "Generator", items: [
         { key: "gen-oil-filter", text: "Check oil & filter" },
@@ -906,7 +911,7 @@
   //   note — key into house.notes, shown inline under the item.
   //   flag — key into house.equipment; false hides the item for that house.
   const NOTE_RULES = [
-    { match: /fire extinguisher/i,      note: "fireExtinguishers" },
+    { match: /fire extinguisher up to date/i, note: "fireExtinguishers" },
     { match: /furnace filter/i,         note: "furnaceFilter" },
     { match: /refrigerator coils/i,     note: "fridgeCoils" },
     { match: /water softener/i,         note: "waterSoftener", flag: "waterSoftener" },
