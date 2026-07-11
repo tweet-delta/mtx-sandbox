@@ -5,27 +5,53 @@ session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
 ## STATE AS OF 2026-07-11 (tech routes) — read this first
 
-**Tech routes feature complete & pending migration 0007 (owner must run it).**
-Introduced supervisor **Routes screen** (☰ Houses → Routes): assign techs to
-routes, put houses on routes. Tech's new-visit picker is now **route-scoped**
-(shows only assigned houses) with a **Show all houses…** button to bypass the
-filter (e.g. visiting an off-route house is allowed and works). Supervisors see
-all houses in their own picker (no scoping, no button). **Continue screen &
-House Notes remain unchanged** — both still list all in-progress / all houses
-respectively (the owner specifically requested this). SW cache bumped to
-`route-checklist-v6`. **Not yet pushed** — owner reviews.
+**Tech routes feature built, pushed, and migration 0007 is RUN in Supabase.**
+The `routes` table exists with 4 seeded rows (Route 1–4), all `tech_id` null.
+Branch `claude/claude-code-tutorial-5l5ew2` is pushed to origin — and note that
+**GitHub Pages deploys from THIS branch, not `main`** (confirmed in repo
+Settings → Pages). So pushing the branch updates the live site; no merge to
+`main` is needed. Live URL:
+`https://tweet-delta.github.io/mtx-sandbox/route-checklist/index.html#home`.
 
-**Interfaces added:**
-- `window.cloud`: `getRoutes()` / `saveRoute()` / `setHouseRoute()` / 
-  `getMyHouses()`.
-- Migration `0007_tech_routes.sql`: `routes` table, `houses.route_id`,
-  `visit_routes` audit; RLS routes by tech + supervisor read-all.
-- App: Routes screen (new routes, assign tech, drag houses on); tech picker
-  route-scoped with Show-all; supervisor picker unscoped. Graceful fallback
-  ("run migration 0007") before the DB is ready.
+**What the feature does:**
+- Supervisor **Routes screen** (☰ Houses → 🗺️ Routes, home button gated by
+  `body.is-admin`, which `loadRole()` sets when `role === 'supervisor'`):
+  rename routes, assign a tech to each route (dropdown of `role='tech'`
+  profiles), and put houses on routes (per-house route dropdown).
+- Tech's **new-visit picker is route-scoped** — shows only their route's
+  houses, with a **Show all houses…** button to bypass the filter for
+  off-route / float-day visits (full read/write, not browse-only).
+- Supervisors' picker is **unscoped** (no route → they see all houses, no
+  button). **Continue screen & House Notes are unchanged** — both still list
+  all in-progress visits / all houses (owner specifically wanted this).
+- SW cache bumped to `route-checklist-v6`.
 
-**End-to-end verification (owner participation — needs 0007 + at least one
-tech account):** See the full checklist in the plan's Task 6, Step 3.
+**Interfaces added (actual names — earlier draft of this file was wrong):**
+- `cloud.js` admin API on `window.cloud`: `listRoutes()`, `listTechs()`,
+  `saveRoute(routeId, {name, techId})`, `setHouseRoute(houseId, routeId|null)`,
+  `listHousesForRoutes()`.
+- Route scoping is **pushed** from cloud.js: after loadRole → loadHouses →
+  `loadMyRoute()`, it calls `window.applyMyHouses(Set|null)`. `null` = show all
+  (signed out, supervisor, migration missing, or query failed); empty Set =
+  route exists but no houses. `isMissingTable()`/`isMissingColumn()` give
+  graceful pre-0007 fallback.
+- Migration `0007_tech_routes.sql`: `routes` table (id, name unique, tech_id →
+  profiles, created_at) + `houses.route_id` column + RLS (all authenticated
+  read routes; supervisor-only write) + 4 seed routes. **No `visit_routes`
+  audit table** (an earlier draft of this file wrongly listed one).
+
+**Turnover = one dropdown:** point a route at a new tech in the Routes screen;
+all that route's houses follow. New hire: create their account in the Supabase
+dashboard (Auto Confirm ON — their `profiles` row auto-creates as `tech` via
+the `handle_new_user` trigger in 0001), then assign the route in-app.
+
+**NOT YET verified end-to-end.** Owner (a supervisor) has migration run + a
+tech account (`tech1@example.com`, email confirmed via SQL). Next session:
+sign in as supervisor on the live site, hard-refresh (Ctrl+Shift+R, may take
+two refreshes for the v6 service worker to take over), confirm 🗺️ Routes
+button appears, assign tech1 to a route + a few houses, then sign in as tech1
+and confirm the picker scopes to those houses and Show-all reveals the rest.
+Full checklist in `docs/superpowers/plans/2026-07-11-tech-routes.md` Task 6.
 
 ## STATE AS OF 2026-07-11 (existing) — technical detail
 
