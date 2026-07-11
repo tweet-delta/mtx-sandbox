@@ -491,6 +491,45 @@
   .list-btn:hover { border-color: var(--accent); }
   .list-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .screen-sub { font-size: 0.88rem; color: var(--muted); margin: 0 0 14px; }
+
+  /* ---- House Notes screen ---- */
+  #notesSearch {
+    font: inherit; font-size: 16px; /* 16px stops iOS zoom-on-focus */
+    width: 100%; padding: 10px 12px; margin-bottom: 10px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--ink);
+  }
+  .notes-sec { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+  .notes-sec h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; }
+  .notes-item { font-size: 0.88rem; padding: 6px 0; border-top: 1px solid #EEF1F4; }
+  .notes-item:first-of-type { border-top: none; }
+  .notes-item b { display: block; font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .gen-notes { font-size: 0.92rem; white-space: pre-wrap; margin: 0; }
+  .gen-notes.empty { color: var(--muted); font-style: italic; }
+  .sug {
+    border: 1px dashed var(--note); background: var(--note-bg);
+    border-radius: 8px; padding: 10px 12px; margin-top: 10px;
+  }
+  .sug-meta { font-size: 0.74rem; font-weight: 700; color: var(--note); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .sug-text { font-size: 0.9rem; white-space: pre-wrap; margin: 0 0 8px; }
+  .sug-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sug-actions button, .notes-actions button {
+    font: inherit; font-size: 0.85rem; font-weight: 600;
+    border-radius: 8px; padding: 9px 14px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    min-height: 44px;
+  }
+  .sug-actions button:focus-visible, .notes-actions button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .btn-primary { background: var(--accent) !important; color: var(--accent-ink) !important; border-color: var(--accent) !important; }
+  .btn-danger { color: var(--bad) !important; border-color: var(--bad) !important; }
+  .notes-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  #notesBody textarea {
+    font: inherit; font-size: 16px; width: 100%; min-height: 120px;
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
+    margin-top: 8px; resize: vertical; background: #FFFDF5;
+  }
+  .notes-msg { font-size: 0.82rem; margin: 6px 0 0; min-height: 1.1em; }
+  .notes-msg.error { color: var(--bad); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -1713,6 +1752,186 @@
     if (confirm(msg)) applyCloudVisit(inProg);
   }
   window.maybeResume = maybeResume;
+
+  // ---- House Notes screen ----
+  // #notes            → house picker
+  // #notes/<name>     → that house's notes (name is encodeURIComponent'd)
+  function notesHouseFromHash() {
+    const m = location.hash.match(/^#notes\/(.+)$/);
+    if (!m) return null;
+    const name = decodeURIComponent(m[1]).trim().toLowerCase();
+    return ALL_HOUSES.find(h => h.name.toLowerCase() === name) || null;
+  }
+
+  // Every 📍 note this house shows on the checklist, with the item it's under.
+  function itemNotesHTML(house) {
+    const rows = [];
+    GROUPS.forEach(group => group.sections.forEach(section => {
+      section.items.forEach(item => {
+        const label = itemLabel(item);
+        const texts = NOTE_RULES.filter(r => r.match.test(label))
+          .map(r => r.note && house.notes && house.notes[r.note]).filter(Boolean);
+        if (texts.length) rows.push(
+          `<div class="notes-item"><b>${escHtml(label)}</b>📍 ${escHtml(texts.join(" · "))}</div>`);
+      });
+    }));
+    return rows.length ? rows.join("")
+      : `<p class="screen-sub">No item notes recorded for this house.</p>`;
+  }
+
+  function houseInfoNotesHTML(house) {
+    const rows = [];
+    (ALL_CODES[house.name] || []).forEach(([label, val]) =>
+      rows.push(`<div class="notes-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
+    (house.info || []).forEach(([label, val]) =>
+      rows.push(`<div class="notes-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
+    return rows.length ? rows.join("")
+      : `<p class="screen-sub">No house info recorded.</p>`;
+  }
+
+  let notesEditorOpen = false;   // reset on each house render
+  async function renderNotesScreen() {
+    const body = document.getElementById("notesBody");
+    const house = notesHouseFromHash();
+    if (!house) {
+      // House picker (same look as the visit picker, notes-specific buttons).
+      body.innerHTML = `
+        <input type="search" id="notesSearch" placeholder="Type the house name…" aria-label="Search houses">
+        <div id="notesPickList">${notesPickListHTML("")}</div>`;
+      return;
+    }
+    notesEditorOpen = false;
+    body.innerHTML = `
+      <div class="screen-head" style="margin-top:0"><h1 style="font-size:1rem">${escHtml(house.name)}</h1></div>
+      <div class="notes-sec"><h2>House info</h2>${houseInfoNotesHTML(house)}</div>
+      <div class="notes-sec"><h2>Checklist item notes</h2>${itemNotesHTML(house)}</div>
+      <div class="notes-sec" id="genNotesSec"><h2>General notes</h2>
+        <p class="screen-sub">Loading…</p></div>`;
+    if (!window.cloud) {
+      document.getElementById("genNotesSec").innerHTML =
+        `<h2>General notes</h2><p class="screen-sub">Cloud isn't loaded — general notes need a connection.</p>`;
+      return;
+    }
+    const res = await window.cloud.getHouseNotes(house.name);
+    // The hash may have changed while we awaited; don't paint a stale house.
+    if (notesHouseFromHash()?.name !== house.name) return;
+    const sec = document.getElementById("genNotesSec");
+    if (!sec) return;
+    if (res.error || res.notReady) {
+      sec.innerHTML = `<h2>General notes</h2><p class="screen-sub">${res.notReady
+        ? "General notes aren't set up in the database yet (migration 0006)."
+        : "Couldn't load general notes — " + escHtml(res.error)}</p>`;
+      return;
+    }
+    sec.innerHTML = genNotesHTML(house, res);
+  }
+
+  function notesPickListHTML(filter) {
+    const f = (filter || "").trim().toLowerCase();
+    const matches = ALL_HOUSES.filter(h => !f || h.name.toLowerCase().includes(f));
+    if (!matches.length) return `<p class="pick-none">No house matches "${escHtml(filter)}".</p>`;
+    return matches.map(h =>
+      `<button type="button" class="list-btn" data-notes-house="${escAttr(h.name)}">${escHtml(h.name)}</button>`).join("");
+  }
+
+  function genNotesHTML(house, res) {
+    const isAdmin = window.cloud && window.cloud.role === "supervisor";
+    const noteHtml = res.generalNotes
+      ? `<p class="gen-notes">${escHtml(res.generalNotes)}</p>`
+      : `<p class="gen-notes empty">No general notes yet.</p>`;
+    const sugs = res.suggestions.map(s => `
+      <div class="sug" data-sug-id="${escAttr(s.id)}">
+        <div class="sug-meta">Awaiting approval — ${escHtml(s.authorName)}${s.createdAt ? " · " + fmtDate(s.createdAt.slice(0, 10)) : ""}</div>
+        <p class="sug-text">${escHtml(s.text)}</p>
+        <div class="sug-actions">
+          ${isAdmin ? `<button type="button" class="btn-primary" data-sug-approve="${escAttr(s.id)}">Approve</button>
+                       <button type="button" data-sug-dismiss="${escAttr(s.id)}">Dismiss</button>` : ""}
+          ${s.mine ? `<button type="button" class="btn-danger" data-sug-withdraw="${escAttr(s.id)}">Withdraw my suggestion</button>` : ""}
+        </div>
+      </div>`).join("");
+    const editor = notesEditorOpen ? `
+      <textarea id="notesEditor" aria-label="${isAdmin ? "Edit general notes" : "Suggest an update to the general notes"}">${escHtml(res.generalNotes)}</textarea>
+      <div class="notes-actions">
+        <button type="button" class="btn-primary" data-notes-submit="${escAttr(house.name)}">${isAdmin ? "Save notes" : "Submit suggestion"}</button>
+        <button type="button" data-notes-cancel>Cancel</button>
+      </div>` : `
+      <div class="notes-actions">
+        <button type="button" data-notes-edit>${isAdmin ? "✎ Edit notes" : "✎ Suggest an update"}</button>
+      </div>`;
+    return `<h2>General notes</h2>${noteHtml}${sugs}${editor}
+      <p class="notes-msg" id="notesMsg" role="status"></p>`;
+  }
+
+  document.getElementById("notesBody").addEventListener("input", e => {
+    if (e.target.id === "notesSearch") {
+      document.getElementById("notesPickList").innerHTML = notesPickListHTML(e.target.value);
+    }
+  });
+  document.getElementById("notesBody").addEventListener("click", async e => {
+    const pick = e.target.closest("[data-notes-house]");
+    if (pick) { location.hash = "#notes/" + encodeURIComponent(pick.dataset.notesHouse); return; }
+    if (e.target.closest("[data-notes-edit]")) { notesEditorOpen = true; refreshGenNotes(); return; }
+    if (e.target.closest("[data-notes-cancel]")) { notesEditorOpen = false; refreshGenNotes(); return; }
+    const submit = e.target.closest("[data-notes-submit]");
+    if (submit) { await submitNotes(submit.dataset.notesSubmit, submit); return; }
+    const approve = e.target.closest("[data-sug-approve]");
+    if (approve) { await sugAction(() => window.cloud.approveSuggestion(approve.dataset.sugApprove), "Approved — the note is updated.", approve); return; }
+    const dismiss = e.target.closest("[data-sug-dismiss]");
+    if (dismiss) { await sugAction(() => window.cloud.dismissSuggestion(dismiss.dataset.sugDismiss), "Suggestion dismissed.", dismiss); return; }
+    const withdraw = e.target.closest("[data-sug-withdraw]");
+    if (withdraw) { await sugAction(() => window.cloud.withdrawSuggestion(withdraw.dataset.sugWithdraw), "Suggestion withdrawn.", withdraw); return; }
+  });
+
+  // Re-render ONLY the general-notes section (keeps scroll position). On any
+  // failure we do NOT re-render, so a tech's typed text is never wiped.
+  async function refreshGenNotes() {
+    const house = notesHouseFromHash();
+    if (!house || !window.cloud) return;
+    const res = await window.cloud.getHouseNotes(house.name);
+    const sec = document.getElementById("genNotesSec");
+    if (!sec || notesHouseFromHash()?.name !== house.name) return;
+    if (res.error || res.notReady) {
+      const msg = document.getElementById("notesMsg");
+      if (msg) { msg.textContent = res.error || "Notes aren't set up in the database yet."; msg.className = "notes-msg error"; }
+      return;   // keep whatever's on screen (incl. the tech's typed text)
+    }
+    sec.innerHTML = genNotesHTML(house, res);
+  }
+
+  async function submitNotes(houseName, btn) {
+    const ta = document.getElementById("notesEditor");
+    const msg = document.getElementById("notesMsg");
+    const text = ta.value;   // deliberate: allow clearing a note to empty
+    const isAdmin = window.cloud && window.cloud.role === "supervisor";
+    if (!isAdmin && !text.trim()) {
+      msg.textContent = "Type your suggested note first."; msg.className = "notes-msg error"; return;
+    }
+    btn.disabled = true;
+    msg.textContent = isAdmin ? "Saving…" : "Submitting…"; msg.className = "notes-msg";
+    try {
+      const res = isAdmin
+        ? await window.cloud.saveGeneralNotes(houseName, text)
+        : await window.cloud.suggestNote(houseName, text, loadName());
+      if (res.error) {   // keep the textarea + its content so nothing is lost
+        msg.textContent = "Couldn't save — " + res.error; msg.className = "notes-msg error";
+        return;
+      }
+      notesEditorOpen = false;
+      toast(isAdmin ? "✓ Notes saved." : "✓ Suggestion submitted for approval.", "ok");
+      await refreshGenNotes();
+    } finally { btn.disabled = false; }
+  }
+
+  async function sugAction(fn, okText, btn) {
+    const msg = document.getElementById("notesMsg");
+    btn.disabled = true;
+    try {
+      const res = await fn();
+      if (res.error) { msg.textContent = res.error; msg.className = "notes-msg error"; return; }
+      toast("✓ " + okText, "ok");
+      await refreshGenNotes();
+    } finally { btn.disabled = false; }
+  }
 
   // ---- Screens & hash router ----
   // The hash is the single source of truth for which screen shows, so the
