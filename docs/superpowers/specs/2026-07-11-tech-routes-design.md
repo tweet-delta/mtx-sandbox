@@ -118,9 +118,19 @@ what actually enforces supervisor-only writes.
 
 ### `cloud.js` additions
 
-- `cloud.listMyHouses()` — houses on the route(s) whose `tech_id` = current
-  user.
-- `cloud.listAllHouses()` — existing full-list load (reuse, don't duplicate).
+- **Route scoping is pushed, not pulled:** after loading houses + role,
+  `cloud.js` computes the caller's route house-set and calls
+  `window.applyMyHouses(setOrNull)` — the same pattern as the existing
+  `window.applyHouses`. `null` means "no route info" (signed out, migration
+  not applied, query failed, **or the caller is a supervisor**) and the app
+  shows every house, exactly as today. An **empty Set** is meaningful: route
+  info exists but nothing is assigned → the picker says so.
+- **Supervisors' pickers are unscoped** — they have no route, so scoping
+  would just cost them a tap. Decided during planning.
+- **The Continue screen needs no filtering** — it already lists only the
+  tech's OWN in-progress visits (scoped by `tech_id` in the DB). An
+  off-route visit they started via "Show all houses" must stay resumable,
+  so filtering it by route would be wrong.
 - `cloud.listRoutes()` — all routes with their assigned tech.
 - `cloud.listTechs()` — profiles where `role = 'tech'`. Note: the current
   `profiles_select` RLS lets a tech read only their own row, so the
@@ -128,6 +138,9 @@ what actually enforces supervisor-only writes.
   loosening the policy.
 - `cloud.saveRoute(routeId, { name, techId })` — supervisor-only write.
 - `cloud.setHouseRoute(houseId, routeId | null)` — supervisor-only write.
+- `cloud.listHousesForRoutes()` — `{id, name, routeId}` per house from the
+  already-loaded cache (the Routes screen needs IDs; the app only knows
+  names).
 
 ## Turnover walkthrough (the scenario that shaped this design)
 
