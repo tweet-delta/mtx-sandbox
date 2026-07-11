@@ -368,8 +368,19 @@
     padding: 14px; overflow-y: auto;
     box-shadow: 0 0 30px rgba(20, 30, 40, 0.2);
   }
-  #sidebar h2 { font-size: 0.95rem; margin: 0 0 10px; display: flex; align-items: center; }
-  #sidebar .modal-x { margin-left: auto; }
+  #sidebar h2 { font-size: 0.95rem; margin: 0 0 10px; display: flex; align-items: center; gap: 4px; }
+  /* Spread the search and close buttons to opposite ends so they can't be
+     tapped by accident; the centered title fills the space between them. */
+  .sidebar-title { flex: 1; text-align: center; }
+  .sidebar-search-toggle {
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    font-size: 1.05rem; line-height: 1;
+    min-width: 44px; min-height: 44px; padding: 4px 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sidebar-search-toggle:hover { color: var(--ink); }
+  .sidebar-search-toggle[aria-expanded="true"] { color: var(--ink); }
+  #sidebar .modal-x { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
   #houseSearch {
     font: inherit; font-size: 0.9rem; width: 100%;
     border: 1px solid var(--line); border-radius: 6px;
@@ -651,8 +662,12 @@
 
 <div id="sideBackdrop" hidden></div>
 <aside id="sidebar" hidden aria-label="House picker">
-  <h2>Houses <button type="button" class="modal-x" id="sidebarClose" aria-label="Close">✕</button></h2>
-  <input type="search" id="houseSearch" placeholder="Search houses…" aria-label="Search houses">
+  <h2>
+    <button type="button" class="sidebar-search-toggle" id="houseSearchToggle" aria-label="Search houses" aria-expanded="false">🔍</button>
+    <span class="sidebar-title">Houses</span>
+    <button type="button" class="modal-x" id="sidebarClose" aria-label="Close">✕</button>
+  </h2>
+  <input type="search" id="houseSearch" placeholder="Search houses…" aria-label="Search houses" hidden>
   <div id="houseList"></div>
   <div id="houseInfo"></div>
   <div id="account">
@@ -1709,16 +1724,39 @@
   }
 
   function openSidebar() {
+    // Always open with search collapsed and cleared, so the list starts at full
+    // height and no stale filter from a previous open is silently applied.
+    const search = document.getElementById("houseSearch");
+    search.value = "";
+    search.hidden = true;
+    document.getElementById("houseSearchToggle").setAttribute("aria-expanded", "false");
     renderHouseList();
     renderHouseInfo();
     sidebar.hidden = false;
     sideBackdrop.hidden = false;
-    document.getElementById("houseSearch").focus();
   }
   function closeSidebar() { sidebar.hidden = true; sideBackdrop.hidden = true; }
 
+  // The search box starts hidden so the house list gets full height. Tapping
+  // 🔍 reveals it and focuses it; tapping again hides it AND clears the filter
+  // so the full list returns (a hidden-but-active filter would be confusing).
+  function toggleHouseSearch() {
+    const search = document.getElementById("houseSearch");
+    const toggle = document.getElementById("houseSearchToggle");
+    const show = search.hidden;
+    search.hidden = !show;
+    toggle.setAttribute("aria-expanded", String(show));
+    if (show) {
+      search.focus();
+    } else {
+      search.value = "";
+      renderHouseList();
+    }
+  }
+
   document.getElementById("menuBtn").addEventListener("click", openSidebar);
   document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
+  document.getElementById("houseSearchToggle").addEventListener("click", toggleHouseSearch);
   sideBackdrop.addEventListener("click", closeSidebar);
   document.getElementById("houseSearch").addEventListener("input", renderHouseList);
   document.getElementById("houseList").addEventListener("click", e => {
