@@ -1779,24 +1779,19 @@
     dryerVents: "Dryer vents",
   };
 
-  // Every note recorded for this house in house-data.js, shown in full
-  // regardless of whether its checklist item is currently visible.
-  function itemNotesHTML(house) {
-    const rows = Object.entries(house.notes || {})
-      .filter(([, text]) => text)
-      .map(([key, text]) => `<div class="notes-item"><b>${escHtml(NOTE_KEY_LABELS[key] || key)}</b>📍 ${escHtml(text)}</div>`);
-    return rows.length ? rows.join("")
-      : `<p class="screen-sub">No item notes recorded for this house.</p>`;
-  }
-
-  function houseInfoNotesHTML(house) {
+  // Every recorded detail for this house — codes, house info, AND checklist
+  // item notes — as one flat list, regardless of whether a checklist item is
+  // currently visible for it.
+  function allHouseDetailsHTML(house) {
     const rows = [];
     (ALL_CODES[house.name] || []).forEach(([label, val]) =>
       rows.push(`<div class="notes-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
     (house.info || []).forEach(([label, val]) =>
       rows.push(`<div class="notes-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
+    Object.entries(house.notes || {}).filter(([, text]) => text).forEach(([key, text]) =>
+      rows.push(`<div class="notes-item"><b>${escHtml(NOTE_KEY_LABELS[key] || key)}</b>${escHtml(text)}</div>`));
     return rows.length ? rows.join("")
-      : `<p class="screen-sub">No house info recorded.</p>`;
+      : `<p class="screen-sub">No notes recorded for this house.</p>`;
   }
 
   let notesEditorOpen = false;   // reset on each house render
@@ -1813,8 +1808,7 @@
     notesEditorOpen = false;
     body.innerHTML = `
       <div class="screen-head" style="margin-top:0"><h1 style="font-size:1rem">${escHtml(house.name)}</h1></div>
-      <div class="notes-sec"><h2>House info</h2>${houseInfoNotesHTML(house)}</div>
-      <div class="notes-sec"><h2>Checklist item notes</h2>${itemNotesHTML(house)}</div>
+      <div class="notes-sec"><h2>House notes</h2>${allHouseDetailsHTML(house)}</div>
       <div class="notes-sec" id="genNotesSec"><h2>General notes</h2>
         <p class="screen-sub">Loading…</p></div>`;
     if (!window.cloud) {
