@@ -1,4 +1,4 @@
-// cloud.js — the "cloud layer": login + loading data from Supabase.
+﻿// cloud.js â€” the "cloud layer": login + loading data from Supabase.
 //
 // Runs as a MODULE so it can import the official Supabase client from a CDN.
 // It talks to the checklist app (index.html) through the login-gate elements
@@ -38,15 +38,23 @@ function showGate(locked) {
 
 // Pull the roster from the database and hand it to the checklist app. On any
 // error we keep the local fallback houses, so the app still works.
-// We keep the DB ids here (name → row) so saveVisit/lastDone below can turn
+// We keep the DB ids here (name â†’ row) so saveVisit/lastDone below can turn
 // a house NAME (all the app knows) into the house_id the database needs.
 const housesByName = new Map();
 async function loadHouses() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("houses")
-    .select("id, name, equipment, notes, info")
+    .select("id, name, equipment, notes, info, route_id")
     .eq("active", true)
     .order("name");
+  // Before migration 0007, route_id doesn't exist â€” load without it.
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase
+      .from("houses")
+      .select("id, name, equipment, notes, info")
+      .eq("active", true)
+      .order("name"));
+  }
   if (error) { console.error("Could not load houses:", error.message); return; }
   housesByName.clear();
   data.forEach(h => housesByName.set(h.name.trim().toLowerCase(), h));
@@ -65,11 +73,34 @@ async function loadRole() {
   document.body.classList.toggle("is-admin", window.cloud.role === "supervisor");
 }
 
+// Which houses are on the signed-in tech's route(s)? Hands the app a Set of
+// lowercase house names via window.applyMyHouses. null = "no route info" â€”
+// the app then shows every house (signed out, migration 0007 not applied,
+// query failed, or a supervisor, whose pickers are deliberately unscoped).
+// Must run AFTER loadHouses (reads housesByName) and loadRole (reads role).
+async function loadMyRoute() {
+  const apply = s => { if (window.applyMyHouses) window.applyMyHouses(s); };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || window.cloud.role === "supervisor") { apply(null); return; }
+  const { data, error } = await supabase
+    .from("routes").select("id").eq("tech_id", user.id);
+  if (error) {
+    if (!isMissingTable(error)) console.error("Could not load routes:", error.message);
+    apply(null); return;
+  }
+  const myRouteIds = new Set(data.map(r => r.id));
+  const mine = new Set();
+  housesByName.forEach((h, key) => {
+    if (h.route_id && myRouteIds.has(h.route_id)) mine.add(key);
+  });
+  apply(mine);   // empty Set is meaningful: "route info exists, none assigned"
+}
+
 // ---- Visit history (the app calls these via window.cloud) ----
 
 // Save a visit: one `visits` row + one `visit_items` row per answered item.
-//   status "in_progress" → the Save progress button (resume later/elsewhere).
-//   status "completed"   → the survey's Save & Send (the finalize).
+//   status "in_progress" â†’ the Save progress button (resume later/elsewhere).
+//   status "completed"   â†’ the survey's Save & Send (the finalize).
 // Passing the same `existingId` back in (the app keeps it in local state as
 // cloudVisitId) makes a re-save UPDATE that visit instead of duplicating it.
 async function saveVisit(v, status = "completed") {
@@ -122,8 +153,15 @@ function isMissingColumn(error) {
     /could not find the '.*' column|schema cache/i.test(error.message || ""));
 }
 
+// True when a query failed because a table from a not-yet-applied migration
+// (e.g. routes, migration 0007) isn't in the PostgREST schema cache.
+function isMissingTable(error) {
+  return !!error && (error.code === "PGRST205" || error.code === "42P01" ||
+    /could not find the table|relation .* does not exist/i.test(error.message || ""));
+}
+
 // The signed-in tech's most recent IN-PROGRESS visit at this house, if any, in
-// the app's local-state shape — so Save progress can be resumed on any device.
+// the app's local-state shape â€” so Save progress can be resumed on any device.
 async function loadInProgress(houseName) {
   const house = housesByName.get((houseName || "").trim().toLowerCase());
   if (!house) return null;
@@ -183,7 +221,7 @@ async function listInProgress() {
 // For each date-tracked item key, find the most recent COMPLETED visit at this
 // house where it was done, and return the date it was done on (the recorded
 // done_on if the tech entered one, else the visit date).
-// Returns { itemKey: "YYYY-MM-DD", … }. Any failure returns {} — the app then
+// Returns { itemKey: "YYYY-MM-DD", â€¦ }. Any failure returns {} â€” the app then
 // shows no badge rather than a wrong one.
 async function lastDone(houseName, itemKeys) {
   const house = housesByName.get((houseName || "").trim().toLowerCase());
@@ -193,7 +231,7 @@ async function lastDone(houseName, itemKeys) {
     .select("visit_date, visit_items(item_key, done, done_on)")
     .eq("house_id", house.id).eq("status", "completed")
     .order("visit_date", { ascending: false }).limit(40);
-  // Before migration 0003, done_on doesn't exist — fall back to the visit date.
+  // Before migration 0003, done_on doesn't exist â€” fall back to the visit date.
   if (error && isMissingColumn(error)) {
     ({ data, error } = await supabase
       .from("visits")
@@ -223,7 +261,7 @@ async function getHouseNotes(houseName) {
   if (!house) return { error: `"${houseName}" isn't a house in the database.` };
   const { data, error } = await supabase
     .from("houses").select("general_notes").eq("id", house.id).single();
-  // Migration 0006 not applied yet → tell the UI, don't fake an empty note.
+  // Migration 0006 not applied yet â†’ tell the UI, don't fake an empty note.
   if (error) {
     return isMissingColumn(error) ? { notReady: true } : { error: error.message };
   }
@@ -286,9 +324,56 @@ async function saveGeneralNotes(houseName, text) {
   return error ? { error: error.message } : { ok: true };
 }
 
+// ---- Routes admin (the supervisor Routes screen) ----
+// The UI hides this screen from techs, but RLS (routes_write / houses_write,
+// supervisor-only) is what actually enforces it.
+
+async function listRoutes() {
+  const { data, error } = await supabase
+    .from("routes").select("id, name, tech_id").order("name");
+  // notReady → migration 0007 hasn't been run; the screen says so.
+  if (error) return { error: error.message, notReady: isMissingTable(error) };
+  return { routes: data };
+}
+
+// Assignable people = tech-role profiles only (per spec; supervisors excluded).
+// full_name can be '' if it was never set — the screen shows a fallback label.
+async function listTechs() {
+  const { data, error } = await supabase
+    .from("profiles").select("id, full_name").eq("role", "tech").order("full_name");
+  if (error) return { error: error.message };
+  return { techs: data };
+}
+
+// One call covers both rename and tech (re)assignment — the turnover action.
+async function saveRoute(routeId, { name, techId }) {
+  const { error } = await supabase.from("routes")
+    .update({ name: (name || "").trim(), tech_id: techId || null }).eq("id", routeId);
+  return error ? { error: error.message } : { ok: true };
+}
+
+async function setHouseRoute(houseId, routeId) {
+  const { error } = await supabase.from("houses")
+    .update({ route_id: routeId || null }).eq("id", houseId);
+  if (error) return { error: error.message };
+  // Keep the local cache truthful so a re-render shows the new value without
+  // a full reload.
+  housesByName.forEach(h => { if (h.id === houseId) h.route_id = routeId || null; });
+  return { ok: true };
+}
+
+// The Routes screen needs house IDs; the checklist app only knows names.
+// Serve the already-loaded rows rather than re-querying.
+function listHousesForRoutes() {
+  return [...housesByName.values()]
+    .map(h => ({ id: h.id, name: h.name, routeId: h.route_id || null }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getHouseNotes, suggestNote, withdrawSuggestion,
                  approveSuggestion, dismissSuggestion, saveGeneralNotes,
+                 listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  role: null };
 
 // Primary sign-in: email + password.
@@ -297,7 +382,7 @@ form.addEventListener("submit", async (event) => {
   const email = emailInput.value.trim();
   const password = pwInput.value;
   if (!email || !password) { setMsg(authMsg, "Enter your email and password.", "error"); return; }
-  setMsg(authMsg, "Signing in…");
+  setMsg(authMsg, "Signing inâ€¦");
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) setMsg(authMsg, error.message, "error");
   // On success, onAuthStateChange (below) hides the gate and loads houses.
@@ -307,7 +392,7 @@ form.addEventListener("submit", async (event) => {
 magicBtn.addEventListener("click", async () => {
   const email = emailInput.value.trim();
   if (!email) { setMsg(authMsg, "Type your email above first, then click this.", "error"); return; }
-  setMsg(authMsg, "Sending link…");
+  setMsg(authMsg, "Sending linkâ€¦");
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: window.location.origin + window.location.pathname },
@@ -320,10 +405,10 @@ magicBtn.addEventListener("click", async () => {
 setPwBtn?.addEventListener("click", async () => {
   const password = newPwInput.value;
   if (!password || password.length < 6) { setMsg(pwMsg, "Use at least 6 characters.", "error"); return; }
-  setMsg(pwMsg, "Saving…");
+  setMsg(pwMsg, "Savingâ€¦");
   const { error } = await supabase.auth.updateUser({ password });
   if (error) { setMsg(pwMsg, error.message, "error"); return; }
-  setMsg(pwMsg, "Saved — sign in with this password next time.", "ok");
+  setMsg(pwMsg, "Saved â€” sign in with this password next time.", "ok");
   newPwInput.value = "";
 });
 
@@ -335,11 +420,17 @@ supabase.auth.onAuthStateChange((_event, session) => {
   if (session) {
     showGate(false);
     if (whoami) whoami.textContent = session.user.email;
-    setTimeout(() => { loadHouses(); loadRole(); }, 0); // DB work OUTSIDE the auth callback
+    setTimeout(async () => {   // DB work OUTSIDE the auth callback
+      await loadRole();        // loadMyRoute needs role + houses loaded first
+      await loadHouses();
+      await loadMyRoute();
+    }, 0);
   } else {
     showGate(true);
     if (whoami) whoami.textContent = "";
     if (window.cloud) window.cloud.role = null;
     document.body.classList.remove("is-admin");
+    if (window.applyMyHouses) window.applyMyHouses(null);
   }
 });
+
