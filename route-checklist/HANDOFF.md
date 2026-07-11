@@ -3,7 +3,37 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
-## STATE AS OF 2026-07-11 (tech routes) — read this first
+## STATE AS OF 2026-07-11 (Houses menu: collapsible search) — read this first
+
+**Small mobile UX fix, committed & pushed (`d021c9f`).** The ☰ Houses
+sidebar's search box was always visible, eating a fixed strip of height at
+the top and making the 47-house list cramped to scroll on a phone (owner's
+complaint). Fixed:
+
+- Search `<input id="houseSearch">` now starts **hidden** — the list gets
+  full height by default.
+- New **🔍 toggle button** (`#houseSearchToggle`) reveals the box and focuses
+  it; tapping again hides it AND clears the filter (`toggleHouseSearch()`), so
+  the full list always comes back. `openSidebar()` also resets to
+  hidden+cleared on every open, so no stale filter survives a close/reopen.
+- Header is now a 3-item flex row: **🔍 far left · "Houses" centered · ✕ far
+  right**, both buttons 44×44px min tap targets so they can't be hit by
+  accident (owner explicitly asked for the spread). 🔍 carries
+  `aria-expanded` for screen readers.
+- **The filter logic itself is unchanged** — only *when* the box shows and
+  *where* the buttons sit. `renderHouseList()` untouched.
+- **No SW cache bump** — deliberate. Owner confirmed **no techs have the app
+  yet**, so there's no stale cached copy in the field to force past. Bump the
+  cache (currently `route-checklist-v6`) on the *next* change that ships once
+  techs are actually using it.
+
+Verified interactively via a standalone Artifact preview (the real markup +
+CSS + toggle JS, minus the login gate) — owner tapped it on their phone and
+approved. Not driven through the full logged-in app (couldn't headless-drive
+past Supabase auth on this box; no Node/Playwright locally, owner works
+through GitHub Pages). Behavior is pure DOM toggle, low risk.
+
+## STATE AS OF 2026-07-11 (tech routes)
 
 **Tech routes feature built, pushed, and migration 0007 is RUN in Supabase.**
 The `routes` table exists with 4 seeded rows (Route 1–4), all `tech_id` null.
@@ -262,9 +292,11 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
 
 - Sticky header: **Your name** (persists across visits), House, visit
   date, plus a progress bar.
-- **☰ Houses sidebar**: searchable house picker + "House info" panel
-  (paint location, attic access, door codes if the local codes file is
-  present). Picking a house tailors the checklist (see below).
+- **☰ Houses sidebar**: house picker + "House info" panel (paint location,
+  attic access, door codes if the local codes file is present). Search is
+  **collapsed behind a 🔍 toggle** in the header (see the 2026-07-11 state
+  section) — the list shows full-height by default. Picking a house tailors
+  the checklist (see below).
 - **Per-house tailoring** (data in `house-data.js`):
   - 📍 inline notes under matching items (fire extinguisher locations,
     furnace filter size, shutoff locations, med lock type, etc.).
