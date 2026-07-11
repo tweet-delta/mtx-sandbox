@@ -621,6 +621,8 @@
     <small>Pick up where you left off</small></button>
   <button type="button" class="home-btn" id="homeNotes">📝 House notes
     <small>Info, item notes &amp; general notes per house</small></button>
+  <button type="button" class="home-btn admin-only" id="homeRoutes">🗺️ Routes
+    <small>Assign techs &amp; houses to routes</small></button>
 </div>
 
 <div id="continueScreen" class="screen" aria-label="Continue a visit">
@@ -637,6 +639,14 @@
     <h1>House notes</h1>
   </div>
   <div id="notesBody"></div>
+</div>
+
+<div id="routesScreen" class="screen" aria-label="Routes">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>Routes</h1>
+  </div>
+  <div id="routesBody"></div>
 </div>
 
 <div id="sideBackdrop" hidden></div>
@@ -2004,12 +2014,14 @@
     if (h.startsWith("#visit")) return "visit";
     if (h.startsWith("#notes")) return "notes";
     if (h.startsWith("#continue")) return "continue";
+    if (h.startsWith("#routes")) return "routes";
     return "home";
   }
   function showScreen() {
     const scr = currentScreenFromHash();
     document.body.dataset.screen = scr;
     if (scr === "continue") renderContinue();
+    if (scr === "routes") renderRoutesScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2034,6 +2046,9 @@
   });
   document.getElementById("homeNotes").addEventListener("click", () => {
     location.hash = "#notes";
+  });
+  document.getElementById("homeRoutes").addEventListener("click", () => {
+    location.hash = "#routes";
   });
 
   // ---- Continue screen ----
@@ -2079,6 +2094,78 @@
     // selectHouse owns the "don't wipe unsaved work" confirm; it also offers
     // the cloud resume itself (maybeResume) once the house is active.
     if (selectHouse(houseName)) location.hash = "#visit";
+  });
+
+  // ---- Routes screen (supervisor) ----
+  // Top: each route's name + which tech runs it (the one-dropdown turnover).
+  // Bottom: which route each house is on. UI-gated to supervisors; RLS is the
+  // real enforcement, so a tech who forces the hash just gets failed writes.
+  async function renderRoutesScreen() {
+    const body = document.getElementById("routesBody");
+    if (!window.cloud || window.cloud.role !== "supervisor") {
+      body.innerHTML = `<p class="screen-sub">This screen is for supervisors.</p>`;
+      return;
+    }
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const [routesRes, techsRes] = await Promise.all([
+      window.cloud.listRoutes(), window.cloud.listTechs(),
+    ]);
+    if (currentScreenFromHash() !== "routes") return;   // navigated away meanwhile
+    if (routesRes.error) {
+      body.innerHTML = `<p class="screen-sub">${routesRes.notReady
+        ? "Routes aren't set up in the database yet — run migration 0007 in the dashboard."
+        : "Couldn't load routes — " + escHtml(routesRes.error)}</p>`;
+      return;
+    }
+    const routes = routesRes.routes;
+    const techs = techsRes.techs || [];
+    const techName = t => t.full_name || "(name not set — fill full_name in profiles)";
+    const routeRows = routes.map(r => `
+      <div class="route-row" data-route-id="${escAttr(r.id)}">
+        <input type="text" value="${escAttr(r.name)}" aria-label="Route name">
+        <select aria-label="Tech assigned to ${escAttr(r.name)}">
+          <option value="">— no tech —</option>
+          ${techs.map(t => `<option value="${escAttr(t.id)}"${t.id === r.tech_id ? " selected" : ""}>${escHtml(techName(t))}</option>`).join("")}
+        </select>
+        <button type="button" data-route-save>Save</button>
+      </div>`).join("");
+    const routeOpts = h => `<option value="">— no route —</option>` +
+      routes.map(r => `<option value="${escAttr(r.id)}"${r.id === h.routeId ? " selected" : ""}>${escHtml(r.name)}</option>`).join("");
+    const houseRows = window.cloud.listHousesForRoutes().map(h => `
+      <div class="house-route-row"><b>${escHtml(h.name)}</b>
+        <select data-house-route="${escAttr(h.id)}" aria-label="Route for ${escAttr(h.name)}">${routeOpts(h)}</select>
+      </div>`).join("");
+    body.innerHTML = `
+      <div class="notes-sec"><h2>Routes &amp; techs</h2>
+        <p class="screen-sub">Turnover = change a route's tech and Save. Houses follow the route.</p>
+        ${routeRows}
+        ${techsRes.error ? `<p class="screen-sub">Couldn't load techs — ${escHtml(techsRes.error)}</p>` : ""}</div>
+      <div class="notes-sec"><h2>Houses on each route</h2>
+        <p class="screen-sub">Changes save immediately.</p>${houseRows}</div>`;
+  }
+
+  document.getElementById("routesBody").addEventListener("click", async e => {
+    const btn = e.target.closest("[data-route-save]");
+    if (!btn) return;
+    const row = btn.closest("[data-route-id]");
+    const name = row.querySelector("input").value.trim();
+    if (!name) { toast("Route name can't be empty.", "error"); return; }
+    btn.disabled = true;
+    const res = await window.cloud.saveRoute(row.dataset.routeId,
+      { name, techId: row.querySelector("select").value || null });
+    btn.disabled = false;
+    if (res.error) { toast("Couldn't save — " + res.error, "error"); return; }
+    toast("✓ Route saved.", "ok");
+  });
+
+  document.getElementById("routesBody").addEventListener("change", async e => {
+    const sel = e.target.closest("[data-house-route]");
+    if (!sel) return;
+    sel.disabled = true;
+    const res = await window.cloud.setHouseRoute(sel.dataset.houseRoute, sel.value || null);
+    sel.disabled = false;
+    if (res.error) { toast("Couldn't save — " + res.error, "error"); return; }
+    toast("✓ Saved.", "ok");
   });
 
   if (!location.hash) history.replaceState(null, "", "#home");
