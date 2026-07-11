@@ -26,6 +26,36 @@ code block** or point them at a **real file**, and tell them to verify the
 first line before Run. Also: every SQL-editor tab runs against the same
 database — tabs are scratchpads; only the box's content matters.
 
+### New app features (2026-07-10): home screen, house notes, collapsed sections
+
+Spec: `docs/superpowers/specs/2026-07-10-home-screen-house-notes-design.md`;
+plan: `docs/superpowers/plans/2026-07-10-home-screen-house-notes.md`.
+
+- **Sections start collapsed** everywhere (the `open` attr was removed from
+  rendered `<details>`, incl. Alarm Counts).
+- **Screens + hash router** inside index.html: `#home` (post-login landing:
+  New house visit / Continue house visit / House notes), `#visit` (the
+  checklist), `#continue`, `#notes` / `#notes/<house>`. The phone back button
+  moves between screens; finishing a survey returns Home. `← Home` buttons in
+  every non-home header.
+- **Continue screen** merges the local buffer with the tech's cloud
+  `in_progress` visits (`cloud.listInProgress()`), de-duplicated via
+  `cloudVisitId`; resuming a cloud visit routes through `selectHouse()` +
+  `maybeResume()` so nothing is silently wiped.
+- **House Notes screen**: read-only house info + 📍 item notes, plus
+  `houses.general_notes` with a suggest→approve flow (`house_note_suggestions`
+  table). Techs suggest / withdraw their own pending; supervisors edit
+  directly, approve (atomic `approve_note_suggestion()` RPC) or dismiss.
+  Reviewed rows are kept as audit history. All in migration
+  **`0006_house_notes.sql`** — **owner must run it in the dashboard** and
+  promote their account to supervisor (one-line update, see 0001's footer);
+  until then the notes UI shows a "not set up yet" message (graceful).
+- `window.cloud` additions: `role` (null | 'tech' | 'supervisor'; also toggles
+  `body.is-admin`), `listInProgress`, `getHouseNotes`, `suggestNote`,
+  `withdrawSuggestion`, `approveSuggestion`, `dismissSuggestion`,
+  `saveGeneralNotes`.
+- SW cache bumped to `route-checklist-v4`. **Not pushed** — owner reviews first.
+
 ### Git state
 
 - Branch `claude/claude-code-tutorial-5l5ew2`. Earlier commits (pushed):
@@ -264,9 +294,9 @@ alarm counts, and fills out the end-of-visit survey in a popup window.
 
 ## Owner requests captured but NOT built yet (as of 2026-07-07)
 
-- **Start flow:** a page before the checklist — who you are → what you want
-  (checklist / requests / house notes) → checklist. "Requests" and "house
-  notes" are undefined features; ask the owner before designing.
+- ~~**Start flow**~~ → BUILT 2026-07-10 (Home screen + House Notes; see the
+  state section above). "Requests" remains an undefined future feature — ask
+  the owner before designing it.
 - **Walk-order restructure:** the owner says the current order (All Areas
   first, then rooms) makes a tech "run around a lot"; wants the checklist to
   follow the order techs actually walk a house. Waiting on the owner to
