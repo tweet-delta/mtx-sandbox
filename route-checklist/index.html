@@ -453,6 +453,44 @@
   .pw-msg { display: block; font-size: 0.78rem; margin-top: 4px; }
   .pw-msg.ok { color: var(--done); }
   .pw-msg.error { color: var(--bad); }
+
+  /* ---- Screens (Home / Visit / Continue / Notes) ---- */
+  /* The checklist is the "visit" screen: its wrapper + bottom bar only show there. */
+  body:not([data-screen="visit"]) .wrapper,
+  body:not([data-screen="visit"]) .report-bar { display: none; }
+  .screen { max-width: 680px; margin: 0 auto; padding: 16px 14px 40px; }
+  body:not([data-screen="home"])     #homeScreen,
+  body:not([data-screen="continue"]) #continueScreen,
+  body:not([data-screen="notes"])    #notesScreen { display: none; }
+
+  .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
+  .screen-head h1 { font-size: 1.05rem; margin: 0; }
+
+  /* Home menu: three big thumb targets */
+  .home-btn {
+    display: block; width: 100%; text-align: left;
+    font: inherit; font-size: 1.05rem; font-weight: 700;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 16px; margin-bottom: 12px; cursor: pointer;
+    min-height: 64px;
+  }
+  .home-btn small { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-top: 3px; }
+  .home-btn:hover { border-color: var(--accent); }
+  .home-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* Continue-visit / notes-house list entries */
+  .list-btn {
+    display: block; width: 100%; text-align: left;
+    font: inherit; font-size: 0.95rem; font-weight: 600;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 13px 12px; margin-bottom: 8px; cursor: pointer;
+  }
+  .list-btn small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  .list-btn:hover { border-color: var(--accent); }
+  .list-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .screen-sub { font-size: 0.88rem; color: var(--muted); margin: 0 0 14px; }
 </style>
 </head>
 <body>
@@ -476,6 +514,7 @@
 <div class="wrapper">
   <div class="visit">
     <div class="titlerow">
+      <button type="button" class="menu-btn" data-nav-home aria-label="Back to home">← Home</button>
       <button id="menuBtn" class="menu-btn" aria-label="Pick house">☰ Houses</button>
       <h1>Maintenance House Visit</h1>
     </div>
@@ -510,6 +549,32 @@
 <div class="report-bar">
   <button id="saveProgress">Save progress</button>
   <button id="openSurvey">Visit survey</button>
+</div>
+
+<div id="homeScreen" class="screen" aria-label="Home">
+  <div class="screen-head"><h1>Maintenance House Visit</h1></div>
+  <button type="button" class="home-btn" id="homeNewVisit">🏠 New house visit
+    <small>Pick a house and start the checklist</small></button>
+  <button type="button" class="home-btn" id="homeContinue">▶ Continue house visit
+    <small>Pick up where you left off</small></button>
+  <button type="button" class="home-btn" id="homeNotes">📝 House notes
+    <small>Info, item notes &amp; general notes per house</small></button>
+</div>
+
+<div id="continueScreen" class="screen" aria-label="Continue a visit">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>Continue a visit</h1>
+  </div>
+  <div id="continueList"></div>
+</div>
+
+<div id="notesScreen" class="screen" aria-label="House notes">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>House notes</h1>
+  </div>
+  <div id="notesBody"></div>
 </div>
 
 <div id="sideBackdrop" hidden></div>
@@ -929,7 +994,7 @@
     const house = currentHouse();
     let html = "";
     // No house picked yet → type-to-find picker (scales to 40+ houses).
-    if (!house && !pickerDismissed) {
+    if ((!house && !pickerDismissed) || forceShowPicker) {
       html += `<div class="pick-house">
         <h2>Which house are you at?</h2>
         <input type="search" id="pickSearch" placeholder="Type the house name…" aria-label="Search houses">
@@ -1493,6 +1558,7 @@
         surveyModal.close();
         save(blank());
         rebuild();
+        goHome();
         toast(res.degraded
           ? "✓ Visit saved. (Dates/temps sync once the DB update is applied.)"
           : "✓ Visit saved — ready for the next house.", "ok");
@@ -1564,6 +1630,7 @@
   // first so we never silently wipe a tech's in-progress work. Then offer to
   // resume that house's saved cloud visit, if any.
   function selectHouse(name) {
+    forceShowPicker = false;   // the tech answered the "which house?" picker
     const s = load();
     const curName = (s.house || "").trim().toLowerCase();
     const newName = (name || "").trim().toLowerCase();
@@ -1646,6 +1713,94 @@
     if (confirm(msg)) applyCloudVisit(inProg);
   }
   window.maybeResume = maybeResume;
+
+  // ---- Screens & hash router ----
+  // The hash is the single source of truth for which screen shows, so the
+  // phone's back button moves between screens instead of leaving the app.
+  //   #home  #visit  #continue  #notes  #notes/<house name>
+  function currentScreenFromHash() {
+    const h = location.hash;
+    if (h.startsWith("#visit")) return "visit";
+    if (h.startsWith("#notes")) return "notes";
+    if (h.startsWith("#continue")) return "continue";
+    return "home";
+  }
+  function showScreen() {
+    const scr = currentScreenFromHash();
+    document.body.dataset.screen = scr;
+    if (scr === "continue") renderContinue();
+    if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
+  }
+  function goHome() { location.hash = "#home"; }
+  window.addEventListener("hashchange", showScreen);
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-nav-home]")) goHome();
+  });
+
+  // Home buttons. "New" forces the up-front picker even if a house is already
+  // on screen; actually SWITCHING houses still goes through selectHouse()'s
+  // confirm, so in-progress work is never silently wiped.
+  let forceShowPicker = false;
+  document.getElementById("homeNewVisit").addEventListener("click", () => {
+    forceShowPicker = true;
+    pickerDismissed = false;
+    location.hash = "#visit";
+    rebuild();
+  });
+  document.getElementById("homeContinue").addEventListener("click", () => {
+    location.hash = "#continue";
+  });
+  document.getElementById("homeNotes").addEventListener("click", () => {
+    location.hash = "#notes";
+  });
+
+  // ---- Continue screen ----
+  async function renderContinue() {
+    const box = document.getElementById("continueList");
+    const s = load();
+    const rows = [];
+    // Work sitting on THIS device (may or may not also be saved to the cloud).
+    if ((s.house || "").trim() && Object.keys(s.items || {}).length) {
+      const n = Object.keys(s.items).length;
+      rows.push(`<button type="button" class="list-btn" data-resume-local="1">
+        ${escHtml(s.house)} <small>On this device · ${n} item${n === 1 ? "" : "s"} filled in${s.date ? " · " + fmtDate(s.date) : ""}</small></button>`);
+    }
+    box.innerHTML = rows.join("") + `<p class="screen-sub">Checking the cloud…</p>`;
+    let cloudRows = null;
+    if (window.cloud) cloudRows = await window.cloud.listInProgress();
+    let cloudHtml = "";
+    if (cloudRows === null) {
+      cloudHtml = `<p class="screen-sub">Couldn't reach the cloud — showing this device only.</p>`;
+    } else {
+      const localId = s.cloudVisitId || null;
+      cloudRows
+        .filter(v => v.visitId !== localId)   // already listed as the local row
+        .forEach(v => {
+          cloudHtml += `<button type="button" class="list-btn" data-resume-cloud="${escAttr(v.houseName)}">
+            ${escHtml(v.houseName)} <small>Saved to cloud · ${v.itemCount} item${v.itemCount === 1 ? "" : "s"}${v.date ? " · " + fmtDate(v.date) : ""}</small></button>`;
+        });
+    }
+    if (!rows.length && !cloudHtml.includes("list-btn")) {
+      cloudHtml += `<p class="screen-sub">Nothing in progress.</p>
+        <button type="button" class="home-btn" id="continueStartNew">🏠 Start a new house visit</button>`;
+    }
+    box.innerHTML = rows.join("") + cloudHtml;
+    const startNew = document.getElementById("continueStartNew");
+    if (startNew) startNew.addEventListener("click", () =>
+      document.getElementById("homeNewVisit").click());
+  }
+  document.getElementById("continueList").addEventListener("click", async e => {
+    if (e.target.closest("[data-resume-local]")) { location.hash = "#visit"; return; }
+    const cloudBtn = e.target.closest("[data-resume-cloud]");
+    if (!cloudBtn) return;
+    const houseName = cloudBtn.dataset.resumeCloud;
+    // selectHouse owns the "don't wipe unsaved work" confirm; it also offers
+    // the cloud resume itself (maybeResume) once the house is active.
+    if (selectHouse(houseName)) location.hash = "#visit";
+  });
+
+  if (!location.hash) history.replaceState(null, "", "#home");
+  showScreen();
 
   rebuild();
 
