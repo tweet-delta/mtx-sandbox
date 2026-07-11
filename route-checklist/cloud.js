@@ -53,6 +53,18 @@ async function loadHouses() {
   if (window.applyHouses) window.applyHouses(data);
 }
 
+// ---- Who am I? (role gates the admin controls; RLS is the real enforcement) ----
+async function loadRole() {
+  window.cloud.role = null;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data, error } = await supabase
+    .from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (error) { console.error("Could not load role:", error.message); return; }
+  window.cloud.role = data?.role || "tech";
+  document.body.classList.toggle("is-admin", window.cloud.role === "supervisor");
+}
+
 // ---- Visit history (the app calls these via window.cloud) ----
 
 // Save a visit: one `visits` row + one `visit_items` row per answered item.
@@ -148,6 +160,26 @@ async function loadInProgress(houseName) {
            counts: data.counts || {}, survey: data.survey || {}, items };
 }
 
+// Every in-progress visit belonging to the signed-in tech, for the Continue
+// screen. Returns null (not []) when the cloud can't be reached, so the UI
+// can say so instead of claiming "nothing in progress".
+async function listInProgress() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data, error } = await supabase
+    .from("visits")
+    .select("id, visit_date, houses(name), visit_items(count)")
+    .eq("tech_id", user.id).eq("status", "in_progress")
+    .order("started_at", { ascending: false });
+  if (error) { console.error("Could not list visits:", error.message); return null; }
+  return data.map(v => ({
+    visitId: v.id,
+    houseName: v.houses?.name || "",
+    date: v.visit_date,
+    itemCount: v.visit_items?.[0]?.count ?? 0,
+  }));
+}
+
 // For each date-tracked item key, find the most recent COMPLETED visit at this
 // house where it was done, and return the date it was done on (the recorded
 // done_on if the tech entered one, else the visit date).
@@ -181,7 +213,83 @@ async function lastDone(houseName, itemKeys) {
   return out;
 }
 
-window.cloud = { saveVisit, loadInProgress, lastDone };
+// ---- House notes: official freeform note + tech suggestions ----
+// The official note lives in houses.general_notes; a tech's proposed
+// replacement is a house_note_suggestions row. Nothing changes for other
+// techs until a supervisor approves (the atomic RPC below).
+
+async function getHouseNotes(houseName) {
+  const house = housesByName.get((houseName || "").trim().toLowerCase());
+  if (!house) return { error: `"${houseName}" isn't a house in the database.` };
+  const { data, error } = await supabase
+    .from("houses").select("general_notes").eq("id", house.id).single();
+  // Migration 0006 not applied yet → tell the UI, don't fake an empty note.
+  if (error) {
+    return isMissingColumn(error) ? { notReady: true } : { error: error.message };
+  }
+  const { data: sugs, error: e2 } = await supabase
+    .from("house_note_suggestions")
+    .select("id, author_id, author_name, proposed_text, created_at")
+    .eq("house_id", house.id).eq("status", "pending")
+    .order("created_at", { ascending: false });
+  if (e2) return { error: e2.message };
+  const { data: { user } } = await supabase.auth.getUser();
+  return {
+    generalNotes: data.general_notes || "",
+    suggestions: (sugs || []).map(s => ({
+      id: s.id,
+      authorName: s.author_name || "(name not set)",
+      text: s.proposed_text,
+      createdAt: s.created_at,
+      mine: !!user && s.author_id === user.id,
+    })),
+  };
+}
+
+async function suggestNote(houseName, text, authorName) {
+  const house = housesByName.get((houseName || "").trim().toLowerCase());
+  if (!house) return { error: `"${houseName}" isn't a house in the database.` };
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from("house_note_suggestions").insert({
+    house_id: house.id,
+    proposed_text: text,
+    author_name: (authorName || "").trim() || user?.email || "",
+  });
+  return error ? { error: error.message } : { ok: true };
+}
+
+async function withdrawSuggestion(id) {
+  const { error } = await supabase
+    .from("house_note_suggestions").delete().eq("id", id);
+  return error ? { error: error.message } : { ok: true };
+}
+
+async function approveSuggestion(id) {
+  const { error } = await supabase.rpc("approve_note_suggestion", { suggestion_id: id });
+  return error ? { error: error.message } : { ok: true };
+}
+
+async function dismissSuggestion(id) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from("house_note_suggestions")
+    .update({ status: "dismissed", reviewed_by: user?.id || null,
+              reviewed_at: new Date().toISOString() })
+    .eq("id", id).eq("status", "pending");
+  return error ? { error: error.message } : { ok: true };
+}
+
+async function saveGeneralNotes(houseName, text) {
+  const house = housesByName.get((houseName || "").trim().toLowerCase());
+  if (!house) return { error: `"${houseName}" isn't a house in the database.` };
+  const { error } = await supabase
+    .from("houses").update({ general_notes: text }).eq("id", house.id);
+  return error ? { error: error.message } : { ok: true };
+}
+
+window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
+                 getHouseNotes, suggestNote, withdrawSuggestion,
+                 approveSuggestion, dismissSuggestion, saveGeneralNotes,
+                 role: null };
 
 // Primary sign-in: email + password.
 form.addEventListener("submit", async (event) => {
@@ -227,9 +335,11 @@ supabase.auth.onAuthStateChange((_event, session) => {
   if (session) {
     showGate(false);
     if (whoami) whoami.textContent = session.user.email;
-    setTimeout(loadHouses, 0); // do DB work OUTSIDE the auth callback
+    setTimeout(() => { loadHouses(); loadRole(); }, 0); // DB work OUTSIDE the auth callback
   } else {
     showGate(true);
     if (whoami) whoami.textContent = "";
+    if (window.cloud) window.cloud.role = null;
+    document.body.classList.remove("is-admin");
   }
 });
