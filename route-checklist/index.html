@@ -1883,6 +1883,7 @@
     const house = currentHouse();
     if (house && await fieldFormClick(e, house.name, loadChecklistNotes, (btn) => {
       const wrap = btn ? btn.closest("[data-hn-key]") : null;
+      document.querySelectorAll("#app [data-hn-slot] .field-form").forEach(f => f.remove());
       paintHouseNoteSugs();   // restores the slot's suggestion blocks
       if (wrap) wrap.querySelector("[data-hn-edit]")?.focus();
     })) return;
