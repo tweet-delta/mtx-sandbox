@@ -3,6 +3,20 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
+## STATE AS OF 2026-07-12 (Emmert house added — 48 houses)
+
+Emmert added via the established house-adding pipeline (see that section):
+entry appended to `house-data.js` (**48 total**, parse check passed — 48
+unique names, renders in the picker); all five codes (house security, garage,
+med lock Stealth, closet code, front-closet programming code) went to
+`house-codes.local.js` ONLY — verified absent from tracked files (guard +
+grep). Vendor contact (Electrical Watchmen, Ben's number) is in the tracked
+info panel by owner decision — business contact, not resident data. Migration
+`0010_emmert_house.sql` generated headless from the parsed entry and applied
+with `supabase db push` (migration list: local = remote through 0010; row
+readable only when signed in, so the owner's live spot-check is the last
+mile). SW cache bumped v10 → v11 so devices refresh the roster.
+
 ## STATE AS OF 2026-07-12 (House-note suggestions: tech propose / supervisor review) — read this first
 
 **Feature built across migration 0008 + cloud.js + UI, pushed as part of this
