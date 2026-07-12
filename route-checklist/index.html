@@ -1255,13 +1255,27 @@
           const id = item.key;
           const label = itemLabel(item);
           const safeLabel = label.replace(/"/g, "&quot;");
-          // House tailoring: skip items for missing equipment; collect notes.
+          // House tailoring: skip items for missing equipment; render one 📍
+          // line per note key, each with its own ✎ and a slot that
+          // paintHouseNoteSugs() later fills with pending/denied blocks.
           let houseNote = "";
           if (house) {
             const rules = NOTE_RULES.filter(r => r.match.test(label));
             if (rules.some(r => r.flag && house.equipment && house.equipment[r.flag] === false)) return;
-            const texts = rules.map(r => r.note && house.notes && house.notes[r.note]).filter(Boolean);
-            if (texts.length) houseNote = `<div class="house-note">📍 ${texts.join(" · ").replace(/</g, "&lt;")}</div>`;
+            rules.filter(r => r.note).forEach(r => {
+              const key = r.note;
+              const text = (house.notes && house.notes[key]) || "";
+              const keyLabel = (NOTE_KEY_LABELS[key] || key).replace(/"/g, "&quot;");
+              if (text) {
+                houseNote += `<div class="house-note" data-hn-key="${key}">📍 ${text.replace(/</g, "&lt;")}
+                  ${window.cloud ? `<button type="button" class="hn-edit" data-hn-edit="${key}" aria-label="Edit or suggest a fix to the ${keyLabel} note"><span aria-hidden="true">✎</span></button>` : ""}
+                  <span data-hn-slot="${key}"></span></div>`;
+              } else if (window.cloud) {
+                houseNote += `<div class="house-note hn-empty" data-hn-key="${key}">
+                  <button type="button" class="hn-add" data-hn-edit="${key}">+ add note (${keyLabel})</button>
+                  <span data-hn-slot="${key}"></span></div>`;
+              }
+            });
           }
           // Date-tracked jobs get a badge slot; paintDue() fills it from history
           // and any date entered this visit.
@@ -1811,7 +1825,56 @@
 
   // Rebuild the checklist (used when the selected house changes, since house
   // tailoring affects which items render). State is preserved via localStorage.
-  function rebuild() { build(); hydrate(); refreshDueInfo(); }
+  function rebuild() { build(); hydrate(); refreshDueInfo(); loadChecklistNotes(); }
+
+  // Pending suggestions / denial notices for the checklist's 📍 notes.
+  // build() renders empty <span data-hn-slot> slots synchronously; this pair
+  // fetches the data and fills them in place (no full rebuild → no lost state).
+  let CHECKLIST_NOTES = null;   // getHouseNotes result for the current house
+  function paintHouseNoteSugs() {
+    document.querySelectorAll("#app [data-hn-slot]").forEach(slot => {
+      const key = slot.dataset.hnSlot;
+      if (!CHECKLIST_NOTES) { slot.innerHTML = ""; return; }
+      const sugs = CHECKLIST_NOTES.suggestions.filter(s => s.target === "item" && s.noteKey === key);
+      const dens = (CHECKLIST_NOTES.denials || []).filter(d => d.target === "item" && d.noteKey === key);
+      slot.innerHTML = sugs.map(s => sugBlockHTML(s)).join("") + dens.map(denialBlockHTML).join("");
+    });
+  }
+  async function loadChecklistNotes() {
+    CHECKLIST_NOTES = null;
+    paintHouseNoteSugs();   // clear stale blocks immediately
+    const house = currentHouse();
+    if (!house || !window.cloud || !window.cloud.getHouseNotes) return;
+    const res = await window.cloud.getHouseNotes(house.name);
+    if (currentHouse()?.name !== house.name) return;   // house changed mid-await
+    if (res.error || res.notReady) return;   // inline blocks are an enhancement;
+                                             // the notes screen reports errors
+    CHECKLIST_NOTES = res;
+    paintHouseNoteSugs();
+  }
+
+  // Checklist-inline note editing. Separate listener; the selectors don't
+  // collide with the main document-level checklist handler.
+  document.getElementById("app").addEventListener("click", async e => {
+    const edit = e.target.closest("[data-hn-edit]");
+    if (edit) {
+      const key = edit.dataset.hnEdit;
+      const house = currentHouse();
+      if (!house || !window.cloud) return;
+      const slot = edit.closest("[data-hn-key]").querySelector("[data-hn-slot]");
+      slot.innerHTML = fieldEditorHTML("item", key, NOTE_KEY_LABELS[key] || key,
+        (house.notes && house.notes[key]) || "");
+      slot.querySelector(".field-text")?.focus();
+      return;
+    }
+    const house = currentHouse();
+    if (house && await fieldFormClick(e, house.name, loadChecklistNotes, (btn) => {
+      const wrap = btn ? btn.closest("[data-hn-key]") : null;
+      paintHouseNoteSugs();   // restores the slot's suggestion blocks
+      if (wrap) wrap.querySelector("[data-hn-edit]")?.focus();
+    })) return;
+    if (window.cloud && await sugClickActions(e, loadChecklistNotes)) return;
+  });
 
   function renderHouseList() {
     const filter = document.getElementById("houseSearch").value.trim().toLowerCase();
