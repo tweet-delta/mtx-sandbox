@@ -28,7 +28,9 @@ kind of house they're in.
 
 ## How it ships
 
-- Migration `0010_level_labels.sql`: one `jsonb_set` per affected note key —
+- Migration `0011_level_labels.sql` (0010 is taken by the Emmert house,
+  added in a parallel session and already applied): one `jsonb_set` per
+  affected note key —
   only the notes listed below change; nothing else on any house row is
   touched. Applied with `supabase db push`.
 - The same wording changes go into `route-checklist/house-data.js` (offline
@@ -247,9 +249,9 @@ RS-on-top houses are marked ⚠️ — check those extra carefully.
 
 ### Unchanged houses
 
-16th Avenue, Alta Vista, Brooks, Cummings, Fox Run Bay, Fulham, James,
-Larch, Robin Court, Skycroft, Sunbury, Trenton Lane — their notes either
-name the unit already, describe locations, or cover both levels.
+16th Avenue, Alta Vista, Brooks, Cummings, Emmert, Fox Run Bay, Fulham,
+James, Larch, Robin Court, Skycroft, Sunbury, Trenton Lane — their notes
+either name the unit already, describe locations, or cover both levels.
 
 ## Verification
 
