@@ -17,6 +17,24 @@ with `supabase db push` (migration list: local = remote through 0010; row
 readable only when signed in, so the owner's live spot-check is the last
 mile). SW cache bumped v10 → v11 so devices refresh the roster.
 
+**Level-specific note labels (migration 0011, pushed & applied).** The
+per-item house notes that used single-level "Up/Upstairs/Down/Downstairs"
+labels were rewritten to `Residents (up):` / `RS (down):` form — flipped at
+the five RS-on-top houses (92nd Crescent, Amble, McAfee, Sherwood Place; and
+Fallgold, which uses the three-level `Residents (1st)` / `RS (2nd)` /
+`Basement (shared)`). Migration `0011_level_labels.sql` merges the new strings
+into `houses.notes` (jsonb `||`, one idempotent UPDATE per house, only the
+listed keys change) and was applied with `supabase db push`; because notes
+come from Supabase, the DB change is live immediately regardless of the deploy.
+`house-data.js` was synced with the identical strings (the offline fallback),
+and SW cache bumped v11 → v12 so devices refresh the roster. The House info
+panel (`houses.info`) was intentionally **not** touched — those "Up/Down"
+uses live in a different field and are a possible follow-up. Full,
+owner-approved before→after table:
+`docs/superpowers/specs/2026-07-12-level-label-notes-design.md`. **Owner's
+live spot-check is pending** — sign in and open 140th Lane West (fridge coils),
+McAfee (dryer vents flipped), and Fallgold (three-level labels) to confirm.
+
 ## STATE AS OF 2026-07-12 (House-note suggestions: tech propose / supervisor review) — read this first
 
 **Feature built across migration 0008 + cloud.js + UI, pushed as part of this
