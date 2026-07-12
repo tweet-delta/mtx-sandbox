@@ -17,7 +17,6 @@ const pwInput    = document.getElementById("loginPassword");
 const magicBtn   = document.getElementById("magicLinkBtn");
 const authMsg    = document.getElementById("authMsg");
 const whoami     = document.getElementById("whoami");
-const signOutBtn = document.getElementById("signOutBtn");
 const newPwInput = document.getElementById("newPassword");
 const setPwBtn   = document.getElementById("setPasswordBtn");
 const pwMsg      = document.getElementById("pwMsg");
@@ -412,7 +411,9 @@ setPwBtn?.addEventListener("click", async () => {
   newPwInput.value = "";
 });
 
-signOutBtn?.addEventListener("click", () => supabase.auth.signOut());
+// Every sign-out button (houses sidebar + home screen) shares this one handler.
+document.querySelectorAll("[data-sign-out]").forEach(btn =>
+  btn.addEventListener("click", () => supabase.auth.signOut()));
 
 // Single source of truth for auth. Fires on page load (INITIAL_SESSION), after
 // a successful sign-in, and on sign-out.
