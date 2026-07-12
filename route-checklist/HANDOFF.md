@@ -3,6 +3,77 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
+## STATE AS OF 2026-07-12 (House-note suggestions: tech propose / supervisor review) — read this first
+
+**Feature built across migration 0008 + cloud.js + UI, pushed as part of this
+commit (SW bumped `route-checklist-v7` → `v8`).** Techs can now propose
+changes to house notes and info instead of editing them directly; supervisors
+review and approve/deny. GitHub Pages deploys from this branch, so this push
+takes the feature live at
+`https://tweet-delta.github.io/mtx-sandbox/route-checklist/index.html#home`.
+
+**Database (migration `0008_note_suggestions_all_kinds.sql`, PUSHED AND LIVE
+in Supabase):**
+- `house_note_suggestions` gained `target`, `note_key`, `action`,
+  `deny_reason`, `seen_by_author` columns.
+- `approve_note_suggestion(uuid)` was replaced — now target-aware: `general`
+  writes `general_notes`, `item` writes the key into `houses.notes` jsonb,
+  `info` writes the first label-matching pair in `houses.info`. Uses set
+  semantics; a delete action on a key that's already gone is a no-op that
+  still marks the suggestion approved (so the audit trail is consistent even
+  if the data moved under it).
+- New `deny_note_suggestion(uuid, reason default '')` RPC.
+- New RLS policy `hns_update_author_seen` + trigger `hns_guard_author_update`:
+  an author may update ONLY the `seen_by_author` column on their own already-
+  reviewed rows (so "Dismiss" on a denial notice works without opening write
+  access to anything else).
+
+**`window.cloud` changes:**
+- Added `suggestChange`, `denySuggestion`, `markDenialSeen`, `saveHouseField`,
+  `listPendingSuggestions`, `pendingCount`.
+- Removed `dismissSuggestion` (superseded by `markDenialSeen` /
+  `suggestChange`-based withdraw).
+- `suggestNote` now delegates to `suggestChange` (kept as a thin wrapper so
+  existing call sites didn't need churn).
+- `approveSuggestion` and `saveHouseField` both refresh the houses cache via
+  `loadHouses()` on success, so the UI reflects the new official value
+  immediately without a manual reload.
+- `loadHouses` now also selects `general_notes`.
+- `loadRole` pushes the pending-suggestion count to
+  `window.applyPendingCount` for supervisors (drives the home-screen badge).
+
+**UI:**
+- House Notes screen renders every info pair and item note as an editable
+  "field row" — official value, any pending suggestion, any denial notice.
+  ✎ suggest/edit; "+ Add item note" opens a picker of unfilled
+  `NOTE_KEY_LABELS` keys; "+ Add house info" adds a new label/value pair.
+  Supervisors save/remove directly (enforced server-side by the `houses_write`
+  RLS policy); techs submit suggestions (enforced by RLS + the RPCs' internal
+  role checks). General-notes suggestions now live in the same field-row UI
+  and gained deny-with-reason (previously approve-only).
+- Checklist screen: each item with a note key gets an inline 📍 line with
+  ✎ (edit) or "+ add note", plus pending/denied blocks painted into
+  `[data-hn-slot]` spans by `loadChecklistNotes()`, called from `rebuild()`.
+- New supervisor-only `#pending` screen, reachable from a home-screen button
+  `⏳ Pending changes (N)` carrying the live badge count. Suggestions grouped
+  by house, each showing proposed-vs-current, with inline ✓ (approve) /
+  ✕ (deny-with-reason) actions.
+- Audit trail: reviewed suggestion rows are never deleted, only marked
+  approved/denied. Authors can withdraw their own still-pending rows.
+
+**Known limitation (unchanged, not addressed this round):** `house-data.js`
+remains a stale offline fallback — it does not reflect notes/info changes
+made through this feature. Still fine per HANDOFF precedent; flagged again
+for whenever offline-first (Phase 5) is tackled.
+
+**Verification status:** parse checks (headless Chrome, zero console errors)
+passed after every task in this feature's build; per-task code review passed.
+**The full two-role live-site verification (tech + supervisor driving every
+flow end-to-end on the deployed URL, per this feature's plan) is PENDING** —
+not done in this session, no owner accounts available here. The owner should
+run that pass on the live site after this push finishes deploying (~2 min),
+then note the result here.
+
 ## STATE AS OF 2026-07-12 (Supabase CLI adopted) — read this first
 
 **The hand-paste-SQL-into-the-dashboard era is over.** The Supabase CLI
