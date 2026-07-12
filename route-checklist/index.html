@@ -2228,7 +2228,10 @@
   }
 
   async function sugAction(fn, okText, btn, refresh) {
-    const msg = document.getElementById("notesMsg");
+    // Show errors NEXT TO the control that caused them: the clicked button's
+    // own section's .notes-msg (#notesMsg or #fieldsMsg). No .notes-sec
+    // ancestor (future checklist/queue contexts) → undefined → toast fallback.
+    const msg = btn.closest(".notes-sec")?.querySelector(".notes-msg");
     btn.disabled = true;
     try {
       const res = await fn();
