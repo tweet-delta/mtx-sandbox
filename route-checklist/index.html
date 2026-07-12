@@ -551,6 +551,45 @@
     min-height: 44px;
   }
   .sug-actions button:focus-visible, .notes-actions button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  /* Field rows (editable house notes) + suggestion review controls */
+  .field-edit-btn, .hn-edit {
+    background: none; border: 1px solid var(--line); border-radius: 6px;
+    cursor: pointer; font: inherit; font-size: 0.8rem; padding: 2px 8px;
+    margin-left: 6px; color: var(--muted); min-height: 28px;
+  }
+  .hn-add {
+    background: none; border: 1px dashed var(--line); border-radius: 6px;
+    cursor: pointer; font: inherit; font-size: 0.78rem; color: var(--muted);
+    padding: 2px 8px; min-height: 28px;
+  }
+  .field-edit-btn:focus-visible, .hn-edit:focus-visible, .hn-add:focus-visible {
+    outline: 2px solid var(--ink); outline-offset: 2px;
+  }
+  .field-form { margin-top: 6px; }
+  .field-form textarea, .field-form input, .field-form select {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    margin-bottom: 6px; background: var(--card); color: var(--ink);
+  }
+  .field-form textarea { min-height: 64px; resize: vertical; }
+  .field-form label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 2px; }
+  .sug-current { font-size: 0.78rem; color: var(--muted); margin: 0 0 8px; }
+  .deny-form { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .deny-form input {
+    flex: 1 1 160px; font: inherit; font-size: 16px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .denied {
+    background: #FDF2F2; border: 1px solid #F5C6C6; border-radius: 8px;
+    padding: 8px 10px; margin-top: 6px; font-size: 0.85rem;
+  }
+  .denied .denied-text { display: block; color: var(--muted); font-size: 0.8rem; margin: 2px 0 4px; }
+  .denied button {
+    font: inherit; font-size: 0.78rem; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--card); cursor: pointer; padding: 2px 8px;
+  }
+  .denied button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .no-note { color: var(--muted); font-style: italic; }
   .btn-primary { background: var(--accent) !important; color: var(--accent-ink) !important; border-color: var(--accent) !important; }
   .btn-danger { color: var(--bad) !important; border-color: var(--bad) !important; }
   .notes-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1961,36 +2000,119 @@
     dryerVents: "Dryer vents",
   };
 
-  // Every recorded detail for this house — codes, house info, AND checklist
-  // item notes — as one flat list, regardless of whether a checklist item is
-  // currently visible for it.
-  function allHouseDetailsHTML(house) {
+  // Every editable house fact as a "field row": info pairs + item notes,
+  // PLUS rows for pending suggestions/denials whose key has no official
+  // value yet (a proposed addition still needs somewhere to show).
+  function fieldRowsForHouse(house, res) {
+    const rows = new Map();   // "target key" → row
+    const put = (target, key, text) => {
+      const label = target === "item" ? (NOTE_KEY_LABELS[key] || key) : key;
+      rows.set(target + " " + key, { target, key, label, text });
+    };
+    (house.info || []).forEach(([label, val]) => put("info", label, val));
+    Object.entries(house.notes || {}).filter(([, t]) => t)
+      .forEach(([k, t]) => put("item", k, t));
+    if (res && !res.error && !res.notReady) {
+      res.suggestions.concat(res.denials || []).forEach(s => {
+        if (s.target !== "general" && !rows.has(s.target + " " + s.noteKey))
+          put(s.target, s.noteKey, "");
+      });
+    }
+    return [...rows.values()];
+  }
+
+  // One pending suggestion, with role-appropriate actions. Shared by the
+  // notes screen, the checklist inline notes, and the pending queue.
+  function sugBlockHTML(s, opts) {
+    const isAdmin = window.cloud && window.cloud.role === "supervisor";
+    const what = s.action === "delete"
+      ? `<p class="sug-text no-note">Proposes removing this note</p>`
+      : `<p class="sug-text">${escHtml(s.text)}</p>`;
+    const current = opts && opts.current !== undefined
+      ? `<p class="sug-current">Current: ${opts.current ? escHtml(opts.current) : "(none)"}</p>` : "";
+    return `
+      <div class="sug" data-sug-id="${escAttr(s.id)}">
+        <div class="sug-meta">⏳ Awaiting approval — ${escHtml(s.authorName)}${s.createdAt ? " · " + fmtDate(s.createdAt.slice(0, 10)) : ""}</div>
+        ${what}${current}
+        <div class="sug-actions">
+          ${isAdmin ? `<button type="button" class="btn-primary" data-sug-approve="${escAttr(s.id)}">✓ Approve</button>
+                       <button type="button" data-sug-deny="${escAttr(s.id)}">✕ Deny…</button>` : ""}
+          ${s.mine ? `<button type="button" class="btn-danger" data-sug-withdraw="${escAttr(s.id)}">Withdraw</button>` : ""}
+        </div>
+        <div class="deny-form" data-deny-form="${escAttr(s.id)}" hidden>
+          <input type="text" data-deny-reason="${escAttr(s.id)}" placeholder="Reason — the tech will see this (optional)" aria-label="Reason for denying this suggestion">
+          <button type="button" class="btn-danger" data-deny-confirm="${escAttr(s.id)}">Deny</button>
+          <button type="button" data-deny-cancel="${escAttr(s.id)}">Cancel</button>
+        </div>
+      </div>`;
+  }
+
+  // The author's ❌ notice for a denied suggestion (until they dismiss it).
+  function denialBlockHTML(d) {
+    return `
+      <div class="denied" role="status">
+        ❌ <b>Denied</b>${d.denyReason ? " — " + escHtml(d.denyReason) : ""}
+        <span class="denied-text">Your suggestion: ${d.action === "delete" ? "remove this note" : escHtml(d.text)}</span>
+        <button type="button" data-denied-dismiss="${escAttr(d.id)}">Dismiss</button>
+      </div>`;
+  }
+
+  // One field row: official value + ✎ + its pending/denied blocks.
+  // (The ✎ edit control itself is wired in the next task.)
+  function fieldRowHTML(row, res) {
+    const isAdmin = window.cloud && window.cloud.role === "supervisor";
+    const canCloud = !!(window.cloud && res && !res.error && !res.notReady);
+    const sugs = canCloud ? res.suggestions.filter(s => s.target === row.target && s.noteKey === row.key) : [];
+    const dens = canCloud ? (res.denials || []).filter(d => d.target === row.target && d.noteKey === row.key) : [];
+    const editing = fieldEditor && fieldEditor.mode === "edit"
+      && fieldEditor.target === row.target && fieldEditor.key === row.key;
+    const editBtn = canCloud && !editing
+      ? `<button type="button" class="field-edit-btn" data-field-edit
+           data-target="${escAttr(row.target)}" data-key="${escAttr(row.key)}"
+           aria-label="${isAdmin ? "Edit" : "Suggest a fix to"} the ${escAttr(row.label)} note"><span aria-hidden="true">✎</span></button>`
+      : "";
+    return `<div class="notes-item"><b>${escHtml(row.label)}</b><span>${row.text ? escHtml(row.text) : `<span class="no-note">(no note yet)</span>`}</span>${editBtn}
+      ${editing ? fieldEditorHTML(row.target, row.key, row.label, row.text) : ""}
+      ${sugs.map(s => sugBlockHTML(s)).join("")}
+      ${dens.map(denialBlockHTML).join("")}
+    </div>`;
+  }
+
+  // The whole editable-fields section: door codes (read-only, on-device data)
+  // then every field row, then the add buttons (wired in the next task).
+  function houseFieldsHTML(house, res) {
     const rows = [];
     (ALL_CODES[house.name] || []).forEach(([label, val]) =>
       rows.push(`<div class="notes-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
-    (house.info || []).forEach(([label, val]) =>
-      rows.push(`<div class="notes-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
-    Object.entries(house.notes || {}).filter(([, text]) => text).forEach(([key, text]) =>
-      rows.push(`<div class="notes-item"><b>${escHtml(NOTE_KEY_LABELS[key] || key)}</b>${escHtml(text)}</div>`));
-    return rows.length ? rows.join("")
+    fieldRowsForHouse(house, res).forEach(row => rows.push(fieldRowHTML(row, res)));
+    const body = rows.length ? rows.join("")
       : `<p class="screen-sub">No notes recorded for this house.</p>`;
+    return `<h2>House notes</h2>${body}${addControlsHTML(house, res)}
+      <p class="notes-msg" id="fieldsMsg" role="status"></p>`;
   }
 
+  // Editors land in the next commit; render nothing until then.
+  function fieldEditorHTML(target, key, label, currentText) { return ""; }
+  function addControlsHTML(house, res) { return ""; }
+
   let notesEditorOpen = false;   // reset on each house render
+  let lastNotesRes = null;   // last getHouseNotes result for the open house
+  let fieldEditor = null;    // { mode: 'edit'|'add-item'|'add-info', target?, key? }
   async function renderNotesScreen() {
     const body = document.getElementById("notesBody");
     const house = notesHouseFromHash();
     if (!house) {
-      // House picker (same look as the visit picker, notes-specific buttons).
       body.innerHTML = `
         <input type="search" id="notesSearch" placeholder="Type the house name…" aria-label="Search houses">
         <div id="notesPickList">${notesPickListHTML("")}</div>`;
       return;
     }
     notesEditorOpen = false;
+    fieldEditor = null;
+    lastNotesRes = null;
     body.innerHTML = `
       <div class="screen-head" style="margin-top:0"><h1 style="font-size:1rem">${escHtml(house.name)}</h1></div>
-      <div class="notes-sec"><h2>House notes</h2>${allHouseDetailsHTML(house)}</div>
+      <div class="notes-sec" id="houseFieldsSec">${houseFieldsHTML(house, null)}</div>
       <div class="notes-sec" id="genNotesSec"><h2>General notes</h2>
         <p class="screen-sub">Loading…</p></div>`;
     if (!window.cloud) {
@@ -1998,18 +2120,42 @@
         `<h2>General notes</h2><p class="screen-sub">Cloud isn't loaded — general notes need a connection.</p>`;
       return;
     }
+    await refreshNotesData();
+  }
+
+  // (Re)fetch and repaint BOTH notes sections. On any failure we do NOT
+  // re-render, so a tech's typed text is never wiped.
+  async function refreshNotesData() {
+    const house = notesHouseFromHash();
+    if (!house || !window.cloud) return;
     const res = await window.cloud.getHouseNotes(house.name);
     // The hash may have changed while we awaited; don't paint a stale house.
     if (notesHouseFromHash()?.name !== house.name) return;
-    const sec = document.getElementById("genNotesSec");
-    if (!sec) return;
+    const fields = document.getElementById("houseFieldsSec");
+    const gen = document.getElementById("genNotesSec");
+    if (!fields || !gen) return;
     if (res.error || res.notReady) {
-      sec.innerHTML = `<h2>General notes</h2><p class="screen-sub">${res.notReady
-        ? "General notes aren't set up in the database yet (migration 0006)."
-        : "Couldn't load general notes — " + escHtml(res.error)}</p>`;
+      const msg = document.getElementById("notesMsg") || document.getElementById("fieldsMsg");
+      if (msg) {
+        msg.textContent = res.notReady
+          ? "Note suggestions aren't set up in the database yet (migration 0006/0008)."
+          : "Couldn't load notes — " + res.error;
+        msg.className = "notes-msg error";
+      }
       return;
     }
-    sec.innerHTML = genNotesHTML(house, res);
+    lastNotesRes = res;
+    // Look the house up FRESH — approve/save refreshes ALL_HOUSES behind us.
+    const fresh = notesHouseFromHash();
+    fields.innerHTML = houseFieldsHTML(fresh, res);
+    gen.innerHTML = genNotesHTML(fresh, res);
+  }
+
+  // Repaint only the fields section from cached data (open/close editors).
+  function repaintFields() {
+    const house = notesHouseFromHash();
+    const sec = document.getElementById("houseFieldsSec");
+    if (house && sec) sec.innerHTML = houseFieldsHTML(house, lastNotesRes);
   }
 
   function notesPickListHTML(filter) {
@@ -2025,16 +2171,10 @@
     const noteHtml = res.generalNotes
       ? `<p class="gen-notes">${escHtml(res.generalNotes)}</p>`
       : `<p class="gen-notes empty">No general notes yet.</p>`;
-    const sugs = res.suggestions.map(s => `
-      <div class="sug" data-sug-id="${escAttr(s.id)}">
-        <div class="sug-meta">Awaiting approval — ${escHtml(s.authorName)}${s.createdAt ? " · " + fmtDate(s.createdAt.slice(0, 10)) : ""}</div>
-        <p class="sug-text">${escHtml(s.text)}</p>
-        <div class="sug-actions">
-          ${isAdmin ? `<button type="button" class="btn-primary" data-sug-approve="${escAttr(s.id)}">Approve</button>
-                       <button type="button" data-sug-dismiss="${escAttr(s.id)}">Dismiss</button>` : ""}
-          ${s.mine ? `<button type="button" class="btn-danger" data-sug-withdraw="${escAttr(s.id)}">Withdraw my suggestion</button>` : ""}
-        </div>
-      </div>`).join("");
+    const sugs = res.suggestions.filter(s => s.target === "general")
+      .map(s => sugBlockHTML(s)).join("");
+    const dens = (res.denials || []).filter(d => d.target === "general")
+      .map(denialBlockHTML).join("");
     const editor = notesEditorOpen ? `
       <textarea id="notesEditor" aria-label="${isAdmin ? "Edit general notes" : "Suggest an update to the general notes"}">${escHtml(res.generalNotes)}</textarea>
       <div class="notes-actions">
@@ -2044,7 +2184,7 @@
       <div class="notes-actions">
         <button type="button" data-notes-edit>${isAdmin ? "✎ Edit notes" : "✎ Suggest an update"}</button>
       </div>`;
-    return `<h2>General notes</h2>${noteHtml}${sugs}${editor}
+    return `<h2>General notes</h2>${noteHtml}${sugs}${dens}${editor}
       <p class="notes-msg" id="notesMsg" role="status"></p>`;
   }
 
@@ -2056,33 +2196,12 @@
   document.getElementById("notesBody").addEventListener("click", async e => {
     const pick = e.target.closest("[data-notes-house]");
     if (pick) { location.hash = "#notes/" + encodeURIComponent(pick.dataset.notesHouse); return; }
-    if (e.target.closest("[data-notes-edit]")) { notesEditorOpen = true; refreshGenNotes(); return; }
-    if (e.target.closest("[data-notes-cancel]")) { notesEditorOpen = false; refreshGenNotes(); return; }
+    if (e.target.closest("[data-notes-edit]")) { notesEditorOpen = true; refreshNotesData(); return; }
+    if (e.target.closest("[data-notes-cancel]")) { notesEditorOpen = false; refreshNotesData(); return; }
     const submit = e.target.closest("[data-notes-submit]");
     if (submit) { await submitNotes(submit.dataset.notesSubmit, submit); return; }
-    const approve = e.target.closest("[data-sug-approve]");
-    if (approve) { await sugAction(() => window.cloud.approveSuggestion(approve.dataset.sugApprove), "Approved — the note is updated.", approve); return; }
-    const dismiss = e.target.closest("[data-sug-dismiss]");
-    if (dismiss) { await sugAction(() => window.cloud.dismissSuggestion(dismiss.dataset.sugDismiss), "Suggestion dismissed.", dismiss); return; }
-    const withdraw = e.target.closest("[data-sug-withdraw]");
-    if (withdraw) { await sugAction(() => window.cloud.withdrawSuggestion(withdraw.dataset.sugWithdraw), "Suggestion withdrawn.", withdraw); return; }
+    if (await sugClickActions(e, refreshNotesData)) return;
   });
-
-  // Re-render ONLY the general-notes section (keeps scroll position). On any
-  // failure we do NOT re-render, so a tech's typed text is never wiped.
-  async function refreshGenNotes() {
-    const house = notesHouseFromHash();
-    if (!house || !window.cloud) return;
-    const res = await window.cloud.getHouseNotes(house.name);
-    const sec = document.getElementById("genNotesSec");
-    if (!sec || notesHouseFromHash()?.name !== house.name) return;
-    if (res.error || res.notReady) {
-      const msg = document.getElementById("notesMsg");
-      if (msg) { msg.textContent = res.error || "Notes aren't set up in the database yet."; msg.className = "notes-msg error"; }
-      return;   // keep whatever's on screen (incl. the tech's typed text)
-    }
-    sec.innerHTML = genNotesHTML(house, res);
-  }
 
   async function submitNotes(houseName, btn) {
     const ta = document.getElementById("notesEditor");
@@ -2104,19 +2223,78 @@
       }
       notesEditorOpen = false;
       toast(isAdmin ? "✓ Notes saved." : "✓ Suggestion submitted for approval.", "ok");
-      await refreshGenNotes();
+      await refreshNotesData();
     } finally { btn.disabled = false; }
   }
 
-  async function sugAction(fn, okText, btn) {
+  async function sugAction(fn, okText, btn, refresh) {
     const msg = document.getElementById("notesMsg");
     btn.disabled = true;
     try {
       const res = await fn();
-      if (res.error) { msg.textContent = res.error; msg.className = "notes-msg error"; return; }
+      if (res.error) {
+        if (msg) { msg.textContent = res.error; msg.className = "notes-msg error"; }
+        else toast("Couldn't do that — " + res.error, "error");
+        return;
+      }
       toast("✓ " + okText, "ok");
-      await refreshGenNotes();
+      await (refresh || refreshNotesData)();
+      refreshPendingBadge();
     } finally { btn.disabled = false; }
+  }
+
+  // Approve / deny(+reason) / withdraw / dismiss-denial, wherever suggestion
+  // blocks render (notes screen, checklist, pending queue). Returns true if
+  // the click was one of ours.
+  async function sugClickActions(e, refresh) {
+    const openDeny = e.target.closest("[data-sug-deny]");
+    if (openDeny) {
+      const f = document.querySelector(`[data-deny-form="${CSS.escape(openDeny.dataset.sugDeny)}"]`);
+      if (f) { f.hidden = false; f.querySelector("input").focus(); }
+      return true;
+    }
+    const cancelDeny = e.target.closest("[data-deny-cancel]");
+    if (cancelDeny) {
+      const id = cancelDeny.dataset.denyCancel;
+      const f = document.querySelector(`[data-deny-form="${CSS.escape(id)}"]`);
+      if (f) f.hidden = true;
+      document.querySelector(`[data-sug-deny="${CSS.escape(id)}"]`)?.focus();
+      return true;
+    }
+    const confirmDeny = e.target.closest("[data-deny-confirm]");
+    if (confirmDeny) {
+      const id = confirmDeny.dataset.denyConfirm;
+      const reason = (document.querySelector(`[data-deny-reason="${CSS.escape(id)}"]`)?.value || "").trim();
+      await sugAction(() => window.cloud.denySuggestion(id, reason),
+        "Denied — the tech will see this.", confirmDeny, refresh);
+      return true;
+    }
+    const approve = e.target.closest("[data-sug-approve]");
+    if (approve) {
+      await sugAction(() => window.cloud.approveSuggestion(approve.dataset.sugApprove),
+        "Approved — the note is updated.", approve, refresh);
+      return true;
+    }
+    const withdraw = e.target.closest("[data-sug-withdraw]");
+    if (withdraw) {
+      await sugAction(() => window.cloud.withdrawSuggestion(withdraw.dataset.sugWithdraw),
+        "Suggestion withdrawn.", withdraw, refresh);
+      return true;
+    }
+    const dismiss = e.target.closest("[data-denied-dismiss]");
+    if (dismiss) {
+      await sugAction(() => window.cloud.markDenialSeen(dismiss.dataset.deniedDismiss),
+        "Cleared.", dismiss, refresh);
+      return true;
+    }
+    return false;
+  }
+
+  // Supervisor home-screen badge. Harmless no-op for techs / signed-out.
+  async function refreshPendingBadge() {
+    if (!window.cloud || window.cloud.role !== "supervisor" || !window.cloud.pendingCount) return;
+    const r = await window.cloud.pendingCount();
+    if (!r.error && window.applyPendingCount) window.applyPendingCount(r.count);
   }
 
   // ---- Screens & hash router ----
