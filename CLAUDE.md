@@ -86,9 +86,11 @@ What this means for how we build **today**:
   safe to commit and ship in the client; RLS is what protects the data.
 - **`service_role` / secret key:** NOT stored here and must never be committed
   or put in the browser. It lives only in the Supabase dashboard.
-- **Schema:** version-controlled SQL in `supabase/migrations/`. Applied manually
-  via the dashboard SQL Editor for now; adopt the Supabase CLI (needs Node) once
-  it's installed, to run migrations properly.
+- **Schema:** version-controlled SQL in `supabase/migrations/`, applied with the
+  **Supabase CLI** (`supabase db push`; installed, logged in, and linked as of
+  2026-07-12 — see HANDOFF.md). Migrations 0001–0007 predate the CLI and were
+  marked applied via `supabase migration repair`. No more hand-pasting SQL into
+  the dashboard.
 - **Data API:** enabled; "auto-expose new tables" is OFF and "auto-RLS" is ON,
   so every new table starts locked down and we grant access explicitly.
 

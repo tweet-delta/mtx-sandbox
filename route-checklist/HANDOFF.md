@@ -3,7 +3,27 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
-## STATE AS OF 2026-07-11 (Houses menu: collapsible search) — read this first
+## STATE AS OF 2026-07-12 (Supabase CLI adopted) — read this first
+
+**The hand-paste-SQL-into-the-dashboard era is over.** The Supabase CLI
+(v2.109.1, binary at `%LOCALAPPDATA%\Programs\supabase-cli\supabase.exe`, on
+the user PATH — plain `supabase` works in terminals started after 2026-07-12)
+is installed, logged in (browser flow; token in Windows credential storage),
+and linked to project `eccukivhjgiqwfnosevt`. `supabase init` added
+`supabase/config.toml` + `supabase/.gitignore`.
+
+- Migrations 0001–0007 were applied by hand historically, so the remote
+  history table was empty; fixed with
+  `supabase migration repair --status applied 0001 ... 0007`.
+- `supabase db push --dry-run` confirms **remote database is up to date**.
+- **New workflow:** write the next numbered file in `supabase/migrations/`,
+  then `supabase db push --workdir "c:\Big Dogs Apps\MTX Checklist V1"`.
+  No DB password is stored; the CLI authenticates via the owner's access
+  token (it creates a temporary login role).
+- Never run destructive remote commands (`db reset --linked`, etc.) without
+  explicit owner sign-off.
+
+## STATE AS OF 2026-07-11 (Houses menu: collapsible search)
 
 **Small mobile UX fix, committed & pushed (`d021c9f`).** The ☰ Houses
 sidebar's search box was always visible, eating a fixed strip of height at
