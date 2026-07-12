@@ -575,6 +575,28 @@
   .route-row button { font: inherit; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--ground); color: var(--ink); cursor: pointer; }
   .route-row button:focus-visible, .house-route-row select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .house-route-row { justify-content: space-between; }
+
+  /* "Preview as tech": fixed strip while a supervisor is previewing a route.
+     z-index 18 keeps it under the sidebar (20), its backdrop (19), and the
+     auth gate (100), but over the sticky visit header (5). */
+  #previewBanner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 18;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    min-height: 48px; padding: 6px 12px;
+    background: var(--note-bg); color: var(--note);
+    border-bottom: 1px solid var(--note);
+    font-size: 0.88rem; font-weight: 700;
+  }
+  #previewBanner[hidden] { display: none; }
+  #previewBanner span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #previewBanner button {
+    flex: none; font: inherit; font-size: 0.85rem; font-weight: 600;
+    padding: 8px 14px; min-height: 40px; border-radius: 8px;
+    border: 1px solid var(--note); background: var(--card); color: var(--note); cursor: pointer;
+  }
+  #previewBanner button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  body.previewing { padding-top: 48px; }
+  body.previewing .visit { top: 48px; } /* sticky visit header clears the banner */
 </style>
 </head>
 <body>
@@ -593,6 +615,11 @@
     <button type="button" id="magicLinkBtn" class="auth-link">First time, or forgot your password? Email me a login link instead</button>
     <p class="auth-msg" id="authMsg"></p>
   </div>
+</div>
+
+<div id="previewBanner" role="status" hidden>
+  <span id="previewLabel"></span>
+  <button type="button" id="previewExit">Exit preview</button>
 </div>
 
 <div class="wrapper">
@@ -1092,7 +1119,44 @@
   // The tech tapped "Show all houses…" (float day / covering another route).
   // Reset each time the picker is opened fresh from Home.
   let pickerShowAll = false;
+
+  // ---- "Preview as tech" (supervisor-only, purely client-side) ----
+  // Flips the UI to what a route's tech sees: admin controls hidden, pickers
+  // scoped to that route. No DB writes and no impersonation — the supervisor
+  // stays signed in as themselves and RLS still governs real access.
+  let previewingRoute = null;   // route NAME while previewing, else null
+  const previewBanner = document.getElementById("previewBanner");
+  const previewLabel  = document.getElementById("previewLabel");
+  function clearPreviewUI() {
+    previewingRoute = null;
+    previewBanner.hidden = true;
+    document.body.classList.remove("previewing");
+  }
+  function startPreview(routeName, houseNames) {
+    previewingRoute = routeName;
+    previewLabel.textContent = "Previewing " + routeName;
+    previewBanner.hidden = false;
+    document.body.classList.add("previewing");
+    document.body.classList.remove("is-admin");   // hide supervisor controls
+    MY_HOUSE_NAMES = houseNames;                  // scope pickers like the tech's
+    pickerShowAll = false;
+    location.hash = "#home";                      // land where the tech lands
+    rebuild();
+  }
+  function exitPreview() {
+    clearPreviewUI();
+    document.body.classList.toggle("is-admin",
+      !!window.cloud && window.cloud.role === "supervisor");
+    // Re-derive the real scoping from the cloud layer (supervisor → unscoped).
+    if (window.cloud && window.cloud.refreshMyRoute) window.cloud.refreshMyRoute();
+    else window.applyMyHouses(null);
+  }
+  document.getElementById("previewExit").addEventListener("click", exitPreview);
+
   window.applyMyHouses = function (names) {
+    // A real push from the cloud layer (sign-in/out, route reload) always
+    // wins over a preview — otherwise a stale banner could survive a sign-out.
+    if (previewingRoute !== null) clearPreviewUI();
     MY_HOUSE_NAMES = names instanceof Set ? names : null;
     rebuild();
   };
@@ -2185,7 +2249,16 @@
       <div class="house-route-row"><b>${escHtml(h.name)}</b>
         <select data-house-route="${escAttr(h.id)}" aria-label="Route for ${escAttr(h.name)}">${routeOpts(h)}</select>
       </div>`).join("");
-    body.innerHTML = `
+    const previewSec = `
+      <div class="notes-sec"><h2>Preview as tech</h2>
+        <p class="screen-sub">See the app the way a route's tech sees it. Look only — you stay signed in as yourself.</p>
+        <div class="route-row">
+          <select id="previewRouteSel" aria-label="Route to preview">
+            ${routes.map(r => `<option value="${escAttr(r.id)}">${escHtml(r.name)}</option>`).join("")}
+          </select>
+          <button type="button" data-preview-start>Preview</button>
+        </div></div>`;
+    body.innerHTML = previewSec + `
       <div class="notes-sec"><h2>Routes &amp; techs</h2>
         <p class="screen-sub">Turnover = change a route's tech and Save. Houses follow the route.</p>
         ${routeRows}
@@ -2195,6 +2268,17 @@
   }
 
   document.getElementById("routesBody").addEventListener("click", async e => {
+    if (e.target.closest("[data-preview-start]")) {
+      const sel = document.getElementById("previewRouteSel");
+      const routeName = sel.options[sel.selectedIndex].textContent;
+      // An empty route yields an empty Set — the picker then shows the same
+      // "no houses assigned" message + Show-all button a real tech would see.
+      const houses = window.cloud.listHousesForRoutes()
+        .filter(h => h.routeId === sel.value)
+        .map(h => h.name.trim().toLowerCase());
+      startPreview(routeName, new Set(houses));
+      return;
+    }
     const btn = e.target.closest("[data-route-save]");
     if (!btn) return;
     const row = btn.closest("[data-route-id]");

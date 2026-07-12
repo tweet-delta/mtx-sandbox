@@ -373,6 +373,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getHouseNotes, suggestNote, withdrawSuggestion,
                  approveSuggestion, dismissSuggestion, saveGeneralNotes,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
+                 refreshMyRoute: loadMyRoute,
                  role: null };
 
 // Primary sign-in: email + password.
