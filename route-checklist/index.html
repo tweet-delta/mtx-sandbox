@@ -2091,9 +2091,59 @@
       <p class="notes-msg" id="fieldsMsg" role="status"></p>`;
   }
 
-  // Editors land in the next commit; render nothing until then.
-  function fieldEditorHTML(target, key, label, currentText) { return ""; }
-  function addControlsHTML(house, res) { return ""; }
+  // Inline editor for ONE field. Also used by the checklist (Task 5), so all
+  // inner elements are class-addressed, never id-addressed.
+  function fieldEditorHTML(target, key, label, currentText) {
+    const isAdmin = window.cloud && window.cloud.role === "supervisor";
+    return `<div class="field-form">
+      <textarea class="field-text" aria-label="${isAdmin ? "Edit" : "Suggest new text for"} the ${escAttr(label)} note">${escHtml(currentText || "")}</textarea>
+      <div class="notes-actions">
+        <button type="button" class="btn-primary" data-field-submit data-target="${escAttr(target)}" data-key="${escAttr(key)}">${isAdmin ? "Save" : "Submit suggestion"}</button>
+        ${currentText ? `<button type="button" class="btn-danger" data-field-remove data-target="${escAttr(target)}" data-key="${escAttr(key)}">${isAdmin ? "Remove note" : "Suggest removal"}</button>` : ""}
+        <button type="button" data-field-cancel>Cancel</button>
+      </div>
+      <p class="notes-msg" data-field-msg role="status"></p>
+    </div>`;
+  }
+
+  // "+ Add item note" / "+ Add house info" (notes screen only).
+  function addControlsHTML(house, res) {
+    if (!window.cloud || !res || res.error || res.notReady) return "";
+    const isAdmin = window.cloud.role === "supervisor";
+    if (fieldEditor && fieldEditor.mode === "add-item") {
+      const free = Object.keys(NOTE_KEY_LABELS).filter(k => !((house.notes || {})[k]));
+      return `<div class="field-form">
+        <label>Which item is this note for?</label>
+        <select class="field-key" aria-label="Which item is this note for?">
+          ${free.map(k => `<option value="${escAttr(k)}">${escHtml(NOTE_KEY_LABELS[k])}</option>`).join("")}
+        </select>
+        <textarea class="field-text" aria-label="Note text"></textarea>
+        <div class="notes-actions">
+          <button type="button" class="btn-primary" data-field-submit data-target="item">${isAdmin ? "Save" : "Submit suggestion"}</button>
+          <button type="button" data-field-cancel>Cancel</button>
+        </div>
+        <p class="notes-msg" data-field-msg role="status"></p>
+      </div>`;
+    }
+    if (fieldEditor && fieldEditor.mode === "add-info") {
+      return `<div class="field-form">
+        <label>Label (e.g. "Chest freezer")</label>
+        <input type="text" class="field-label" aria-label="Label for the new house info">
+        <label>Detail (e.g. "Garage, north wall")</label>
+        <textarea class="field-text" aria-label="Detail for the new house info"></textarea>
+        <div class="notes-actions">
+          <button type="button" class="btn-primary" data-field-submit data-target="info">${isAdmin ? "Save" : "Submit suggestion"}</button>
+          <button type="button" data-field-cancel>Cancel</button>
+        </div>
+        <p class="notes-msg" data-field-msg role="status"></p>
+      </div>`;
+    }
+    const freeCount = Object.keys(NOTE_KEY_LABELS).filter(k => !((house.notes || {})[k])).length;
+    return `<div class="notes-actions">
+      ${freeCount ? `<button type="button" data-add-item>+ Add item note</button>` : ""}
+      <button type="button" data-add-info>+ Add house info</button>
+    </div>`;
+  }
 
   let notesEditorOpen = false;   // reset on each house render
   let lastNotesRes = null;   // last getHouseNotes result for the open house
@@ -2200,6 +2250,35 @@
     if (e.target.closest("[data-notes-cancel]")) { notesEditorOpen = false; refreshNotesData(); return; }
     const submit = e.target.closest("[data-notes-submit]");
     if (submit) { await submitNotes(submit.dataset.notesSubmit, submit); return; }
+    const house = notesHouseFromHash();
+    if (house) {
+      const fe = e.target.closest("[data-field-edit]");
+      if (fe) {
+        fieldEditor = { mode: "edit", target: fe.dataset.target, key: fe.dataset.key };
+        repaintFields();
+        document.querySelector("#houseFieldsSec .field-text")?.focus();
+        return;
+      }
+      if (e.target.closest("[data-add-item]")) {
+        fieldEditor = { mode: "add-item" };
+        repaintFields();
+        document.querySelector("#houseFieldsSec .field-key")?.focus();
+        return;
+      }
+      if (e.target.closest("[data-add-info]")) {
+        fieldEditor = { mode: "add-info" };
+        repaintFields();
+        document.querySelector("#houseFieldsSec .field-label")?.focus();
+        return;
+      }
+      if (await fieldFormClick(e, house.name, refreshNotesData, () => {
+        const was = fieldEditor;
+        fieldEditor = null;
+        repaintFields();
+        if (was && was.mode === "edit")
+          document.querySelector(`#houseFieldsSec [data-field-edit][data-target="${CSS.escape(was.target)}"][data-key="${CSS.escape(was.key)}"]`)?.focus();
+      })) return;
+    }
     if (await sugClickActions(e, refreshNotesData)) return;
   });
 
@@ -2225,6 +2304,46 @@
       toast(isAdmin ? "✓ Notes saved." : "✓ Suggestion submitted for approval.", "ok");
       await refreshNotesData();
     } finally { btn.disabled = false; }
+  }
+
+  // Submit / remove / cancel inside any .field-form. Supervisor writes
+  // directly; tech files a suggestion. Returns true if the click was ours.
+  // On failure the form (and its typed text) stays; error shows inline.
+  async function fieldFormClick(e, houseName, refresh, closeEditor) {
+    const cancel = e.target.closest("[data-field-cancel]");
+    if (cancel) { closeEditor(cancel); return true; }
+    const submit = e.target.closest("[data-field-submit]");
+    const remove = e.target.closest("[data-field-remove]");
+    const btn = submit || remove;
+    if (!btn) return false;
+    const form = btn.closest(".field-form");
+    const msg = form.querySelector("[data-field-msg]");
+    const isAdmin = window.cloud && window.cloud.role === "supervisor";
+    const target = btn.dataset.target;
+    const key = btn.dataset.key !== undefined ? btn.dataset.key
+      : (form.querySelector(".field-key")?.value
+         || form.querySelector(".field-label")?.value || "").trim();
+    const text = remove ? "" : (form.querySelector(".field-text")?.value || "");
+    if (!key) { msg.textContent = "Give it a label first."; msg.className = "notes-msg error"; return true; }
+    if (!remove && !text.trim()) { msg.textContent = "Type the note text first."; msg.className = "notes-msg error"; return true; }
+    if (remove && isAdmin && !confirm("Remove this note for everyone?")) return true;
+    btn.disabled = true;
+    msg.textContent = isAdmin ? "Saving…" : "Submitting…"; msg.className = "notes-msg";
+    try {
+      const payload = { target, noteKey: key, action: remove ? "delete" : "set", text };
+      const res = isAdmin
+        ? await window.cloud.saveHouseField(houseName, payload)
+        : await window.cloud.suggestChange(houseName, payload, loadName());
+      if (res.error) {
+        msg.textContent = "Couldn't save — " + res.error; msg.className = "notes-msg error";
+        return true;
+      }
+      toast(isAdmin ? "✓ Saved." : "✓ Suggestion submitted for approval.", "ok");
+      closeEditor(null);
+      await refresh();
+      refreshPendingBadge();
+    } finally { btn.disabled = false; }
+    return true;
   }
 
   async function sugAction(fn, okText, btn, refresh) {
