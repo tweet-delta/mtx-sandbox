@@ -370,30 +370,22 @@ async function saveGeneralNotes(houseName, text) {
   return error ? { error: error.message } : { ok: true };
 }
 
-// Supervisor direct write: set/remove one item note or info pair. The patch is
-// computed from the cached house row, written as one column update (RLS
-// houses_write = supervisor-only enforces the role), then the cache is
-// re-fetched so every screen repaints truthful data.
+// Supervisor direct write: set/remove one item note or info pair. The patch
+// is computed server-side by the set_house_field RPC (migration 0009) from
+// the DATABASE's current row, not our cached copy — a stale client cache can
+// no longer silently revert someone else's concurrent change. RLS still
+// backstops this (the RPC itself checks current_user_role() = 'supervisor'),
+// then the cache is re-fetched so every screen repaints truthful data.
 async function saveHouseField(houseName, { target, noteKey, action, text }) {
   const house = housesByName.get((houseName || "").trim().toLowerCase());
   if (!house) return { error: `"${houseName}" isn't a house in the database.` };
-  let patch;
-  if (target === "item") {
-    const notes = { ...(house.notes || {}) };
-    if (action === "delete") delete notes[noteKey];
-    else notes[noteKey] = text;
-    patch = { notes };
-  } else if (target === "info") {
-    const info = (house.info || []).map(p => [...p]);
-    const i = info.findIndex(p => p[0] === noteKey);
-    if (action === "delete") { if (i >= 0) info.splice(i, 1); }
-    else if (i >= 0) info[i][1] = text;
-    else info.push([noteKey, text]);
-    patch = { info };
-  } else {
-    return { error: "Unknown field target: " + target };
-  }
-  const { error } = await supabase.from("houses").update(patch).eq("id", house.id);
+  const { error } = await supabase.rpc("set_house_field", {
+    house_id: house.id,
+    target,
+    note_key: noteKey || "",
+    action: action || "set",
+    new_text: action === "delete" ? "" : (text || ""),
+  });
   if (error) return { error: error.message };
   await loadHouses();
   return { ok: true };

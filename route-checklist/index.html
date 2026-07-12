@@ -1845,6 +1845,7 @@
   let CHECKLIST_NOTES = null;   // getHouseNotes result for the current house
   function paintHouseNoteSugs() {
     document.querySelectorAll("#app [data-hn-slot]").forEach(slot => {
+      if (slot.querySelector(".field-form")) return;   // never wipe an open editor (typed text)
       const key = slot.dataset.hnSlot;
       if (!CHECKLIST_NOTES) { slot.innerHTML = ""; return; }
       const sugs = CHECKLIST_NOTES.suggestions.filter(s => s.target === "item" && s.noteKey === key);
@@ -2260,12 +2261,13 @@
     const gen = document.getElementById("genNotesSec");
     if (!fields || !gen) return;
     if (res.error || res.notReady) {
+      const text = res.notReady
+        ? "Note suggestions aren't set up in the database yet (migration 0006/0008)."
+        : "Couldn't load notes — " + res.error;
       const msg = document.getElementById("notesMsg") || document.getElementById("fieldsMsg");
-      if (msg) {
-        msg.textContent = res.notReady
-          ? "Note suggestions aren't set up in the database yet (migration 0006/0008)."
-          : "Couldn't load notes — " + res.error;
-        msg.className = "notes-msg error";
+      if (msg) { msg.textContent = text; msg.className = "notes-msg error"; }
+      if (!document.getElementById("notesMsg") && gen && !gen.querySelector("#notesEditor")) {
+        gen.innerHTML = `<h2>General notes</h2><p class="screen-sub">${escHtml(text)}</p>`;
       }
       return;
     }
@@ -2446,22 +2448,22 @@
   async function sugClickActions(e, refresh) {
     const openDeny = e.target.closest("[data-sug-deny]");
     if (openDeny) {
-      const f = document.querySelector(`[data-deny-form="${CSS.escape(openDeny.dataset.sugDeny)}"]`);
+      const f = openDeny.closest(".sug")?.querySelector(".deny-form");
       if (f) { f.hidden = false; f.querySelector("input").focus(); }
       return true;
     }
     const cancelDeny = e.target.closest("[data-deny-cancel]");
     if (cancelDeny) {
-      const id = cancelDeny.dataset.denyCancel;
-      const f = document.querySelector(`[data-deny-form="${CSS.escape(id)}"]`);
+      const sug = cancelDeny.closest(".sug");
+      const f = sug?.querySelector(".deny-form");
       if (f) f.hidden = true;
-      document.querySelector(`[data-sug-deny="${CSS.escape(id)}"]`)?.focus();
+      sug?.querySelector("[data-sug-deny]")?.focus();
       return true;
     }
     const confirmDeny = e.target.closest("[data-deny-confirm]");
     if (confirmDeny) {
       const id = confirmDeny.dataset.denyConfirm;
-      const reason = (document.querySelector(`[data-deny-reason="${CSS.escape(id)}"]`)?.value || "").trim();
+      const reason = (confirmDeny.closest(".deny-form")?.querySelector("input")?.value || "").trim();
       await sugAction(() => window.cloud.denySuggestion(id, reason),
         "Denied — the tech will see this.", confirmDeny, refresh);
       return true;

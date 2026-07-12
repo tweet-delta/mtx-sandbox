@@ -31,8 +31,10 @@ in Supabase):**
 **`window.cloud` changes:**
 - Added `suggestChange`, `denySuggestion`, `markDenialSeen`, `saveHouseField`,
   `listPendingSuggestions`, `pendingCount`.
-- Removed `dismissSuggestion` (superseded by `markDenialSeen` /
-  `suggestChange`-based withdraw).
+- Removed `dismissSuggestion` (supervisor deny). It's replaced by
+  `denySuggestion` (RPC, with reason). Withdrawing a suggestion is still the
+  unchanged `withdrawSuggestion` delete; `markDenialSeen` is a different thing
+  — the author clearing their own ❌ denial notice.
 - `suggestNote` now delegates to `suggestChange` (kept as a thin wrapper so
   existing call sites didn't need churn).
 - `approveSuggestion` and `saveHouseField` both refresh the houses cache via
@@ -73,6 +75,17 @@ flow end-to-end on the deployed URL, per this feature's plan) is PENDING** —
 not done in this session, no owner accounts available here. The owner should
 run that pass on the live site after this push finishes deploying (~2 min),
 then note the result here.
+
+**Follow-up (same day, final-review fixes):** migration
+`0009_set_house_field.sql` adds a `set_house_field` RPC — supervisor direct
+edits (info pairs and item notes) now patch the house row server-side from
+the database's current data instead of the client's cached copy, closing a
+stale-cache-overwrite risk. It also hardens 0008's `hns_guard_author_update`
+trigger so `id` joins the list of columns an author can't rewrite on their
+own reviewed row. SW cache bumped `v8` → `v9` (`index.html` + `cloud.js`
+changed again). Two known Minor gaps deferred, not addressed this round: no
+focus restore after a successful editor submit, and a redundant second notes
+fetch after a supervisor checklist save.
 
 ## STATE AS OF 2026-07-12 (Supabase CLI adopted) — read this first
 
