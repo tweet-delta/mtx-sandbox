@@ -481,6 +481,7 @@
   body:not([data-screen="home"])     #homeScreen,
   body:not([data-screen="continue"]) #continueScreen,
   body:not([data-screen="routes"])   #routesScreen,
+  body:not([data-screen="pending"])  #pendingScreen,
   body:not([data-screen="notes"])    #notesScreen { display: none; }
 
   .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
@@ -498,6 +499,7 @@
   .home-btn small { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-top: 3px; }
   .home-btn:hover { border-color: var(--accent); }
   .home-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .pending-count { font-weight: 700; }
 
   /* Quiet on purpose — must not compete with the three big task buttons. */
   .home-signout {
@@ -711,6 +713,8 @@
     <small>Info, item notes &amp; general notes per house</small></button>
   <button type="button" class="home-btn admin-only" id="homeRoutes">🗺️ Routes
     <small>Assign techs &amp; houses to routes</small></button>
+  <button type="button" class="home-btn admin-only" id="homePending">⏳ Pending changes<span class="pending-count" id="pendingCountBadge"></span>
+    <small>Review techs' suggested note fixes</small></button>
   <button type="button" class="home-signout" data-sign-out>Sign out</button>
 </div>
 
@@ -736,6 +740,14 @@
     <h1>Routes</h1>
   </div>
   <div id="routesBody"></div>
+</div>
+
+<div id="pendingScreen" class="screen" aria-label="Pending changes">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>Pending changes</h1>
+  </div>
+  <div id="pendingBody"></div>
 </div>
 
 <div id="sideBackdrop" hidden></div>
@@ -2492,6 +2504,7 @@
     if (h.startsWith("#notes")) return "notes";
     if (h.startsWith("#continue")) return "continue";
     if (h.startsWith("#routes")) return "routes";
+    if (h.startsWith("#pending")) return "pending";
     return "home";
   }
   function showScreen() {
@@ -2499,6 +2512,7 @@
     document.body.dataset.screen = scr;
     if (scr === "continue") renderContinue();
     if (scr === "routes") renderRoutesScreen();
+    if (scr === "pending") renderPendingScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2526,6 +2540,9 @@
   });
   document.getElementById("homeRoutes").addEventListener("click", () => {
     location.hash = "#routes";
+  });
+  document.getElementById("homePending").addEventListener("click", () => {
+    location.hash = "#pending";
   });
 
   // ---- Continue screen ----
@@ -2663,6 +2680,56 @@
     sel.disabled = false;
     if (res.error) { toast("Couldn't save — " + res.error, "error"); return; }
     toast("✓ Saved.", "ok");
+  });
+
+  // The supervisor's cross-house review queue. Techs can reach the hash but
+  // see no action buttons (sugBlockHTML gates them) — and RLS is what
+  // actually refuses a tech's approve/deny.
+  function pendingRowLabel(s) {
+    if (s.target === "general") return "General notes";
+    if (s.target === "item") return NOTE_KEY_LABELS[s.noteKey] || s.noteKey;
+    return "House info: " + s.noteKey;
+  }
+
+  async function renderPendingScreen() {
+    const body = document.getElementById("pendingBody");
+    if (!window.cloud || !window.cloud.listPendingSuggestions) {
+      body.innerHTML = `<p class="screen-sub">Cloud isn't loaded — pending changes need a connection.</p>`;
+      return;
+    }
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const res = await window.cloud.listPendingSuggestions();
+    if (currentScreenFromHash() !== "pending") return;
+    if (res.error) {
+      body.innerHTML = `<p class="screen-sub">${res.notReady
+        ? "Pending changes aren't set up in the database yet (migration 0008)."
+        : "Couldn't load — " + escHtml(res.error)}</p>`;
+      return;
+    }
+    if (window.applyPendingCount) window.applyPendingCount(res.suggestions.length);
+    if (!res.suggestions.length) {
+      body.innerHTML = `<p class="screen-sub">Nothing pending — all caught up.</p>`;
+      return;
+    }
+    const byHouse = new Map();
+    res.suggestions.forEach(s => {
+      if (!byHouse.has(s.houseName)) byHouse.set(s.houseName, []);
+      byHouse.get(s.houseName).push(s);
+    });
+    body.innerHTML = [...byHouse.entries()].map(([houseName, sugs]) => `
+      <div class="notes-sec"><h2>${escHtml(houseName)}</h2>
+        ${sugs.map(s => `<div class="notes-item"><b>${escHtml(pendingRowLabel(s))}</b>
+          ${sugBlockHTML(s, { current: s.current })}</div>`).join("")}
+      </div>`).join("");
+  }
+
+  window.applyPendingCount = function (n) {
+    const el = document.getElementById("pendingCountBadge");
+    if (el) el.textContent = n > 0 ? ` (${n})` : "";
+  };
+
+  document.getElementById("pendingBody").addEventListener("click", async e => {
+    if (await sugClickActions(e, renderPendingScreen)) return;
   });
 
   if (!location.hash) history.replaceState(null, "", "#home");
