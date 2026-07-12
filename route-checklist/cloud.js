@@ -43,14 +43,14 @@ const housesByName = new Map();
 async function loadHouses() {
   let { data, error } = await supabase
     .from("houses")
-    .select("id, name, equipment, notes, info, route_id")
+    .select("id, name, equipment, notes, info, general_notes, route_id")
     .eq("active", true)
     .order("name");
   // Before migration 0007, route_id doesn't exist â€” load without it.
   if (error && isMissingColumn(error)) {
     ({ data, error } = await supabase
       .from("houses")
-      .select("id, name, equipment, notes, info")
+      .select("id, name, equipment, notes, info, general_notes")
       .eq("active", true)
       .order("name"));
   }
@@ -70,6 +70,11 @@ async function loadRole() {
   if (error) { console.error("Could not load role:", error.message); return; }
   window.cloud.role = data?.role || "tech";
   document.body.classList.toggle("is-admin", window.cloud.role === "supervisor");
+  if (window.cloud.role === "supervisor") {
+    pendingCount().then(r => {
+      if (!r.error && window.applyPendingCount) window.applyPendingCount(r.count);
+    });
+  }
 }
 
 // Which houses are on the signed-in tech's route(s)? Hands the app a Set of
@@ -250,10 +255,26 @@ async function lastDone(houseName, itemKeys) {
   return out;
 }
 
-// ---- House notes: official freeform note + tech suggestions ----
-// The official note lives in houses.general_notes; a tech's proposed
-// replacement is a house_note_suggestions row. Nothing changes for other
-// techs until a supervisor approves (the atomic RPC below).
+// ---- House notes: official notes + tech suggestions (all kinds) ----
+// Official data lives on the houses row: general_notes (text), notes (jsonb,
+// item-note keys), info (jsonb [label, detail] pairs). A tech's proposed
+// change is a house_note_suggestions row (target = general|item|info).
+// Nothing changes for other techs until a supervisor approves (atomic RPC).
+
+const SUG_COLS = "id, author_id, author_name, proposed_text, created_at, target, note_key, action";
+
+function mapSug(s, uid) {
+  return {
+    id: s.id,
+    target: s.target || "general",
+    noteKey: s.note_key || "",
+    action: s.action || "set",
+    text: s.proposed_text,
+    authorName: s.author_name || "(name not set)",
+    createdAt: s.created_at,
+    mine: !!uid && s.author_id === uid,
+  };
+}
 
 async function getHouseNotes(houseName) {
   const house = housesByName.get((houseName || "").trim().toLowerCase());
@@ -264,35 +285,56 @@ async function getHouseNotes(houseName) {
   if (error) {
     return isMissingColumn(error) ? { notReady: true } : { error: error.message };
   }
-  const { data: sugs, error: e2 } = await supabase
-    .from("house_note_suggestions")
-    .select("id, author_id, author_name, proposed_text, created_at")
+  const { data: { user } } = await supabase.auth.getUser();
+  let { data: sugs, error: e2 } = await supabase
+    .from("house_note_suggestions").select(SUG_COLS)
     .eq("house_id", house.id).eq("status", "pending")
     .order("created_at", { ascending: false });
+  // Migration 0008 not applied yet â†’ fall back to the 0006 shape (general only).
+  if (e2 && isMissingColumn(e2)) {
+    ({ data: sugs, error: e2 } = await supabase
+      .from("house_note_suggestions")
+      .select("id, author_id, author_name, proposed_text, created_at")
+      .eq("house_id", house.id).eq("status", "pending")
+      .order("created_at", { ascending: false }));
+  }
   if (e2) return { error: e2.message };
-  const { data: { user } } = await supabase.auth.getUser();
+  // My denied-and-not-yet-dismissed suggestions (the âŒ notices).
+  let denials = [];
+  if (user) {
+    const { data: dens, error: e3 } = await supabase
+      .from("house_note_suggestions")
+      .select(SUG_COLS + ", deny_reason")
+      .eq("house_id", house.id).eq("status", "dismissed")
+      .eq("author_id", user.id).eq("seen_by_author", false)
+      .order("created_at", { ascending: false });
+    if (!e3) denials = dens || [];        // pre-0008 DB â†’ just no denial notices
+  }
   return {
     generalNotes: data.general_notes || "",
-    suggestions: (sugs || []).map(s => ({
-      id: s.id,
-      authorName: s.author_name || "(name not set)",
-      text: s.proposed_text,
-      createdAt: s.created_at,
-      mine: !!user && s.author_id === user.id,
-    })),
+    suggestions: (sugs || []).map(s => mapSug(s, user?.id)),
+    denials: denials.map(d => ({ ...mapSug(d, user?.id), denyReason: d.deny_reason || "" })),
   };
 }
 
-async function suggestNote(houseName, text, authorName) {
+async function suggestChange(houseName, { target, noteKey, action, text }, authorName) {
   const house = housesByName.get((houseName || "").trim().toLowerCase());
   if (!house) return { error: `"${houseName}" isn't a house in the database.` };
   const { data: { user } } = await supabase.auth.getUser();
   const { error } = await supabase.from("house_note_suggestions").insert({
     house_id: house.id,
-    proposed_text: text,
+    target: target || "general",
+    note_key: noteKey || "",
+    action: action || "set",
+    proposed_text: action === "delete" ? "" : (text || ""),
     author_name: (authorName || "").trim() || user?.email || "",
   });
   return error ? { error: error.message } : { ok: true };
+}
+
+// Kept for the general-notes editor (and any old callers).
+async function suggestNote(houseName, text, authorName) {
+  return suggestChange(houseName, { target: "general", noteKey: "", action: "set", text }, authorName);
 }
 
 async function withdrawSuggestion(id) {
@@ -303,15 +345,20 @@ async function withdrawSuggestion(id) {
 
 async function approveSuggestion(id) {
   const { error } = await supabase.rpc("approve_note_suggestion", { suggestion_id: id });
+  if (error) return { error: error.message };
+  await loadHouses();   // the official note changed â€” refresh ðŸ“ notes everywhere
+  return { ok: true };
+}
+
+async function denySuggestion(id, reason) {
+  const { error } = await supabase.rpc("deny_note_suggestion",
+    { suggestion_id: id, reason: reason || "" });
   return error ? { error: error.message } : { ok: true };
 }
 
-async function dismissSuggestion(id) {
-  const { data: { user } } = await supabase.auth.getUser();
+async function markDenialSeen(id) {
   const { error } = await supabase.from("house_note_suggestions")
-    .update({ status: "dismissed", reviewed_by: user?.id || null,
-              reviewed_at: new Date().toISOString() })
-    .eq("id", id).eq("status", "pending");
+    .update({ seen_by_author: true }).eq("id", id);
   return error ? { error: error.message } : { ok: true };
 }
 
@@ -321,6 +368,68 @@ async function saveGeneralNotes(houseName, text) {
   const { error } = await supabase
     .from("houses").update({ general_notes: text }).eq("id", house.id);
   return error ? { error: error.message } : { ok: true };
+}
+
+// Supervisor direct write: set/remove one item note or info pair. The patch is
+// computed from the cached house row, written as one column update (RLS
+// houses_write = supervisor-only enforces the role), then the cache is
+// re-fetched so every screen repaints truthful data.
+async function saveHouseField(houseName, { target, noteKey, action, text }) {
+  const house = housesByName.get((houseName || "").trim().toLowerCase());
+  if (!house) return { error: `"${houseName}" isn't a house in the database.` };
+  let patch;
+  if (target === "item") {
+    const notes = { ...(house.notes || {}) };
+    if (action === "delete") delete notes[noteKey];
+    else notes[noteKey] = text;
+    patch = { notes };
+  } else if (target === "info") {
+    const info = (house.info || []).map(p => [...p]);
+    const i = info.findIndex(p => p[0] === noteKey);
+    if (action === "delete") { if (i >= 0) info.splice(i, 1); }
+    else if (i >= 0) info[i][1] = text;
+    else info.push([noteKey, text]);
+    patch = { info };
+  } else {
+    return { error: "Unknown field target: " + target };
+  }
+  const { error } = await supabase.from("houses").update(patch).eq("id", house.id);
+  if (error) return { error: error.message };
+  await loadHouses();
+  return { ok: true };
+}
+
+// Every pending suggestion across all houses (the supervisor queue).
+// `current` is the official text today, so the queue can show old vs new.
+async function listPendingSuggestions() {
+  const { data, error } = await supabase
+    .from("house_note_suggestions")
+    .select(SUG_COLS + ", house_id")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  if (error) return { error: error.message, notReady: isMissingColumn(error) };
+  const byId = new Map([...housesByName.values()].map(h => [h.id, h]));
+  const { data: { user } } = await supabase.auth.getUser();
+  return {
+    suggestions: (data || []).map(s => {
+      const house = byId.get(s.house_id);
+      let current = "";
+      if (house) {
+        if (s.target === "item") current = (house.notes || {})[s.note_key] || "";
+        else if (s.target === "info") current = ((house.info || []).find(p => p[0] === s.note_key) || [])[1] || "";
+        else current = house.general_notes || "";
+      }
+      return { ...mapSug(s, user?.id), houseName: house ? house.name : "(unknown house)", current };
+    }),
+  };
+}
+
+async function pendingCount() {
+  const { count, error } = await supabase
+    .from("house_note_suggestions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  return error ? { error: error.message } : { count: count || 0 };
 }
 
 // ---- Routes admin (the supervisor Routes screen) ----
@@ -370,8 +479,10 @@ function listHousesForRoutes() {
 }
 
 window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
-                 getHouseNotes, suggestNote, withdrawSuggestion,
-                 approveSuggestion, dismissSuggestion, saveGeneralNotes,
+                 getHouseNotes, suggestNote, suggestChange, withdrawSuggestion,
+                 approveSuggestion, denySuggestion, markDenialSeen,
+                 saveGeneralNotes, saveHouseField,
+                 listPendingSuggestions, pendingCount,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  refreshMyRoute: loadMyRoute,
                  role: null };
