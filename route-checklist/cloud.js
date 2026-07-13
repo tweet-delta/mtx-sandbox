@@ -286,6 +286,26 @@ async function listMyVisits() {
   }));
 }
 
+// Slice 2: one of the signed-in tech's OWN visits + its recorded items.
+// Filtered tech_id = me so a hand-typed id can't open another tech's visit.
+// Returns raw items; the UI computes which are "flagged" from GROUPS polarity.
+async function getVisitDetail(visitId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { data, error } = await supabase
+    .from("visits")
+    .select("visit_date, houses(name), visit_items(item_key, answer, note)")
+    .eq("id", visitId).eq("tech_id", user.id)
+    .maybeSingle();
+  if (error) { console.error("Could not load visit:", error.message); return { error: error.message }; }
+  if (!data) return { error: "Visit not found." };
+  return {
+    houseName: data.houses?.name || "",
+    visitDate: data.visit_date,
+    items: data.visit_items || [],
+  };
+}
+
 // For each date-tracked item key, find the most recent COMPLETED visit at this
 // house where it was done, and return the date it was done on (the recorded
 // done_on if the tech entered one, else the visit date).
@@ -541,7 +561,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listPendingSuggestions, pendingCount,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
-                 listMyVisits,
+                 listMyVisits, getVisitDetail,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
