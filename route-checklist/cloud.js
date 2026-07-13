@@ -266,6 +266,26 @@ async function listInProgress() {
   }));
 }
 
+// Slice 2: the signed-in tech's OWN completed visits, newest first. Read-only.
+// Self-scoped (tech_id = me) even though RLS permits reading any staff visit —
+// the "my history" screen must never surface another tech's data.
+async function listMyVisits() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("visits")
+    .select("id, visit_date, completed_at, houses(name)")
+    .eq("tech_id", user.id).eq("status", "completed")
+    .order("visit_date", { ascending: false })
+    .order("completed_at", { ascending: false });
+  if (error) { console.error("Could not list my visits:", error.message); return []; }
+  return data.map(v => ({
+    id: v.id,
+    houseName: v.houses?.name || "",
+    visitDate: v.visit_date,
+  }));
+}
+
 // For each date-tracked item key, find the most recent COMPLETED visit at this
 // house where it was done, and return the date it was done on (the recorded
 // done_on if the tech entered one, else the visit date).
@@ -521,6 +541,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listPendingSuggestions, pendingCount,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
+                 listMyVisits,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
