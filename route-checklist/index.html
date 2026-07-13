@@ -2759,8 +2759,25 @@
   }
 
   async function renderHistoryScreen() {
-    document.getElementById("historyBody").innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const body = document.getElementById("historyBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const visits = await window.cloud.listMyVisits();
+    if (currentScreenFromHash() !== "history") return;   // navigated away meanwhile
+    if (!visits.length) {
+      body.innerHTML = `<p class="screen-sub">No completed visits yet.</p>`;
+      return;
+    }
+    body.innerHTML = visits.map(v => `
+      <button type="button" class="list-btn" data-visit-id="${escAttr(v.id)}">
+        <b>${escHtml(v.houseName)}</b><span>${escHtml(v.visitDate)}</span>
+      </button>`).join("");
   }
+
+  document.getElementById("historyBody").addEventListener("click", e => {
+    const row = e.target.closest("[data-visit-id]");
+    if (!row) return;
+    location.hash = "#history/" + row.dataset.visitId;
+  });
 
   document.getElementById("profileBody").addEventListener("click", async e => {
     if (!e.target.closest("#profileSaveBtn")) return;
