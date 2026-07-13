@@ -3,7 +3,47 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
-## STATE AS OF 2026-07-13 (My Profile screen — slice 1 of 4) — read this first
+## STATE AS OF 2026-07-13 (My Visit History — slice 2 of 4) — read this first
+
+**Built via subagent-driven-development (6 tasks, each task-reviewed + final
+whole-branch reviewed on Opus: Ready to merge, 0 Critical/0 Important), all
+committed on `claude/claude-code-tutorial-5l5ew2` (slice commits
+`7160d6c..60c57db`).** Slice 2 of 4 (slices 3–4 — Daily Logs calendar,
+on-call rotation calendar — are separate future cycles, NOT built).
+Spec: `docs/superpowers/specs/2026-07-13-visit-history-design.md`; plan:
+`docs/superpowers/plans/2026-07-13-visit-history.md`.
+
+- **No migration, no RLS change.** Migrations 0001 + 0002 already grant any
+  signed-in staff read access to `visits`/`visit_items`; this slice is
+  read-only front-end + two `cloud.js` reads.
+- **`cloud.js` additions:** `listMyVisits()` (the signed-in tech's OWN
+  completed visits — `{ id, houseName, visitDate }[]`, newest first; returns
+  `[]` on no-user/error) and `getVisitDetail(visitId)` (one OWN visit +
+  its items — filters `id` AND `tech_id`, `.maybeSingle()`; returns
+  `{ houseName, visitDate, items:[{item_key,answer,note}] }` or `{ error }`).
+  Both self-scoped (`tech_id = me`) as defense-in-depth atop RLS. Exported
+  on `window.cloud`.
+- **New `#history` screen** (hash-router: `#history` list, `#history/<id>`
+  detail — same pattern as `#profile`). Home button **"🗓️ My visit history"**,
+  always visible (NOT `admin-only`). List = house + date (via `fmtDate`),
+  newest first, tap → detail. Detail shows ONLY items worth revisiting:
+  **flagged** (recorded `answer === item.bad` polarity, looked up in
+  `ITEM_BY_KEY`/`GROUPS` — computed client-side, never stored) **OR** carrying
+  a note. Clean visit → "No issues flagged on this visit." Unknown `item_key`
+  (checklist changed since the visit) still shows, labelled by raw key.
+- **Explicitly out of scope this slice:** other techs'/house-level history,
+  full checklist replay / alarm counts / survey, photos (Phase 2), editing a
+  past visit (read-only), filtering/search.
+- SW cache bumped `v15` → `v16` (`index.html` + `cloud.js` changed).
+- **NOT YET verified end-to-end on the live site.** Owner/next session:
+  hard-refresh (Ctrl+Shift+R), sign in as tech1 (has a completed visit),
+  confirm "🗓️ My visit history" appears, open it → list shows the visit,
+  tap it → detail shows only flagged/noted items; sign in as tech2 and
+  confirm they see only their own (isolation); deep-link reload on
+  `#history/<id>` re-renders with no console errors. Test accounts:
+  `tech1@example.com`, `tech2@example.com` (both role=tech).
+
+## STATE AS OF 2026-07-13 (My Profile screen — slice 1 of 4)
 
 **Built via subagent-driven-development (4 tasks, each task-reviewed +
 final whole-branch reviewed on Opus), all committed on
