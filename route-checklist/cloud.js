@@ -100,6 +100,50 @@ async function loadMyRoute() {
   apply(mine);   // empty Set is meaningful: "route info exists, none assigned"
 }
 
+// ---- My Profile (self-service name/phone editor) ----
+
+// The signed-in user's own name/phone/role + their login email. Email comes
+// from auth.getUser() (profiles has no email column). Returns { error } if
+// not signed in or the query fails — the UI shows that message rather than
+// a blank form.
+async function getMyProfile() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  let { data, error } = await supabase
+    .from("profiles").select("full_name, phone, role").eq("id", user.id).maybeSingle();
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase
+      .from("profiles").select("full_name, role").eq("id", user.id).maybeSingle());
+  }
+  if (error) return { error: error.message };
+  return {
+    fullName: data?.full_name || "",
+    phone: data?.phone || "",
+    role: data?.role || "tech",
+    email: user.email || "",
+  };
+}
+
+// Save the signed-in user's OWN name/phone. Never sends role — role changes
+// stay a deliberate dashboard action (guard_profile_role trigger blocks a
+// non-supervisor from changing it anyway).
+async function saveMyProfile({ fullName, phone }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  let { error } = await supabase
+    .from("profiles")
+    .update({ full_name: fullName, phone })
+    .eq("id", user.id);
+  if (error && isMissingColumn(error)) {
+    ({ error } = await supabase
+      .from("profiles")
+      .update({ full_name: fullName })
+      .eq("id", user.id));
+    if (!error) return { error: null, degraded: true };
+  }
+  return { error: error ? error.message : null };
+}
+
 // ---- Visit history (the app calls these via window.cloud) ----
 
 // Save a visit: one `visits` row + one `visit_items` row per answered item.
@@ -476,6 +520,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  saveGeneralNotes, saveHouseField,
                  listPendingSuggestions, pendingCount,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
+                 getMyProfile, saveMyProfile,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
