@@ -108,8 +108,8 @@ const HOUSES = [
       generator: false,
     },
     notes: {
-      fridgeCoils_res: "Roof coils in garage by fuse box",
-      fridgeCoils_rs: "Roof coils in garage by fuse box",
+      fridgeCoils_res: "",
+      fridgeCoils_rs: "",
       furnaceFilter: "16x25x4",
       waterSoftener: "In the mechanical room — back left corner as you enter",
       shutoffs: "Main water: mech room, far right corner. Main gas: mech room, closest left corner. Outside water: one above water main in mech room; one in kitchen suspended ceiling under same panel as heat vent (access through small panel next to it, toward cabinet)",
