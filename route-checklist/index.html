@@ -2769,7 +2769,7 @@
     }
     body.innerHTML = visits.map(v => `
       <button type="button" class="list-btn" data-visit-id="${escAttr(v.id)}">
-        <b>${escHtml(v.houseName)}</b><span>${escHtml(v.visitDate)}</span>
+        <b>${escHtml(v.houseName)}</b><span>${fmtDate(v.visitDate)}</span>
       </button>`).join("");
   }
 
