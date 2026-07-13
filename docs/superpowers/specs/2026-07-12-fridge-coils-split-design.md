@@ -1,7 +1,55 @@
-# Fridge-Coils Per-Level Note Split — Design
+# Level-Split Notes: Fridge-Coils Split + Direction-Label Cleanup — Design
 
 **Date:** 2026-07-12
 **Status:** Awaiting owner review
+
+Two related changes to how level-split house notes read and render. Part 1 is
+a text cleanup; Part 2 is a data-model fix. They ship as separate migrations
+but are specced together because they share the same "up = Resident, down =
+RS" framing from migration 0011.
+
+## Part 1 — Drop "(up)/(down)" from fire ext., dryer vents, attic access
+
+### Problem
+Migration 0011 relabeled these notes to `Residents (up): X · RS (down): Y`.
+The direction words are redundant once the label already names the unit, and
+the owner wants them gone. These three notes each render in a single
+Shared / Whole-House checklist spot with **no** second (RS) checklist item, so
+they are NOT data-split — both halves correctly stay stacked in that one spot;
+only the wording changes.
+
+### Goal
+`Residents (up): X · RS (down): Y` → `Resident: X · RS: Y` (format B, chosen by
+owner). Shared inline bits (e.g. "Garage: …", "One in the van") stay inline
+unchanged. Applies to `fireExtinguishers`, `dryerVents`, `atticAccess` only.
+
+### Flipped houses
+The five RS-on-top houses (92nd Crescent, Amble, Fallgold, McAfee, Sherwood
+Place) already carry `Residents (down): … · RS (up): …` from 0011 — the label
+names the correct unit on either side. So the cleanup is a **pure text edit**:
+delete the ` (up)` / ` (down)` parenthetical and change "Residents" → "Resident"
+wherever it precedes a colon. No per-house flipping logic. Fallgold's
+`Residents (1st): … · RS (2nd): …` on `atticAccess` similarly just drops to
+`Resident: … · RS: …` (owner: format B everywhere for these three).
+
+### Migration `0012_drop_direction_labels.sql`
+Explicit per-house UPDATEs (reviewable like 0011), each rewriting the affected
+note key to its format-B text. The plan enumerates every house × note with a
+current→new table for owner review, derived from the **live** current values
+(see source-of-truth caution in Part 2), not raw seed text. `house-data.js`
+gets the identical edits; SW cache bumps.
+
+**Scope (counted in current `house-data.js`, which holds post-0011 values):**
+of the notes carrying a `(up)/(down)/(1st)/(2nd)` label — `fireExtinguishers`
+**29**, `dryerVents` **21**, `atticAccess` **2** = **52 note edits**. Notes
+without a direction label (e.g. "Under sinks up and down" prose, or
+single-location notes) already read correctly and are left untouched. The
+transform is mechanical: delete the ` (up)`/` (down)`/` (1st)`/` (2nd)`
+parenthetical and change "Residents" → "Resident" where it precedes a colon.
+
+---
+
+## Part 2 — Fridge coils: true per-level data split
 
 ## Problem
 
@@ -15,10 +63,8 @@ level-label migration (0011) made the combined text readable but did not fix
 the duplication; it is a data-model issue, not a wording one.
 
 Fridge coils is the ONLY note with a real checklist item in BOTH the Resident
-and RS sections. Other level-split notes (fire extinguishers, dryer vents,
-attic access) render in a single Shared / Whole-House spot and have no second
-section to split into — confirmed by mapping every `NOTE_RULES` key to its
-items. They are explicitly OUT of scope.
+and RS sections — which is why it (and only it) gets a true data split. The
+Part 1 notes lack a second item, so they get the text cleanup instead.
 
 ## Goal
 
@@ -39,10 +85,11 @@ object value would need special-casing everywhere); a UI-only split of the
 combined string (fragile parsing on every render, and edits could not be
 independent).
 
-## Migration `0012_fridge_coils_split.sql`
+## Migration `0013_fridge_coils_split.sql`
 
-For each house, transform `notes.fridgeCoils` into the two new keys, then
-remove the old key. The transform, per house:
+(0012 is Part 1's direction-label cleanup.) For each house, transform
+`notes.fridgeCoils` into the two new keys, then remove the old key. The
+transform, per house:
 
 1. **Parseable** — value contains ` · ` AND both a Residents-side and an
    RS-side marker: strip the leading label from each half and assign each half
@@ -105,7 +152,8 @@ Editing the Resident coils note cannot touch the RS one.
 
 ## Out of scope
 
-- Fire extinguishers, dryer vents, attic access (no second-section item).
+- Fire extinguishers, dryer vents, attic access do NOT get a data split (no
+  second-section item) — they get Part 1's text cleanup only.
 - The "coils move when a fridge is replaced" verify reminder — deferred to its
   own project (seeding per-house queue items hits two real blockers: the
   suggestion table's `author_id` is NOT NULL and must reference a real
@@ -115,6 +163,13 @@ Editing the Resident coils note cannot touch the RS one.
 
 ## Verification (manual)
 
+**Part 1 (direction cleanup):**
+0. On Dogwood, fire extinguisher note reads `Resident: laundry closet · RS: mech
+   room · Garage: by main door · One in the van` — no "(up)/(down)". Check a
+   flipped house (e.g. McAfee dryer vents) reads `Resident: … · RS: …` with the
+   correct sides. Notes without direction labels are unchanged.
+
+**Part 2 (fridge split):**
 1. On a normal house (e.g. Dogwood), open the checklist: Resident-Level Kitchen
    → fridge coils shows only its half (e.g. "front"); RS-Unit Kitchen → shows
    only its half (e.g. "back"). No "up/down" text on either.
