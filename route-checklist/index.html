@@ -1051,7 +1051,8 @@
   const NOTE_RULES = [
     { match: /fire extinguisher up to date/i, note: "fireExtinguishers" },
     { match: /furnace filter/i,         note: "furnaceFilter" },
-    { match: /refrigerator coils/i,     note: "fridgeCoils" },
+    { match: /refrigerator coils/i,     note: "fridgeCoils_res", itemKey: "rk-fridge-coils" },
+    { match: /refrigerator coils/i,     note: "fridgeCoils_rs",  itemKey: "rsk-fridge-coils" },
     { match: /water softener/i,         note: "waterSoftener", flag: "waterSoftener" },
     { match: /gas & water shutoffs/i,   note: "shutoffs" },
     { match: /sharpen knives/i,         note: "knives" },
@@ -1272,7 +1273,7 @@
           // paintHouseNoteSugs() later fills with pending/denied blocks.
           let houseNote = "";
           if (house) {
-            const rules = NOTE_RULES.filter(r => r.match.test(label));
+            const rules = NOTE_RULES.filter(r => r.match.test(label) && (!r.itemKey || r.itemKey === id));
             if (rules.some(r => r.flag && house.equipment && house.equipment[r.flag] === false)) return;
             rules.filter(r => r.note).forEach(r => {
               const key = r.note;
@@ -2068,7 +2069,8 @@
   const NOTE_KEY_LABELS = {
     fireExtinguishers: "Fire extinguishers",
     furnaceFilter: "Furnace filter",
-    fridgeCoils: "Refrigerator coils",
+    fridgeCoils_res: "Refrigerator coils (Resident)",
+    fridgeCoils_rs: "Refrigerator coils (RS)",
     waterSoftener: "Water softener",
     shutoffs: "Gas & water shutoffs",
     knives: "Sharpen knives",

@@ -9,7 +9,8 @@
 //                           frontLoadWashers, airExchanger, waterSoftener
 //   notes     — house-specific detail shown inline under the matching
 //               checklist item. Keys: fireExtinguishers, furnaceFilter,
-//               fridgeCoils, waterSoftener, shutoffs, knives, medLock,
+//               fridgeCoils_res, fridgeCoils_rs, waterSoftener, shutoffs,
+//               knives, medLock,
 //               atticAccess, dryerVents
 //   info      — [label, detail] pairs with no checklist item; shown in the
 //               sidebar "House info" panel.
@@ -27,7 +28,8 @@ const HOUSES = [
     notes: {
       fireExtinguishers: "Resident: laundry closet · RS: mech room · Garage: by main door · One in the van",
       furnaceFilter: "20x25x20",
-      fridgeCoils: "Residents (up): front · RS (down): back",
+      fridgeCoils_res: "front",
+      fridgeCoils_rs: "back",
       waterSoftener: "In the mechanical room",
       shutoffs: "Gas & water: mech room. Outside water: mech room above softener + under RS kitchen sink",
       knives: "Block on counter",
@@ -78,7 +80,8 @@ const HOUSES = [
     notes: {
       fireExtinguishers: "Resident: back hall by the pantry · RS: storage room off the kitchen, right around the corner",
       furnaceFilter: "16x25x1",
-      fridgeCoils: "Residents (up): front of fridge · RS (down): front of fridge",
+      fridgeCoils_res: "front of fridge",
+      fridgeCoils_rs: "front of fridge",
       waterSoftener: "In the mechanical room",
       shutoffs: "Main water: mech room by the water softener. Main gas: mech room on the furnace. Outside water: one in mech room (labeled) + one storage room, east wall, next to kitchen (labeled)",
       knives: "Second drawer down next to the dishwasher",
@@ -105,7 +108,8 @@ const HOUSES = [
       generator: false,
     },
     notes: {
-      fridgeCoils: "Roof coils in garage by fuse box",
+      fridgeCoils_res: "Roof coils in garage by fuse box",
+      fridgeCoils_rs: "Roof coils in garage by fuse box",
       furnaceFilter: "16x25x4",
       waterSoftener: "In the mechanical room — back left corner as you enter",
       shutoffs: "Main water: mech room, far right corner. Main gas: mech room, closest left corner. Outside water: one above water main in mech room; one in kitchen suspended ceiling under same panel as heat vent (access through small panel next to it, toward cabinet)",
@@ -134,7 +138,8 @@ const HOUSES = [
     notes: {
       fireExtinguishers: "Resident: kitchen, on the wall above the garbage cans · RS: kitchen, on wall by office",
       furnaceFilter: "20x25x4",
-      fridgeCoils: "Residents (up): front of the fridge · RS (down): back of the fridge",
+      fridgeCoils_res: "front of the fridge",
+      fridgeCoils_rs: "back of the fridge",
       waterSoftener: "Yes",
       shutoffs: "Main water: mech room by utility sink. Main gas: next to / on furnace in basement. Outside water: both in mech room — one behind the furnace, one by laundry area",
       knives: "On the counter",
@@ -162,7 +167,8 @@ const HOUSES = [
     notes: {
       fireExtinguishers: "Resident: kitchen, far right cabinet; one in the van · RS: one under the sink, one in laundry room",
       furnaceFilter: "16x25x4",
-      fridgeCoils: "See house info",
+      fridgeCoils_res: "See house info",
+      fridgeCoils_rs: "See house info",
       waterSoftener: "In the laundry closet — use ONLY Morton System Saver II pellets",
       shutoffs: "Main gas and water: mechanical room. Outside water: both in mech room above the water heater",
       knives: "On the counter",
@@ -462,7 +468,8 @@ const HOUSES = [
     notes: {
       fireExtinguishers: "Resident: on the cabinet in the kitchen · RS: laundry closet between washer and dryer · Basement: bottom of the stairs · Van",
       furnaceFilter: "16x25x4 (90-day)",
-      fridgeCoils: "Residents (1st): front side · RS (2nd): back of refrigerator",
+      fridgeCoils_res: "front side",
+      fridgeCoils_rs: "back of refrigerator",
       waterSoftener: "In the basement mechanical room",
       shutoffs: "Main water: next to water heater. Main gas: behind furnace. Exterior: one in the utility room ceiling right of the water softener; the other in the large downstairs room, southeast corner",
       knives: "In the right drawer of the island",
@@ -1098,7 +1105,8 @@ const HOUSES = [
     notes: {
       fireExtinguishers: "(3) Resident: laundry closet · RS: under kitchen sink · One in the van",
       furnaceFilter: "Two furnaces — both 20x25 (a 1-inch and a 4-inch filter)",
-      fridgeCoils: "Residents (up): front of fridge · RS (down): back of fridge",
+      fridgeCoils_res: "front of fridge",
+      fridgeCoils_rs: "back of fridge",
       waterSoftener: "None",
       shutoffs: "Main water: mechanical room. Main gas: at the meter. Outside water: front — RS laundry room behind the furnace, up in the ceiling; back — mech room above the water heater",
       knives: "Above the pantry — most are serrated",
@@ -1230,7 +1238,8 @@ const HOUSES = [
     notes: {
       fireExtinguishers: "Resident: laundry closet and in kitchen next to fridge · RS: under kitchen sink, van, garage",
       furnaceFilter: "20x25x4",
-      fridgeCoils: "Residents (up): front/back · RS (down): front/back",
+      fridgeCoils_res: "front/back",
+      fridgeCoils_rs: "front/back",
       waterSoftener: "None",
       shutoffs: "Main water: in the laundry room. Main gas: at meter. Outside water: RS level — the front faucet valve is in the back bedroom behind the ceiling access panel that is close to the closet; the back faucet valve is in the laundry room above the door",
       knives: "Med cabinet",
