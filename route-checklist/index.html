@@ -549,6 +549,11 @@
     border: 1px solid var(--line); border-radius: 8px;
     background: var(--card); color: var(--ink);
   }
+  .hist-item { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
+  .hist-item b { display: block; }
+  .hist-answer { font-weight: 600; text-transform: capitalize; }
+  .hist-note { margin: 4px 0 0; color: var(--muted, #555); white-space: pre-wrap; }
+
   .profile-readonly { font-size: 0.95rem; color: var(--muted); margin: 0 0 14px; }
   #profileMsg { font-size: 0.88rem; margin-top: 8px; }
   #profileMsg.ok { color: var(--ok, green); }
@@ -2760,6 +2765,8 @@
 
   async function renderHistoryScreen() {
     const body = document.getElementById("historyBody");
+    const m = location.hash.match(/^#history\/(.+)$/);
+    if (m) { return renderVisitDetail(body, decodeURIComponent(m[1])); }
     body.innerHTML = `<p class="screen-sub">Loading…</p>`;
     const visits = await window.cloud.listMyVisits();
     if (currentScreenFromHash() !== "history") return;   // navigated away meanwhile
@@ -2773,7 +2780,42 @@
       </button>`).join("");
   }
 
+  // Detail = only the items worth revisiting: flagged (answer === item.bad,
+  // where `bad` is the item's polarity from GROUPS) OR carrying a note. An
+  // item_key no longer in the checklist still shows, labelled by its raw key,
+  // so history never drops what a tech actually recorded.
+  async function renderVisitDetail(body, visitId) {
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const res = await window.cloud.getVisitDetail(visitId);
+    if (currentScreenFromHash() !== "history") return;   // navigated away meanwhile
+    if (res.error) {
+      body.innerHTML = `<p class="screen-sub">Couldn't load this visit — ${escHtml(res.error)}</p>`;
+      return;
+    }
+    const shown = res.items.filter(it => {
+      const def = ITEM_BY_KEY[it.item_key];
+      const flagged = def && it.answer && it.answer === def.bad;
+      return flagged || (it.note && it.note.trim());
+    });
+    const header = `
+      <button type="button" class="menu-btn" data-history-back>← All visits</button>
+      <h2 style="font-size:1rem">${escHtml(res.houseName)} — ${fmtDate(res.visitDate)}</h2>`;
+    if (!shown.length) {
+      body.innerHTML = header + `<p class="screen-sub">No issues flagged on this visit.</p>`;
+      return;
+    }
+    const rows = shown.map(it => {
+      const def = ITEM_BY_KEY[it.item_key];
+      const label = def ? escHtml(def.q || def.text) : escHtml(it.item_key);
+      const ans = it.answer ? `<span class="hist-answer">${escHtml(it.answer)}</span>` : "";
+      const note = it.note && it.note.trim() ? `<p class="hist-note">${escHtml(it.note)}</p>` : "";
+      return `<div class="hist-item"><b>${label}</b> ${ans}${note}</div>`;
+    }).join("");
+    body.innerHTML = header + rows;
+  }
+
   document.getElementById("historyBody").addEventListener("click", e => {
+    if (e.target.closest("[data-history-back]")) { location.hash = "#history"; return; }
     const row = e.target.closest("[data-visit-id]");
     if (!row) return;
     location.hash = "#history/" + row.dataset.visitId;
