@@ -35,6 +35,32 @@ owner-approved before→after table:
 live spot-check is pending** — sign in and open 140th Lane West (fridge coils),
 McAfee (dryer vents flipped), and Fallgold (three-level labels) to confirm.
 
+**Level-split notes (migrations 0012 + 0013, pushed & applied).** Two related
+cleanups to the level labeling introduced in 0011. **Migration
+`0012_drop_direction_labels.sql`** dropped the `(up)/(down)/(1st)/(2nd)/(shared)`
+direction suffixes from the `fireExtinguishers`, `dryerVents`, and `atticAccess`
+notes (52 notes across the roster), collapsing them to plain
+`Resident: X · RS: Y` — the direction was redundant once the Resident/RS role
+was named. **Migration `0013_fridge_coils_split.sql`** split the single
+`fridgeCoils` note into two independent keys, `fridgeCoils_res` and
+`fridgeCoils_rs`, so each level's coils note carries its own value and can be
+edited without touching the other. Rendering: `NOTE_RULES` gained an optional
+`itemKey` field so a rule can bind to one specific checklist item — the two
+fridge-coils rules match `refrigerator coils` but scope to `rk-fridge-coils`
+(Resident-Level Kitchen) and `rsk-fridge-coils` (RS-Unit Kitchen) respectively,
+so each 📍 line appears only under its own kitchen section (no combined line).
+`NOTE_KEY_LABELS` labels the two keys "Refrigerator coils (Resident)" and
+"Refrigerator coils (RS)" so the House Notes screen and pending queue read
+clearly. `house-data.js` (the offline fallback) was synced with the identical
+strings and split keys; both migrations use jsonb `||` set-semantics UPDATEs
+per house, so — as with 0011 — the DB change is live immediately and the deploy
+only refreshes the offline fallback. SW cache bumped `v12` → `v14` (Part 1
+shipped `v13`, the fridge split shipped `v14`). **Deferred follow-up:** the
+"coils physically move when a fridge is replaced, so re-verify which unit each
+value describes" reminder was intentionally left out — it needs a System author
+and once-only migration seeding we don't have yet. **Owner's live spot-check is
+pending** (see the level-split spot-check list handed over this session).
+
 ## STATE AS OF 2026-07-12 (House-note suggestions: tech propose / supervisor review) — read this first
 
 **Feature built across migration 0008 + cloud.js + UI, pushed as part of this
