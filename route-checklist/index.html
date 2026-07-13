@@ -483,6 +483,7 @@
   body:not([data-screen="routes"])   #routesScreen,
   body:not([data-screen="pending"])  #pendingScreen,
   body:not([data-screen="profile"])  #profileScreen,
+  body:not([data-screen="history"])  #historyScreen,
   body:not([data-screen="notes"])    #notesScreen { display: none; }
 
   .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
@@ -728,6 +729,8 @@
     <small>Info, item notes &amp; general notes per house</small></button>
   <button type="button" class="home-btn" id="homeProfile">👤 My profile
     <small>Your name &amp; phone number</small></button>
+  <button type="button" class="home-btn" id="homeHistory">🗓️ My visit history
+    <small>Your completed visits</small></button>
   <button type="button" class="home-btn admin-only" id="homeRoutes">🗺️ Routes
     <small>Assign techs &amp; houses to routes</small></button>
   <button type="button" class="home-btn admin-only" id="homePending">⏳ Pending changes<span class="pending-count" id="pendingCountBadge"></span>
@@ -757,6 +760,14 @@
     <h1>My Profile</h1>
   </div>
   <div id="profileBody"></div>
+</div>
+
+<div id="historyScreen" class="screen" aria-label="My visit history">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>My Visit History</h1>
+  </div>
+  <div id="historyBody"></div>
 </div>
 
 <div id="routesScreen" class="screen" aria-label="Routes">
@@ -2536,6 +2547,7 @@
     if (h.startsWith("#routes")) return "routes";
     if (h.startsWith("#pending")) return "pending";
     if (h.startsWith("#profile")) return "profile";
+    if (h.startsWith("#history")) return "history";
     return "home";
   }
   function showScreen() {
@@ -2545,6 +2557,7 @@
     if (scr === "routes") renderRoutesScreen();
     if (scr === "pending") renderPendingScreen();
     if (scr === "profile") renderProfileScreen();
+    if (scr === "history") renderHistoryScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2578,6 +2591,9 @@
   });
   document.getElementById("homeProfile").addEventListener("click", () => {
     location.hash = "#profile";
+  });
+  document.getElementById("homeHistory").addEventListener("click", () => {
+    location.hash = "#history";
   });
 
   // ---- Continue screen ----
@@ -2740,6 +2756,10 @@
       </div>
       <button type="button" id="profileSaveBtn">Save</button>
       <div id="profileMsg"></div>`;
+  }
+
+  async function renderHistoryScreen() {
+    document.getElementById("historyBody").innerHTML = `<p class="screen-sub">Loading…</p>`;
   }
 
   document.getElementById("profileBody").addEventListener("click", async e => {
