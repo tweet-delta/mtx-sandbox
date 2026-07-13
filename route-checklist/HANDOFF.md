@@ -3,6 +3,49 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
+## STATE AS OF 2026-07-13 (My Profile screen — slice 1 of 4) — read this first
+
+**Built via subagent-driven-development (4 tasks, each task-reviewed +
+final whole-branch reviewed on Opus), all committed on
+`claude/claude-code-tutorial-5l5ew2`.** This is slice 1 of a larger
+owner request (own visit history, a Daily Logs calendar, and a shared
+on-call rotation calendar are separate future slices — NOT built yet).
+Spec: `docs/superpowers/specs/2026-07-13-profile-editor-design.md`; plan:
+`docs/superpowers/plans/2026-07-13-profile-editor.md`.
+
+- **Migration `0015_profile_phone.sql`** (pushed & verified live via
+  `supabase db query --linked`): adds `phone text not null default ''` to
+  `public.profiles`. No RLS/grant changes — the existing `profiles_select`/
+  `profiles_update` policies (self or supervisor) already cover the new
+  column.
+- **`cloud.js` additions:** `getMyProfile()` (returns
+  `{ fullName, phone, role, email }` for the signed-in user, or
+  `{ error }`) and `saveMyProfile({ fullName, phone })` (updates only the
+  caller's own row, never sends `role`; returns `{ error }`, with
+  `{ error: null, degraded: true }` if the `phone` column isn't there yet).
+  Both exported on `window.cloud`.
+- **New `#profile` screen** (hash-router screen, same pattern as
+  `#notes`/`#routes`/`#pending`): a home-screen button **"👤 My profile"**,
+  always visible (not `admin-only`) — every user edits their own name and
+  phone. Shows signed-in email + role read-only; role is never editable
+  from this UI (dashboard-only, still enforced server-side by
+  `guard_profile_role`). Full name is validated non-empty before save;
+  phone has no format validation (free text, by design).
+- **Explicitly out of scope this slice:** a supervisor editing another
+  tech's profile via UI (RLS already allows it; no UI yet — a future
+  roster screen), changing sign-in email, phone format/masking.
+- SW cache bumped `v14` → `v15` (`index.html` + `cloud.js` both changed).
+- **NOT YET verified end-to-end on the live site** — no signed-in browser
+  session was available during the build (sandboxed agents). Next
+  session/owner: sign in as a tech, confirm "👤 My profile" appears,
+  edit name + phone, save, reload, confirm persistence; sign in as a
+  second tech and confirm isolation (only their own row); confirm the
+  empty-name inline validation blocks a save; spot-check the row in the
+  Supabase dashboard (`select full_name, phone from public.profiles
+  where id = auth.uid();`). Hard-refresh (Ctrl+Shift+R) after deploy, and
+  fully close/reopen the PWA on phones — the old service worker keeps
+  serving cached files until then.
+
 ## STATE AS OF 2026-07-12 (Emmert house added — 48 houses)
 
 Emmert added via the established house-adding pipeline (see that section):
@@ -324,9 +367,10 @@ plan: `docs/superpowers/plans/2026-07-10-home-screen-house-notes.md`.
   rendered `<details>`, incl. Alarm Counts).
 - **Screens + hash router** inside index.html: `#home` (post-login landing:
   New house visit / Continue house visit / House notes), `#visit` (the
-  checklist), `#continue`, `#notes` / `#notes/<house>`. The phone back button
-  moves between screens; finishing a survey returns Home. `← Home` buttons in
-  every non-home header.
+  checklist), `#continue`, `#notes` / `#notes/<house>`, `#routes`,
+  `#pending`, `#profile` (added 2026-07-13, see that state section). The
+  phone back button moves between screens; finishing a survey returns Home.
+  `← Home` buttons in every non-home header.
 - **Continue screen** merges the local buffer with the tech's cloud
   `in_progress` visits (`cloud.listInProgress()`), de-duplicated via
   `cloudVisitId`; resuming a cloud visit routes through `selectHouse()` +
