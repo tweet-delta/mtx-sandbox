@@ -482,6 +482,7 @@
   body:not([data-screen="continue"]) #continueScreen,
   body:not([data-screen="routes"])   #routesScreen,
   body:not([data-screen="pending"])  #pendingScreen,
+  body:not([data-screen="profile"])  #profileScreen,
   body:not([data-screen="notes"])    #notesScreen { display: none; }
 
   .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
@@ -537,6 +538,20 @@
   .notes-item { font-size: 0.88rem; padding: 6px 0; border-top: 1px solid #EEF1F4; }
   .notes-item:first-of-type { border-top: none; }
   .notes-item b { display: block; font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* ---- My Profile screen ---- */
+  .profile-field { margin-bottom: 14px; }
+  .profile-field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .profile-field input {
+    font: inherit; font-size: 16px; /* 16px stops iOS zoom-on-focus */
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--ink);
+  }
+  .profile-readonly { font-size: 0.95rem; color: var(--muted); margin: 0 0 14px; }
+  #profileMsg { font-size: 0.88rem; margin-top: 8px; }
+  #profileMsg.ok { color: var(--ok, green); }
+  #profileMsg.error { color: var(--bad, crimson); }
   .gen-notes { font-size: 0.92rem; white-space: pre-wrap; margin: 0; }
   .gen-notes.empty { color: var(--muted); font-style: italic; }
   .sug {
@@ -711,6 +726,8 @@
     <small>Pick up where you left off</small></button>
   <button type="button" class="home-btn" id="homeNotes">📝 House notes
     <small>Info, item notes &amp; general notes per house</small></button>
+  <button type="button" class="home-btn" id="homeProfile">👤 My profile
+    <small>Your name &amp; phone number</small></button>
   <button type="button" class="home-btn admin-only" id="homeRoutes">🗺️ Routes
     <small>Assign techs &amp; houses to routes</small></button>
   <button type="button" class="home-btn admin-only" id="homePending">⏳ Pending changes<span class="pending-count" id="pendingCountBadge"></span>
@@ -732,6 +749,14 @@
     <h1>House notes</h1>
   </div>
   <div id="notesBody"></div>
+</div>
+
+<div id="profileScreen" class="screen" aria-label="My profile">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>My Profile</h1>
+  </div>
+  <div id="profileBody"></div>
 </div>
 
 <div id="routesScreen" class="screen" aria-label="Routes">
@@ -2510,6 +2535,7 @@
     if (h.startsWith("#continue")) return "continue";
     if (h.startsWith("#routes")) return "routes";
     if (h.startsWith("#pending")) return "pending";
+    if (h.startsWith("#profile")) return "profile";
     return "home";
   }
   function showScreen() {
@@ -2518,6 +2544,7 @@
     if (scr === "continue") renderContinue();
     if (scr === "routes") renderRoutesScreen();
     if (scr === "pending") renderPendingScreen();
+    if (scr === "profile") renderProfileScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2548,6 +2575,9 @@
   });
   document.getElementById("homePending").addEventListener("click", () => {
     location.hash = "#pending";
+  });
+  document.getElementById("homeProfile").addEventListener("click", () => {
+    location.hash = "#profile";
   });
 
   // ---- Continue screen ----
@@ -2685,6 +2715,60 @@
     sel.disabled = false;
     if (res.error) { toast("Couldn't save — " + res.error, "error"); return; }
     toast("✓ Saved.", "ok");
+  });
+
+  // ---- My Profile screen ----
+  async function renderProfileScreen() {
+    const body = document.getElementById("profileBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const res = await window.cloud.getMyProfile();
+    if (currentScreenFromHash() !== "profile") return;   // navigated away meanwhile
+    if (res.error) {
+      body.innerHTML = `<p class="screen-sub">Couldn't load your profile — ${escHtml(res.error)}</p>`;
+      return;
+    }
+    const roleLabel = res.role === "supervisor" ? "Supervisor" : "Tech";
+    body.innerHTML = `
+      <p class="profile-readonly">Signed in as <b>${escHtml(res.email)}</b> · ${escHtml(roleLabel)}</p>
+      <div class="profile-field">
+        <label for="profileName">Full name</label>
+        <input type="text" id="profileName" value="${escAttr(res.fullName)}">
+      </div>
+      <div class="profile-field">
+        <label for="profilePhone">Phone</label>
+        <input type="tel" id="profilePhone" value="${escAttr(res.phone)}" placeholder="e.g. 555-123-4567">
+      </div>
+      <button type="button" id="profileSaveBtn">Save</button>
+      <div id="profileMsg"></div>`;
+  }
+
+  document.getElementById("profileBody").addEventListener("click", async e => {
+    if (!e.target.closest("#profileSaveBtn")) return;
+    const nameInput = document.getElementById("profileName");
+    const phoneInput = document.getElementById("profilePhone");
+    const msg = document.getElementById("profileMsg");
+    const fullName = nameInput.value.trim();
+    if (!fullName) {
+      msg.textContent = "Name can't be empty.";
+      msg.className = "error";
+      return;
+    }
+    const btn = document.getElementById("profileSaveBtn");
+    btn.disabled = true;
+    msg.textContent = "Saving…";
+    msg.className = "";
+    const res = await window.cloud.saveMyProfile({ fullName, phone: phoneInput.value.trim() });
+    btn.disabled = false;
+    if (res.error) {
+      msg.textContent = "Couldn't save — " + res.error;
+      msg.className = "error";
+      return;
+    }
+    msg.textContent = res.degraded
+      ? "Name saved. (Phone sync once the DB update is applied.)"
+      : "✓ Saved.";
+    msg.className = "ok";
+    toast("✓ Profile saved.", "ok");
   });
 
   // The supervisor's cross-house review queue. Techs can reach the hash but
