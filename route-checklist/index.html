@@ -2776,7 +2776,7 @@
     }
     body.innerHTML = visits.map(v => `
       <button type="button" class="list-btn" data-visit-id="${escAttr(v.id)}">
-        <b>${escHtml(v.houseName)}</b><span>${fmtDate(v.visitDate)}</span>
+        ${escHtml(v.houseName)} <small>${fmtDate(v.visitDate)}</small>
       </button>`).join("");
   }
 
@@ -2788,8 +2788,9 @@
     body.innerHTML = `<p class="screen-sub">Loading…</p>`;
     const res = await window.cloud.getVisitDetail(visitId);
     if (currentScreenFromHash() !== "history") return;   // navigated away meanwhile
+    const backBtn = `<button type="button" class="menu-btn" data-history-back>← All visits</button>`;
     if (res.error) {
-      body.innerHTML = `<p class="screen-sub">Couldn't load this visit — ${escHtml(res.error)}</p>`;
+      body.innerHTML = backBtn + `<p class="screen-sub">Couldn't load this visit — ${escHtml(res.error)}</p>`;
       return;
     }
     const shown = res.items.filter(it => {
@@ -2797,8 +2798,7 @@
       const flagged = def && it.answer && it.answer === def.bad;
       return flagged || (it.note && it.note.trim());
     });
-    const header = `
-      <button type="button" class="menu-btn" data-history-back>← All visits</button>
+    const header = backBtn + `
       <h2 style="font-size:1rem">${escHtml(res.houseName)} — ${fmtDate(res.visitDate)}</h2>`;
     if (!shown.length) {
       body.innerHTML = header + `<p class="screen-sub">No issues flagged on this visit.</p>`;
