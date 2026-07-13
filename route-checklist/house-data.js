@@ -25,7 +25,7 @@ const HOUSES = [
       frontLoadWashers: false,
     },
     notes: {
-      fireExtinguishers: "Residents (up): laundry closet · RS (down): mech room · Garage: by main door · One in the van",
+      fireExtinguishers: "Resident: laundry closet · RS: mech room · Garage: by main door · One in the van",
       furnaceFilter: "20x25x20",
       fridgeCoils: "Residents (up): front · RS (down): back",
       waterSoftener: "In the mechanical room",
@@ -33,7 +33,7 @@ const HOUSES = [
       knives: "Block on counter",
       medLock: "Stealth lock (code in local codes file)",
       atticAccess: "Attic access: hallway by bathroom",
-      dryerVents: "Residents (up): NW side · RS (down): NE side under deck",
+      dryerVents: "Resident: NW side · RS: NE side under deck",
     },
     info: [
       ["Paint", "Laundry closet"],
@@ -52,7 +52,7 @@ const HOUSES = [
       frontLoadWashers: false,
     },
     notes: {
-      fireExtinguishers: "Residents (up): kitchen sink, van, garage · RS (down): kitchen sink",
+      fireExtinguishers: "Resident: kitchen sink, van, garage · RS: kitchen sink",
       furnaceFilter: "16x25x1 — change monthly",
       shutoffs: "Main water: mech room by washing machine. Main gas: mech room by furnace. Outside: behind back-yard faucet in wall + mech room above softener",
       medLock: "Magnet and key",
@@ -76,7 +76,7 @@ const HOUSES = [
       frontLoadWashers: false,
     },
     notes: {
-      fireExtinguishers: "Residents (up): back hall by the pantry · RS (down): storage room off the kitchen, right around the corner",
+      fireExtinguishers: "Resident: back hall by the pantry · RS: storage room off the kitchen, right around the corner",
       furnaceFilter: "16x25x1",
       fridgeCoils: "Residents (up): front of fridge · RS (down): front of fridge",
       waterSoftener: "In the mechanical room",
@@ -132,7 +132,7 @@ const HOUSES = [
       garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "Residents (up): kitchen, on the wall above the garbage cans · RS (down): kitchen, on wall by office",
+      fireExtinguishers: "Resident: kitchen, on the wall above the garbage cans · RS: kitchen, on wall by office",
       furnaceFilter: "20x25x4",
       fridgeCoils: "Residents (up): front of the fridge · RS (down): back of the fridge",
       waterSoftener: "Yes",
@@ -160,7 +160,7 @@ const HOUSES = [
       garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "Residents (down): kitchen, far right cabinet; one in the van · RS (up): one under the sink, one in laundry room",
+      fireExtinguishers: "Resident: kitchen, far right cabinet; one in the van · RS: one under the sink, one in laundry room",
       furnaceFilter: "16x25x4",
       fridgeCoils: "See house info",
       waterSoftener: "In the laundry closet — use ONLY Morton System Saver II pellets",
@@ -168,7 +168,7 @@ const HOUSES = [
       knives: "On the counter",
       medLock: "Digi Lock-C (code in local codes file)",
       atticAccess: "Attic access: in the live-in apt, in the laundry room",
-      dryerVents: "RS (up): back of the house by patio · Residents (down): by front door",
+      dryerVents: "RS: back of the house by patio · Resident: by front door",
     },
     info: [
       ["MTX cabinet", "Left wall of the garage"],
@@ -194,7 +194,7 @@ const HOUSES = [
       shutoffs: "Main water: utility room. Main gas: utility room, next to the furnace. Exterior: back-of-house shutoff in cabinet under Resident-level kitchen sink; the faucet by the A/C is in the utility room ceiling at the back",
       knives: "Right of sink — second upper cabinet",
       atticAccess: "Attic access: ceiling of storage room next to utility room (garage light turns on attic light)",
-      dryerVents: "Residents (down): east side of house · RS (up): back of house, middle vent next to porch (not under it); tall ladder needed",
+      dryerVents: "Resident: east side of house · RS: back of house, middle vent next to porch (not under it); tall ladder needed",
     },
     info: [
       ["Paint", "Upstairs in the laundry room (most paint currently stored in the heated garage, 7/2022)"],
@@ -216,7 +216,7 @@ const HOUSES = [
       furnaceFilter: "16x25x4 — Honeywell brand only",
       shutoffs: "Main water: furnace room. Main gas: furnace room. Exterior: utility room, both above/behind the water heater against the wall",
       medLock: "Digilock (code in local codes file)",
-      dryerVents: "Residents (up): above patio door",
+      dryerVents: "Resident: above patio door",
     },
     info: [
       ["Paint", "Downstairs in the office-area shelving"],
@@ -234,7 +234,7 @@ const HOUSES = [
       garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "(3) Van · Residents (up): west kitchen wall · RS (down): under the sink in the basement apartment",
+      fireExtinguishers: "(3) Van · Resident: west kitchen wall · RS: under the sink in the basement apartment",
       waterSoftener: "Yes",
       shutoffs: "Main water: utility room, in front of the wash tub (kind of low). Main gas: attached to furnace. Exterior: front — utility room above sump pump; back — utility room back corner",
       knives: "Cabinet above microwave",
@@ -267,7 +267,7 @@ const HOUSES = [
       garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "(3) Van · Residents (up): under the sink · RS (down): under the sink",
+      fireExtinguishers: "(3) Van · Resident: under the sink · RS: under the sink",
       furnaceFilter: "90-day filter",
       waterSoftener: "None",
       shutoffs: "Main gas and water: furnace room. Exterior: both in utility room — one in the middle of the ceiling, one along the left wall behind the air-exchanger vent tubing (11/2021: one may have moved; both may be along the left wall). Right above a GFI outlet and power strip — cover/protect them when draining, the pipe sprays",
@@ -330,13 +330,13 @@ const HOUSES = [
       generator: false, garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "(5) Van · Residents (up): hallway, under sink, garage · RS (down): under sink",
+      fireExtinguishers: "(5) Van · Resident: hallway, under sink, garage · RS: under sink",
       furnaceFilter: "20x25x4 (90-day) — boiler downstairs for heat takes no filter; A/C unit in attic takes this filter",
       waterSoftener: "None",
       shutoffs: "Main water: RS apartment, off the living room by the fireplace — door to a closet, shutoff inside. Main gas: (see house). Exterior: front faucet in pump room off RS living room; back faucet not in service",
       knives: "In the Lazy Susan next to the stove",
       atticAccess: "Attic access: the garage",
-      dryerVents: "Residents (up): on the deck · RS (down): by the fence for the trash, on the house",
+      dryerVents: "Resident: on the deck · RS: by the fence for the trash, on the house",
     },
     info: [
       ["Paint", "MTX cabinet in hallway, opposite the two north bedrooms"],
@@ -364,7 +364,7 @@ const HOUSES = [
       knives: "On the counter",
       medLock: "Front Stealth lock + cabinet lock (codes in local codes file)",
       atticAccess: "Attic access: large bathroom and the garage",
-      dryerVents: "Residents (up): through the roof · RS (down): back under the deck (very long run; the RS dryer may auto-shut-off — coordinate with the live-in to keep it running while checking)",
+      dryerVents: "Resident: through the roof · RS: back under the deck (very long run; the RS dryer may auto-shut-off — coordinate with the live-in to keep it running while checking)",
     },
     info: [
       ["Paint", "Big storage room just past the living room"],
@@ -410,12 +410,12 @@ const HOUSES = [
       generator: false, garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "(2) Residents (up): under the kitchen sink · RS (down): under the kitchen sink",
+      fireExtinguishers: "(2) Resident: under the kitchen sink · RS: under the kitchen sink",
       furnaceFilter: "Boiler for heat (no furnace filter). Upstairs ceiling filter in the hallway takes 14x25x1 — the RS changes this",
       shutoffs: "Main water: west bedroom in the RS apartment. Main gas: southwest bathroom in the RS apartment. Front water shutoff: entryway to the RS apartment, through the ceiling panel. Back water shutoff: northeast bedroom in the RS apartment",
       medLock: "DidgiLock (code in local codes file)",
       atticAccess: "Attic access: main hallway ceiling",
-      dryerVents: "RS (down): south side of the house · Residents (up): on the roof",
+      dryerVents: "RS: south side of the house · Resident: on the roof",
     },
     info: [
       ["Paint", "Large closet in the main hallway"],
@@ -437,7 +437,7 @@ const HOUSES = [
       shutoffs: "Main water: cubbie room in the office. Main gas: RS laundry room. Exterior: middle of ceiling above washer/utility-tub area; 2nd valve back corner of office near the ground by the Wel-Flo tank",
       medLock: "DidgiLock (code in local codes file)",
       atticAccess: "Attic access: garage",
-      dryerVents: "Residents (up): east deck · RS (down): behind the house on the west side, under the deck where the brick blocks jut out, on top (not the disconnected one tucked way under the deck)",
+      dryerVents: "Resident: east deck · RS: behind the house on the west side, under the deck where the brick blocks jut out, on top (not the disconnected one tucked way under the deck)",
     },
     info: [
       ["Paint", "Utility room area, across from the water heaters"],
@@ -460,14 +460,14 @@ const HOUSES = [
       garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "Residents (1st): on the cabinet in the kitchen · RS (2nd): laundry closet between washer and dryer · Basement (shared): bottom of the stairs · Van",
+      fireExtinguishers: "Resident: on the cabinet in the kitchen · RS: laundry closet between washer and dryer · Basement: bottom of the stairs · Van",
       furnaceFilter: "16x25x4 (90-day)",
       fridgeCoils: "Residents (1st): front side · RS (2nd): back of refrigerator",
       waterSoftener: "In the basement mechanical room",
       shutoffs: "Main water: next to water heater. Main gas: behind furnace. Exterior: one in the utility room ceiling right of the water softener; the other in the large downstairs room, southeast corner",
       knives: "In the right drawer of the island",
-      atticAccess: "Attic access — RS (2nd): apartment hallway · Residents (1st): office area (for the garage) and in the hallway",
-      dryerVents: "RS (2nd): back of the house above the sunroom · Residents (1st): back of the house by the patio",
+      atticAccess: "Attic access — RS: apartment hallway · Resident: office area (for the garage) and in the hallway",
+      dryerVents: "RS: back of the house above the sunroom · Resident: back of the house by the patio",
     },
     info: [
       ["Paint", "In the basement by the mechanical room"],
@@ -539,7 +539,7 @@ const HOUSES = [
       generator: false, garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "Residents (up): kitchen wall · RS (down): attached to wall · in house van",
+      fireExtinguishers: "Resident: kitchen wall · RS: attached to wall · in house van",
       furnaceFilter: "20x25x4",
       waterSoftener: "See house",
       shutoffs: "Main water: closet behind the basement kitchen. Main gas: outside at the meter. Exterior: garage back-side faucet shutoff in the storage area off the RS kitchen (directly above the water main); one in ceiling to the right of the utility sink in RS apartment; back shutoff in RS laundry-room ceiling behind the big access panel, behind the black pipe",
@@ -563,7 +563,7 @@ const HOUSES = [
       sumpPump: false, generator: false, garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "(4) Van · Residents (up): right of fridge · RS (down): just inside utility room and under the kitchen sink",
+      fireExtinguishers: "(4) Van · Resident: right of fridge · RS: just inside utility room and under the kitchen sink",
       furnaceFilter: "Two 30-day filters: 20x25 (front of unit) and 16x20 (backside)",
       waterSoftener: "Yes",
       shutoffs: "Main water: utility room, right of the wash tubs. Main gas: basement master bedroom (back right), closet ceiling. Exterior: 2 valves opposite the sink in the mech room — one against the west wall, one ~24\" from the west wall",
@@ -623,14 +623,14 @@ const HOUSES = [
       sumpPump: true, garbageDisposal: false, frontLoadWashers: true,
     },
     notes: {
-      fireExtinguishers: "Residents (up): garage · RS (down): mechanical room",
+      fireExtinguishers: "Resident: garage · RS: mechanical room",
       furnaceFilter: "16x25x1 — use unpleated filter",
       waterSoftener: "Mech room, RS level — use ONLY Morton System Saver pellets",
       shutoffs: "Main water: bi-fold closet in the living room. Main gas: behind the water heaters in the mech room. Exterior: front — above the water meter in the closet off the RS living room; back — mech room, left of the furnace",
       knives: "In the med cabinet on the right",
       medLock: "DidgiLock (code in local codes file)",
       atticAccess: "Attic access: at the end of the hallway",
-      dryerVents: "Residents (up): north end of the house, by the garbage cans · RS (down): east side of the house in the back yard",
+      dryerVents: "Resident: north end of the house, by the garbage cans · RS: east side of the house in the back yard",
     },
     info: [
       ["Paint", "Top shelf in the cabinet in the dining room / kitchen"],
@@ -677,7 +677,7 @@ const HOUSES = [
       generator: false, garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "(4) Inside garage by back door · van · Residents (up): kitchen behind the door · RS (down): under the sink",
+      fireExtinguishers: "(4) Inside garage by back door · van · Resident: kitchen behind the door · RS: under the sink",
       furnaceFilter: "20x25x4 (90-day)",
       waterSoftener: "See house",
       shutoffs: "Main water: back left bedroom (basement). Main gas: (see house). Exterior: one in the apartment ceiling by the fridge; one in the ceiling marked \"ws\", second tile in from the big window facing the backyard",
@@ -705,7 +705,7 @@ const HOUSES = [
       sumpPump: true, garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "(4) Van · Residents (up): kitchen, laundry · RS (down): under kitchen sink",
+      fireExtinguishers: "(4) Van · Resident: kitchen, laundry · RS: under kitchen sink",
       furnaceFilter: "Honeywell 16x25x4",
       waterSoftener: "None",
       shutoffs: "Main water: storage room in apt, next to sprinkler gauge. Main gas: furnace room ceiling. Exterior: front faucet shutoff in the front storage room; back shutoff in the RS bedroom under the ceiling tile next to the rear exterior wall — third tile from the left facing the rear wall",
@@ -733,14 +733,14 @@ const HOUSES = [
       garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "Residents (up): laundry room by the washing machine · RS (down): one in mechanical room, one under the kitchen sink",
+      fireExtinguishers: "Resident: laundry room by the washing machine · RS: one in mechanical room, one under the kitchen sink",
       furnaceFilter: "16x25x4",
       waterSoftener: "In mechanical room",
       shutoffs: "Main water: mech room by water heater. Main gas: attached / next to furnace on the right-hand side. Exterior: right side — above ceiling panel in mech room above the water softener; left side — left of the HRV",
       knives: "On the counter",
       medLock: "Magnetic",
       atticAccess: "Attic access: hallway back by the bedrooms",
-      dryerVents: "Residents (up): under deck · RS (down): (see house)",
+      dryerVents: "Resident: under deck · RS: (see house)",
     },
     info: [
       ["Paint", "Upstairs: closet next to the laundry closet · Downstairs: closet in room off kitchen"],
@@ -765,7 +765,7 @@ const HOUSES = [
       knives: "In the staff closet across from the main bathroom",
       medLock: "DidgiLock (code in local codes file)",
       atticAccess: "Attic access: RS apartment",
-      dryerVents: "Residents (down): south side · RS (up): back of house",
+      dryerVents: "Resident: south side · RS: back of house",
     },
     info: [
       ["Paint", "Bottom of the small closet just right of the main bathroom (locked door)"],
@@ -786,7 +786,7 @@ const HOUSES = [
       sumpPump: true, garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "Residents (up): under kitchen sink, cleaning closet (by front door), laundry · RS (down): office, furnace room · Van",
+      fireExtinguishers: "Resident: under kitchen sink, cleaning closet (by front door), laundry · RS: office, furnace room · Van",
       furnaceFilter: "Two 90-day filters: 16x25x4 and 16x25x1 (RS apartment furnace takes a pleated 90-day 1\" per Comfort Solutions)",
       waterSoftener: "Utility room",
       shutoffs: "Main water: downstairs in the RS apartment closet off the kitchen. Main gas: above the furnace in the utility room (at the bottom of the stairs, look up and to the right); also one in the furnace room in the RS apartment. Exterior: office downstairs above the water heater; far-left closet in the basement apartment dining area, just above the cement doorway going into the main water shutoff",
@@ -846,7 +846,7 @@ const HOUSES = [
       sumpPump: true, generator: false, garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "(4) Residents (up): normal and grease under the sink · RS (down): under the sink · van",
+      fireExtinguishers: "(4) Resident: normal and grease under the sink · RS: under the sink · van",
       furnaceFilter: "20x25x4",
       waterSoftener: "Downstairs office",
       shutoffs: "Main water: office/utility room. Main gas: office/utility room. Outside water: front and back shutoffs next to each other on the ceiling above the wash tub in the downstairs furnace room",
@@ -875,7 +875,7 @@ const HOUSES = [
       generator: false, garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "(4) Van · Residents (up): under sink, laundry · RS (down): (not filled in on the sheet)",
+      fireExtinguishers: "(4) Van · Resident: under sink, laundry · RS: (not filled in on the sheet)",
       furnaceFilter: "16x25x1",
       waterSoftener: "Utility room",
       shutoffs: "Main water: storage room. Main gas: furnace room — look up. Outside water: 1) storage room near wall; 2) behind panel in washer room (next to utility room)",
@@ -901,14 +901,14 @@ const HOUSES = [
       waterSoftener: true, airExchanger: true, sumpPump: true,
     },
     notes: {
-      fireExtinguishers: "Residents (up): closet in dining room · RS (down): in the cabinet under the island",
+      fireExtinguishers: "Resident: closet in dining room · RS: in the cabinet under the island",
       furnaceFilter: "20x25x4 — Honeywell brand only",
       waterSoftener: "In the mechanical room",
       shutoffs: "Main water: mech room by the water heaters. Main gas: mech room by the furnace. Outside water: left side of house — under the RS kitchen sink; right side — mech room above the laundry tub",
       knives: "Little drawer to the right of the dishwasher",
       medLock: "Stealth lock (code in local codes file)",
       atticAccess: "Attic access: at the end of the hallway",
-      dryerVents: "Residents (up): on the south wall, under the ramp to the deck · RS (down): north wall",
+      dryerVents: "Resident: on the south wall, under the ramp to the deck · RS: north wall",
     },
     info: [
       ["Paint", "Some upstairs in the closet next to the laundry; most of it down in the mechanical room"],
@@ -926,13 +926,13 @@ const HOUSES = [
       sumpPump: true, generator: false, garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "(6) Van · Residents (up): kitchen (hanging on the wall), laundry (on the wall to the left) · RS (down): under kitchen sink, closet in the second living room (just right of laundry room) · 1 in the garage",
+      fireExtinguishers: "(6) Van · Resident: kitchen (hanging on the wall), laundry (on the wall to the left) · RS: under kitchen sink, closet in the second living room (just right of laundry room) · 1 in the garage",
       furnaceFilter: "90-day 20x25x4",
       waterSoftener: "Yes",
       shutoffs: "Main water: west wall of the RS living room, under a panel. Main gas: at the meter. Outside water: RS level — one above the softener, one in the storage room above the laundry tub",
       knives: "On the counter",
       atticAccess: "Attic access: hallway",
-      dryerVents: "Both on the south side. Residents (up): right of the faucet in the corner · RS (down): left of the faucet",
+      dryerVents: "Both on the south side. Resident: right of the faucet in the corner · RS: left of the faucet",
     },
     info: [
       ["Paint", "Two locations: resident-level paint in the hall closet at the bottom; RS-level paint down in the RS storage room by the work bench"],
@@ -956,14 +956,14 @@ const HOUSES = [
       sumpPump: false, garbageDisposal: true,
     },
     notes: {
-      fireExtinguishers: "Residents (up): kitchen and hallway · In the van · RS (down): under sink and furnace room",
+      fireExtinguishers: "Resident: kitchen and hallway · In the van · RS: under sink and furnace room",
       furnaceFilter: "16x25x4 — Honeywell",
       waterSoftener: "Takes the softener pellets — needs to be kept full of salt to the water line",
       shutoffs: "Main water: RS apartment utility room, on the far west wall. Outside water: one in mech room, left of washer; one in the bedroom on the left, outside of the closet, in the ceiling next to the wall",
       knives: "Top left drawer, left of the dishwasher. The key for the drawer is in the med cabinet (med combo in local codes file)",
       medLock: "Stealth lock (code in local codes file)",
       atticAccess: "Attic access: above washer and dryer",
-      dryerVents: "Residents (up): vented through the roof · RS (down): vent comes out on the front ramp",
+      dryerVents: "Resident: vented through the roof · RS: vent comes out on the front ramp",
     },
     info: [
       ["Paint", "In the right front hallway closet across from the med closet"],
@@ -1010,13 +1010,13 @@ const HOUSES = [
       generator: false,
     },
     notes: {
-      fireExtinguishers: "Residents (down): left of the sink · RS (up): under the sink · one mounted on the garage wall · one in the house van",
+      fireExtinguishers: "Resident: left of the sink · RS: under the sink · one mounted on the garage wall · one in the house van",
       furnaceFilter: "20x25x4 — should be changed every 90 days by the live-in or RS",
       waterSoftener: "In furnace room",
       shutoffs: "Main water: furnace room, left side wall, down low. Main gas: furnace room, right side, attached to furnace duct work. Outside faucet shutoffs: both on the back wall of the furnace room, above the water softener",
       knives: "Knife block on the kitchen counter; also check the drawer to the left of the oven",
       medLock: "Same style as the apt door locks (code in local codes file)",
-      atticAccess: "Attic access — RS (up): laundry room; will need the 6 ft ladder",
+      atticAccess: "Attic access — RS: laundry room; will need the 6 ft ladder",
       dryerVents: "On the back of the house, up high — will need a stepladder, or access them from the deck stairs",
     },
     info: [
@@ -1077,7 +1077,7 @@ const HOUSES = [
       waterSoftener: false,
     },
     notes: {
-      fireExtinguishers: "Garage, under kitchen sink, van, RS apartment (down), and laundry room",
+      fireExtinguishers: "Garage, under kitchen sink, van, RS apartment, and laundry room",
       furnaceFilter: "20x25x4",
       waterSoftener: "N/A",
       shutoffs: "Main water: southwest corner of the basement apartment kitchen, behind the lazy susan. Main gas: north end of the basement apartment kitchen above the washer/dryer (a washer/dryer may not be hooked up — you'll see the duct and pipe ready for one). Outside water: front faucet shutoff in the storage room off the mech room; back faucet shutoff in the RS apartment small bedroom under the ceiling access panel",
@@ -1096,7 +1096,7 @@ const HOUSES = [
       waterSoftener: false, roofCoils: true,
     },
     notes: {
-      fireExtinguishers: "(3) Residents (up): laundry closet · RS (down): under kitchen sink · One in the van",
+      fireExtinguishers: "(3) Resident: laundry closet · RS: under kitchen sink · One in the van",
       furnaceFilter: "Two furnaces — both 20x25 (a 1-inch and a 4-inch filter)",
       fridgeCoils: "Residents (up): front of fridge · RS (down): back of fridge",
       waterSoftener: "None",
@@ -1104,7 +1104,7 @@ const HOUSES = [
       knives: "Above the pantry — most are serrated",
       medLock: "Stealth lock — 1 keypad, 3 locks (code in local codes file)",
       atticAccess: "Attic access: in the closet of the back bedroom on the right",
-      dryerVents: "Residents (up): on the back of the house · RS (down): on the front of the house",
+      dryerVents: "Resident: on the back of the house · RS: on the front of the house",
     },
     info: [
       ["Paint", "In the closet at the bottom of the stairs by the RS apartment"],
@@ -1144,13 +1144,13 @@ const HOUSES = [
       garbageDisposal: false, frontLoadWashers: true,
     },
     notes: {
-      fireExtinguishers: "Residents (up): above kitchen sink on cabinet · Van: on passenger seat · RS (down): under kitchen sink",
+      fireExtinguishers: "Resident: above kitchen sink on cabinet · Van: on passenger seat · RS: under kitchen sink",
       furnaceFilter: "90-day 20x25x4",
       waterSoftener: "None",
       shutoffs: "Main water: in the utility room on the right half of it. Main gas: on the furnace. Outside water: 2 shutoffs in the mech room by the storage shelves — one is above the main water shutoff",
       medLock: "Stealth lock (code in local codes file)",
       atticAccess: "Attic access: in the garage",
-      dryerVents: "Residents (up): right outside the garage door · RS (down): right outside the garage door",
+      dryerVents: "Resident: right outside the garage door · RS: right outside the garage door",
     },
     info: [
       ["Roof coils", "Switch located by breaker box in mech room"],
@@ -1167,14 +1167,14 @@ const HOUSES = [
       frontLoadWashers: true,
     },
     notes: {
-      fireExtinguishers: "Residents (up): in the kitchen by the cabinet; also one in the garage · RS (down): under the kitchen sink",
+      fireExtinguishers: "Resident: in the kitchen by the cabinet; also one in the garage · RS: under the kitchen sink",
       furnaceFilter: "20x25x4 — Honeywell brand only",
       waterSoftener: "Basement mech. room",
       shutoffs: "Main water: mechanical room, between the furnace and water heater. Main gas: mechanical room, on the wall by the furnace. Outside water: both shutoffs left of the furnace",
       knives: "In the cabinet to the right of the stove",
       medLock: "Stealth locks (code in local codes file)",
       atticAccess: "Attic access: at the end of the hallway",
-      dryerVents: "Residents (up): on the roof · RS (down): on the east end of the house",
+      dryerVents: "Resident: on the roof · RS: on the east end of the house",
     },
     info: [
       ["Paint", "Basement — back room closet"],
@@ -1205,7 +1205,7 @@ const HOUSES = [
       knives: "The lazy susan",
       medLock: "Stealth lock (code in local codes file)",
       atticAccess: "Attic access: one right above the garage entrance door (accessible), and one in the laundry closet that is super hard to get to — so use the garage access",
-      dryerVents: "RS (down): comes out at the front of the house under the kitchen window · Residents (up): on the north side of the house, up high",
+      dryerVents: "RS: comes out at the front of the house under the kitchen window · Resident: on the north side of the house, up high",
     },
     info: [
       ["Paint", "In a metal cabinet down in the utility room"],
@@ -1228,7 +1228,7 @@ const HOUSES = [
       garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "Residents (up): laundry closet and in kitchen next to fridge · RS (down): under kitchen sink, van, garage",
+      fireExtinguishers: "Resident: laundry closet and in kitchen next to fridge · RS: under kitchen sink, van, garage",
       furnaceFilter: "20x25x4",
       fridgeCoils: "Residents (up): front/back · RS (down): front/back",
       waterSoftener: "None",
@@ -1236,7 +1236,7 @@ const HOUSES = [
       knives: "Med cabinet",
       medLock: "Stealth lock (code in local codes file)",
       atticAccess: "Attic access: little storage closet in office area",
-      dryerVents: "Residents (up): roof · RS (down): on north side of the house",
+      dryerVents: "Resident: roof · RS: on north side of the house",
     },
     info: [
       ["MTX cabinet", "Garage"],
@@ -1253,13 +1253,13 @@ const HOUSES = [
       generator: false, garbageDisposal: false,
     },
     notes: {
-      fireExtinguishers: "(3) One in the van · Residents (up): in the cabinet right of the fridge · RS (down): in the cabinet just right of the dishwasher",
+      fireExtinguishers: "(3) One in the van · Resident: in the cabinet right of the fridge · RS: in the cabinet just right of the dishwasher",
       furnaceFilter: "20x25x4 — Honeywell brand only",
       waterSoftener: "Yes",
       shutoffs: "Main water: RS apartment, in the closet off the kitchen, right next to the front outside water shutoff. Main gas: RS apartment utility room, in front of the furnace. Outside water: backyard shutoff behind the cover box in the ceiling just above the entrance to the utility room; front yard in the pantry left of the dishwasher — both in the basement apt",
       knives: "In the far right pantry to the right of the fridge (this is also the med cabinet)",
       atticAccess: "Attic access: in the hallway upstairs",
-      dryerVents: "Residents (up): super short run straight out on the west side of the house · RS (down): (not filled in on the sheet)",
+      dryerVents: "Resident: super short run straight out on the west side of the house · RS: (not filled in on the sheet)",
     },
     info: [
       ["Paint", "Back closet in RS level office"],
