@@ -3,6 +3,18 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
+## SLICE 4 — Shared on-call rotation calendar — DEFERRED (not started)
+
+**Intentionally paused by the owner on 2026-07-14.** Slice 4 of the 4-slice
+request is a **shared on-call rotation calendar**. It has **not** been
+brainstormed, spec'd, or planned — the name above is the entire definition so
+far. Nothing is built. When the owner is ready, start it as a fresh
+brainstorm → spec → plan → build cycle (its own spec/plan under
+`docs/superpowers/`). Slices 1–3 (My Profile, My Visit History, Daily Logs +
+supervisor view) are complete and live on `main`.
+
+---
+
 ## STATE AS OF 2026-07-14 (Daily Logs calendar — slice 3 of 4) — read this first
 
 **Built inline (executing-plans, 6 tasks, per-task committed) on
