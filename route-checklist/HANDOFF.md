@@ -15,6 +15,63 @@ supervisor view) are complete and live on `main`.
 
 ---
 
+## STATE AS OF 2026-07-14 (My notes — private personal checklist) — read this first
+
+**Built inline (executing-plans), all 4 tasks on `claude/claude-code-tutorial-5l5ew2`.**
+Spec: `docs/superpowers/specs/2026-07-14-my-notes-design.md`; plan:
+`docs/superpowers/plans/2026-07-14-my-notes.md`.
+
+- **Migration `0018_personal_notes.sql`** (pushed & verified live via
+  `supabase db query --linked`): new `public.personal_notes` table —
+  `tech_id, text, done, position` + timestamps. **RLS has NO supervisor
+  exception** — every policy (select/insert/update/delete) is scoped strictly
+  to `tech_id = auth.uid()`. This is a deliberate, explicit owner decision:
+  unlike Daily Logs, this is a personal scratchpad, not work history, and
+  nobody but the owning tech can ever read it.
+- **`cloud.js` additions:** `listMyNotes()`, `addMyNote(text)`,
+  `toggleMyNote(id, done)`, `deleteMyNote(id)`, `clearCheckedNotes()` — all
+  self-scoped (`tech_id = me`) as defense-in-depth atop RLS, mirroring the
+  Daily Logs manual-note CRUD shape. Exported on `window.cloud`.
+- **New `#mynotes` screen** (hash-router, same pattern as `#profile`/
+  `#history`/`#logs`). Home button **"📋 My notes"**, always visible (not
+  `admin-only`). An add-box at top ("+ Add" or Enter-to-submit, empty text
+  rejected inline); below it, a flat list of items — checkbox + text + ✕
+  delete. **Checking an item crosses it out but keeps it in the list** (never
+  removed, never reordered); a **"Clear checked"** button appears only when at
+  least one item is checked, and removes every checked item in one call.
+  Adding a new item never touches existing ones; no cap on list length. Every
+  mutation (add/toggle/delete/clear) re-fetches and re-renders the whole list
+  from the server afterward, so the UI always matches the DB's `done` state.
+- **Explicitly out of scope this slice:** multiple named lists/categories, due
+  dates/reminders, manual reordering, sharing a list, editing item text after
+  creation (delete + re-add instead), photos.
+- SW cache bumped `v21` → `v22`.
+- **NOT YET verified end-to-end on the live site** — no signed-in browser
+  session was available in this session (sandboxed agent, no automated test
+  harness in this repo). Owner/next session, after hard-refresh
+  (Ctrl+Shift+R, may take two for the v22 SW to take over) and fully
+  closing/reopening the PWA on phones:
+  1. Sign in as tech1 → tap 📋 My notes → add "bring extra filters" → appears
+     unchecked.
+  2. Add a second item without touching the first → both persist, in order
+     added.
+  3. Check the first item → crosses out, stays in the list (not removed, not
+     reordered); "Clear checked" button appears.
+  4. Reload the page → both items and the checked state persisted (cloud
+     round-trip confirmed).
+  5. Tap "Clear checked" → only the checked item disappears; the unchecked one
+     remains; "Clear checked" button itself disappears.
+  6. Delete the remaining item via ✕ → list shows "No notes yet — add one
+     above."
+  7. Sign in as tech2 → confirm they see their own (empty) list — never
+     tech1's items (isolation).
+  8. Sign in as the supervisor account → confirm there is no admin screen or
+     path anywhere that exposes another tech's personal notes.
+  9. Deep-link reload on `#mynotes` → re-renders, no console errors.
+  Test accounts: `tech1@example.com`, `tech2@example.com`.
+
+---
+
 ## STATE AS OF 2026-07-14 (In-checklist House info panel) — read this first
 
 **Built inline (executing-plans), all 4 tasks committed on
