@@ -559,11 +559,12 @@
   .cal-head { display:flex; align-items:center; justify-content:space-between; margin:.25rem 0 .5rem; }
   .cal-head h2 { font-size:1rem; margin:0; }
   .cal-nav { background:none; border:1px solid var(--line); border-radius:6px; font-size:1.1rem; line-height:1; padding:4px 10px; cursor:pointer; color:var(--accent); }
+  .cal-picker { display:flex; align-items:center; gap:8px; margin-bottom:.5rem; }
+  .cal-picker select { padding:4px 6px; font-family:inherit; font-size:.85rem; }
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
   .cal-dow { text-align:center; font-size:.7rem; opacity:.7; padding:2px 0; }
-  .cal-day { min-height:3.2rem; border:1px solid var(--line); border-radius:6px; padding:3px; font-size:.75rem; background:none; text-align:left; overflow:hidden; }
-  .cal-day.empty { border:none; }
-  .cal-day.has-activity { cursor:pointer; }
+  .cal-day { min-height:3.2rem; border:1px solid var(--line); border-radius:6px; padding:3px; font-size:.75rem; font-family:inherit; color:inherit; background:none; text-align:left; overflow:hidden; cursor:pointer; }
+  .cal-day.empty { border:none; cursor:default; }
   .cal-day.today { outline:2px solid var(--accent); outline-offset:-2px; }
   .cal-day.selected { background:#E7F0FA; }
   .cal-daynum { font-weight:600; display:block; }
@@ -2859,6 +2860,9 @@
   let logsMonth = startOfMonth(new Date());
   let logsSelectedDate = null;
   let logsMonthRows = [];   // the last month's rows — needed by the per-day diff
+  let logsViewTechId = null;   // whose calendar is showing; null ⇒ me
+  let logsMyId = null;         // signed-in user's id (set once the roster loads)
+  let logsTechs = null;        // cached dropdown roster; null until first load
 
   function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
   function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
@@ -2866,15 +2870,43 @@
   async function renderLogsScreen() {
     const body = document.getElementById("logsBody");
     body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+
+    // Supervisors get a tech picker; load it once. Default the view to self.
+    const isAdmin = document.body.classList.contains("is-admin");
+    if (isAdmin && logsTechs === null) {
+      const r = await window.cloud.listLogTechs();
+      if (currentScreenFromHash() !== "logs") return;   // navigated away meanwhile
+      if (!r.error) { logsTechs = r.people; logsMyId = r.myId; }
+      else { logsTechs = []; }   // roster failed → fall back to own calendar
+      if (logsViewTechId === null) logsViewTechId = logsMyId;  // may stay null on failure
+    }
+
     const first = logsMonth;
     const last = new Date(first.getFullYear(), first.getMonth()+1, 0);
-    const rows = await window.cloud.listLogsInRange(isoDate(first), isoDate(last));
+    const rows = await window.cloud.listLogsInRange(isoDate(first), isoDate(last), logsViewTechId);
     if (currentScreenFromHash() !== "logs") return;   // navigated away meanwhile
     logsMonthRows = rows;   // stash for renderDayDetail's diff
     const byDay = {};
     rows.forEach(r => { (byDay[r.logDate] = byDay[r.logDate] || []).push(r); });
-    body.innerHTML = renderCalHead(first) + renderGrid(first, last, byDay)
-      + (logsSelectedDate ? renderDayDetail(logsSelectedDate, byDay[logsSelectedDate] || []) : "");
+
+    // Read-only whenever a supervisor is viewing someone else's calendar.
+    const readOnly = isAdmin && logsMyId != null && logsViewTechId !== logsMyId;
+
+    body.innerHTML = renderTechPicker(isAdmin)
+      + renderCalHead(first) + renderGrid(first, last, byDay)
+      + (logsSelectedDate ? renderDayDetail(logsSelectedDate, byDay[logsSelectedDate] || [], readOnly) : "");
+  }
+
+  // Supervisor-only tech picker. Empty string for techs (no picker).
+  function renderTechPicker(isAdmin) {
+    if (!isAdmin || !logsTechs || !logsTechs.length) return "";
+    const opts = logsTechs.map(p =>
+      `<option value="${escAttr(p.id)}"${p.id === logsViewTechId ? " selected" : ""}>${escHtml(p.label)}</option>`
+    ).join("");
+    return `<div class="cal-picker">
+      <label for="logsTechSel">Viewing:</label>
+      <select id="logsTechSel">${opts}</select>
+    </div>`;
   }
 
   function renderCalHead(first) {
@@ -2903,13 +2935,14 @@
       let label = "", aria = `${iso}, no activity`;
       if (houses.length) { label = houses.join(", "); aria = `${iso}, worked at ${label}`; }
       else if (hasManual) { label = "Daily log"; aria = `${iso}, daily log`; }
+      // Every real day is clickable — opening a day is how a tech backfills a
+      // note on it, so empty past days must open too (not just active ones).
+      // Only the pre-1st filler cells above stay inert.
       const cls = ["cal-day", active ? "has-activity" : "",
         iso === todayIso ? "today" : "", iso === logsSelectedDate ? "selected" : ""].join(" ").replace(/\s+/g," ").trim();
-      const tag = active ? "button" : "div";
-      const attrs = active ? `type="button" data-cal-day="${escAttr(iso)}" aria-label="${escAttr(aria)}" title="${escAttr(label)}"` : "";
-      cells.push(`<${tag} class="${cls}" ${attrs}>
+      cells.push(`<button type="button" class="${cls}" data-cal-day="${escAttr(iso)}" aria-label="${escAttr(aria)}" title="${escAttr(label)}">
         <span class="cal-daynum">${day}</span>
-        <span class="cal-daylabel">${escHtml(label)}</span></${tag}>`);
+        <span class="cal-daylabel">${escHtml(label)}</span></button>`);
     }
     return `<div class="cal-grid" role="grid">${cells.join("")}</div>`;
   }
@@ -2954,7 +2987,7 @@
     return `<h2 style="font-size:1rem">${escHtml(auto.houseName || "Visit")}</h2>` + html;
   }
 
-  function renderDayDetail(iso, dayRows) {
+  function renderDayDetail(iso, dayRows, readOnly) {
     // The per-day diff needs the WHOLE month's rows (to find the prior auto
     // snapshot for the same visit), not just this day's — so use the month
     // stash set in renderLogsScreen, not dayRows.
@@ -2965,11 +2998,13 @@
     autos.forEach(auto => { html += renderAutoDetail(auto, monthRows); });
     html += manual.map(m => `<div class="cal-note" data-note-id="${escAttr(m.id)}">
       <p>${escHtml(m.note)}</p>
-      <button type="button" class="menu-btn" data-note-edit="${escAttr(m.id)}" aria-label="Edit note">Edit</button>
-      <button type="button" class="menu-btn" data-note-del="${escAttr(m.id)}" aria-label="Delete note">Delete</button>
+      ${readOnly ? "" : `<button type="button" class="menu-btn" data-note-edit="${escAttr(m.id)}" aria-label="Edit note">Edit</button>
+      <button type="button" class="menu-btn" data-note-del="${escAttr(m.id)}" aria-label="Delete note">Delete</button>`}
     </div>`).join("");
-    html += `<div class="cal-note"><textarea id="calNoteInput" rows="2" aria-label="New note for ${escAttr(fmtDate(iso))}" placeholder="Add a note for this day…"></textarea>
-      <button type="button" class="menu-btn" data-note-add aria-label="Save note">+ Add note</button></div>`;
+    if (!readOnly) {
+      html += `<div class="cal-note"><textarea id="calNoteInput" rows="2" aria-label="New note for ${escAttr(fmtDate(iso))}" placeholder="Add a note for this day…"></textarea>
+        <button type="button" class="menu-btn" data-note-add aria-label="Save note">+ Add note</button></div>`;
+    }
     return html + `</div>`;
   }
 
@@ -3013,6 +3048,15 @@
       const res = await window.cloud.updateLogEntry(id, next);
       if (res.error) { alert(res.error); return; }
       return renderLogsScreen();
+    }
+  });
+
+  // Supervisor picks a different tech from the "Viewing:" dropdown.
+  document.getElementById("logsBody").addEventListener("change", e => {
+    if (e.target.id === "logsTechSel") {
+      logsViewTechId = e.target.value;
+      logsSelectedDate = null;   // don't show one tech's day under another's grid
+      renderLogsScreen();
     }
   });
 
