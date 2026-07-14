@@ -329,6 +329,66 @@ async function getVisitDetail(visitId) {
   };
 }
 
+// Slice 3: the signed-in tech's own daily-log rows within a date range (one
+// month per call). Self-scoped tech_id=me atop RLS. houseName comes from the
+// joined house on auto rows (null on manual). Returns [] on no-user/error.
+async function listLogsInRange(startDate, endDate) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("daily_logs")
+    .select("id, log_date, kind, note, done_keys, houses(name)")
+    .eq("tech_id", user.id)
+    .gte("log_date", startDate).lte("log_date", endDate)
+    .order("log_date", { ascending: true });
+  if (error) { console.error("Could not list daily logs:", error.message); return []; }
+  return data.map(r => ({
+    id: r.id,
+    logDate: r.log_date,
+    kind: r.kind,
+    houseName: r.houses?.name || "",
+    note: r.note || "",
+    doneKeys: Array.isArray(r.done_keys) ? r.done_keys : [],
+  }));
+}
+
+// Add a manual free-text note to any day (today or a past day). Manual only.
+async function addLogEntry(logDate, note) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const text = (note || "").trim();
+  if (!text) return { error: "Note can't be empty." };
+  const { data, error } = await supabase.from("daily_logs")
+    .insert({ tech_id: user.id, log_date: logDate, kind: "manual", note: text })
+    .select("id").single();
+  if (error) { console.error("Could not add daily log:", error.message); return { error: error.message }; }
+  return { id: data.id };
+}
+
+// Edit one of the caller's own MANUAL notes. kind='manual' guard blocks any
+// attempt to alter an auto row even though RLS would permit an owned-row update.
+async function updateLogEntry(id, note) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const text = (note || "").trim();
+  if (!text) return { error: "Note can't be empty." };
+  const { error } = await supabase.from("daily_logs")
+    .update({ note: text, updated_at: new Date().toISOString() })
+    .eq("id", id).eq("tech_id", user.id).eq("kind", "manual");
+  if (error) { console.error("Could not update daily log:", error.message); return { error: error.message }; }
+  return { error: null };
+}
+
+// Delete one of the caller's own MANUAL notes. Same manual-only self-scope.
+async function deleteLogEntry(id) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { error } = await supabase.from("daily_logs")
+    .delete().eq("id", id).eq("tech_id", user.id).eq("kind", "manual");
+  if (error) { console.error("Could not delete daily log:", error.message); return { error: error.message }; }
+  return { error: null };
+}
+
 // For each date-tracked item key, find the most recent COMPLETED visit at this
 // house where it was done, and return the date it was done on (the recorded
 // done_on if the tech entered one, else the visit date).
@@ -585,6 +645,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
                  listMyVisits, getVisitDetail,
+                 listLogsInRange, addLogEntry, updateLogEntry, deleteLogEntry,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
