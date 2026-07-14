@@ -11,6 +11,26 @@ rotation calendar — is a separate future cycle, NOT built).
 Spec: `docs/superpowers/specs/2026-07-14-daily-logs-design.md`; plan:
 `docs/superpowers/plans/2026-07-14-daily-logs.md`.
 
+**Two follow-on fixes + a supervisor view landed the same day (2026-07-14):**
+- **Migration `0017_daily_logs_full_uniq.sql`** (pushed): replaced 0016's
+  *partial* unique index with a **full** `(tech_id, visit_id, log_date)` unique
+  index. The partial index couldn't serve as an upsert `onConflict` arbiter
+  (Postgres returned `42P10`), so every live auto-stamp was silently failing —
+  no diary rows landed from real saves. Full index fixes it; manual rows
+  (`visit_id` NULL, NULLs distinct in a unique index) still coexist freely.
+- **Clickable empty days:** the calendar grid now renders *every* real day as a
+  `<button data-cal-day>` (only pre-1st filler cells stay inert), so a tech can
+  open any past day and backfill a note. Previously only days-with-activity
+  were clickable.
+- **Supervisor view:** on the Daily Logs screen, supervisors (`body.is-admin`)
+  get a "Viewing:" tech picker (techs + themselves, defaults to self). Picking a
+  teammate loads that tech's calendar **read-only** (no Add/Edit/Delete on
+  notes); picking themselves restores full control; the selected day clears on
+  every tech switch. Powered by `listLogsInRange(start, end, techId)` +
+  `listLogTechs()` in cloud.js; the `daily_logs` RLS select policy already
+  permits supervisor reads (**no migration**). SW cache at **v19**.
+  Spec/plan: `docs/superpowers/{specs,plans}/2026-07-14-supervisor-daily-logs*`.
+
 - **Migration `0016_daily_logs.sql`** (pushed & verified live: 4 auto rows
   backfilled from 4 completed visits). New `public.daily_logs` table — a
   per-tech work diary. Columns: `tech_id`, `log_date`, `kind` (`auto`|`manual`),
