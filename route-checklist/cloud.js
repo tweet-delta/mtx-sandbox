@@ -742,6 +742,10 @@ supabase.auth.onAuthStateChange((_event, session) => {
     if (window.cloud) window.cloud.role = null;
     document.body.classList.remove("is-admin");
     if (window.applyMyHouses) window.applyMyHouses(null);
+    // Clear any per-user Daily Logs view state so the next sign-in (possibly a
+    // different user, no page reload) doesn't inherit the prior user's picked
+    // tech / roster / identity.
+    if (window.resetLogsView) window.resetLogsView();
   }
 });
 

@@ -2864,6 +2864,12 @@
   let logsMyId = null;         // signed-in user's id (set once the roster loads)
   let logsTechs = null;        // cached dropdown roster; null until first load
 
+  // Sign-out clears per-user logs state so the next user (no page reload)
+  // starts fresh on their OWN calendar, not the prior user's picked tech.
+  window.resetLogsView = () => {
+    logsViewTechId = null; logsMyId = null; logsTechs = null; logsSelectedDate = null;
+  };
+
   function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
   function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
