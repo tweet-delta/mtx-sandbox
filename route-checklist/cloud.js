@@ -342,13 +342,18 @@ async function getVisitDetail(visitId) {
 // Slice 3: the signed-in tech's own daily-log rows within a date range (one
 // month per call). Self-scoped tech_id=me atop RLS. houseName comes from the
 // joined house on auto rows (null on manual). Returns [] on no-user/error.
-async function listLogsInRange(startDate, endDate) {
+// techId omitted → the signed-in user's own rows (every existing caller).
+// techId passed  → that tech's rows. RLS is the real gate: a non-supervisor
+// passing someone else's id gets [] back (their select policy matches only
+// their own rows); a supervisor gets the rows.
+async function listLogsInRange(startDate, endDate, techId) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
+  const scopeId = techId || user.id;
   const { data, error } = await supabase
     .from("daily_logs")
     .select("id, log_date, kind, visit_id, note, done_keys, houses(name)")
-    .eq("tech_id", user.id)
+    .eq("tech_id", scopeId)
     .gte("log_date", startDate).lte("log_date", endDate)
     .order("log_date", { ascending: true });
   if (error) { console.error("Could not list daily logs:", error.message); return []; }
@@ -623,6 +628,26 @@ async function listTechs() {
   return { techs: data };
 }
 
+// The dropdown roster for the supervisor Daily Logs view: every tech, plus the
+// signed-in user (so a supervisor can see their own diary too). Only the
+// supervisor UI calls this (the dropdown is is-admin-only). Returns
+// { people:[{id,label}], myId } or { error }.
+async function listLogTechs() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { data, error } = await supabase
+    .from("profiles").select("id, full_name, role").order("full_name");
+  if (error) return { error: error.message };
+  const people = data
+    .filter(p => p.role === "tech" || p.id === user.id)
+    .map(p => ({
+      id: p.id,
+      label: p.id === user.id ? `You (${p.full_name || "me"})`
+                              : (p.full_name || "Unnamed tech"),
+    }));
+  return { people, myId: user.id };
+}
+
 // One call covers both rename and tech (re)assignment — the turnover action.
 async function saveRoute(routeId, { name, techId }) {
   const { error } = await supabase.from("routes")
@@ -656,7 +681,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
                  listMyVisits, getVisitDetail,
-                 listLogsInRange, addLogEntry, updateLogEntry, deleteLogEntry,
+                 listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
