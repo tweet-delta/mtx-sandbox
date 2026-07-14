@@ -405,6 +405,76 @@ async function deleteLogEntry(id) {
   return { error: null };
 }
 
+// ---- My notes (private personal checklist) ----
+// Fully tech-scoped, no supervisor read path — see 0018_personal_notes.sql.
+
+async function listMyNotes() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("personal_notes")
+    .select("id, text, done, position")
+    .eq("tech_id", user.id)
+    .order("position", { ascending: true });
+  if (error) {
+    if (!isMissingTable(error)) console.error("Could not load my notes:", error.message);
+    return [];
+  }
+  return data || [];
+}
+
+async function addMyNote(text) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const trimmed = (text || "").trim();
+  if (!trimmed) return { error: "Note text can't be empty." };
+  const { data: maxRow } = await supabase
+    .from("personal_notes")
+    .select("position")
+    .eq("tech_id", user.id)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextPosition = maxRow ? maxRow.position + 1 : 0;
+  const { error } = await supabase
+    .from("personal_notes")
+    .insert({ tech_id: user.id, text: trimmed, position: nextPosition });
+  return { error: error ? error.message : null };
+}
+
+async function toggleMyNote(id, done) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { error } = await supabase
+    .from("personal_notes")
+    .update({ done })
+    .eq("id", id)
+    .eq("tech_id", user.id);
+  return { error: error ? error.message : null };
+}
+
+async function deleteMyNote(id) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { error } = await supabase
+    .from("personal_notes")
+    .delete()
+    .eq("id", id)
+    .eq("tech_id", user.id);
+  return { error: error ? error.message : null };
+}
+
+async function clearCheckedNotes() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { error } = await supabase
+    .from("personal_notes")
+    .delete()
+    .eq("tech_id", user.id)
+    .eq("done", true);
+  return { error: error ? error.message : null };
+}
+
 // For each date-tracked item key, find the most recent COMPLETED visit at this
 // house where it was done, and return the date it was done on (the recorded
 // done_on if the tech entered one, else the visit date).
@@ -682,6 +752,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getMyProfile, saveMyProfile,
                  listMyVisits, getVisitDetail,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
+                 listMyNotes, addMyNote, toggleMyNote, deleteMyNote, clearCheckedNotes,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
