@@ -382,6 +382,36 @@
   .info-item.code b { color: var(--note); }
   .info-item .blank { color: var(--muted); font-style: italic; }
 
+  /* My notes (private personal checklist) */
+  .mynotes-add { display: flex; gap: 8px; margin-bottom: 14px; }
+  .mynotes-add input {
+    flex: 1; font: inherit; font-size: 0.9rem;
+    border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px;
+  }
+  .mynotes-add button {
+    font: inherit; font-weight: 600; font-size: 0.88rem;
+    background: var(--accent); color: var(--accent-ink); border: none;
+    border-radius: 6px; padding: 9px 14px; cursor: pointer; flex: none;
+  }
+  .mynotes-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-top: 1px solid #EEF1F4;
+  }
+  .mynotes-item:first-of-type { border-top: none; }
+  .mynotes-item input[type="checkbox"] { width: 20px; height: 20px; flex: none; }
+  .mynotes-item span { flex: 1; font-size: 0.9rem; }
+  .mynotes-item.done span { text-decoration: line-through; color: var(--muted); }
+  .mynotes-item button {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 1rem; min-width: 32px; min-height: 32px; flex: none;
+  }
+  .mynotes-item button:hover { color: var(--bad, crimson); }
+  .mynotes-clear {
+    margin-top: 14px; font: inherit; font-size: 0.85rem;
+    background: none; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 6px; padding: 8px 14px; cursor: pointer;
+  }
+
   /* House info panel: docks to the right, stays open over the checklist (no
      backdrop) so a tech can glance at codes/info while scrolling and tapping
      items underneath — unlike the account sidebar, it never traps focus. */
@@ -475,6 +505,7 @@
   body:not([data-screen="profile"])  #profileScreen,
   body:not([data-screen="history"])  #historyScreen,
   body:not([data-screen="logs"])     #logsScreen,
+  body:not([data-screen="mynotes"])  #mynotesScreen,
   body:not([data-screen="notes"])    #notesScreen { display: none; }
 
   .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
@@ -757,6 +788,8 @@
     <small>Your completed visits</small></button>
   <button type="button" class="home-btn" id="homeLogs">🗓️ Daily logs
     <small>Your workday calendar</small></button>
+  <button type="button" class="home-btn" id="homeMyNotes">📋 My notes
+    <small>Your private checklist — only you can see this</small></button>
   <button type="button" class="home-btn admin-only" id="homeRoutes">🗺️ Routes
     <small>Assign techs &amp; houses to routes</small></button>
   <button type="button" class="home-btn admin-only" id="homePending">⏳ Pending changes<span class="pending-count" id="pendingCountBadge"></span>
@@ -802,6 +835,14 @@
     <h1>Daily Logs</h1>
   </div>
   <div id="logsBody"></div>
+</div>
+
+<div id="mynotesScreen" class="screen" aria-label="My notes">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>My Notes</h1>
+  </div>
+  <div id="mynotesBody"></div>
 </div>
 
 <div id="routesScreen" class="screen" aria-label="Routes">
@@ -2570,6 +2611,7 @@
     if (h.startsWith("#profile")) return "profile";
     if (h.startsWith("#history")) return "history";
     if (h.startsWith("#logs")) return "logs";
+    if (h.startsWith("#mynotes")) return "mynotes";
     return "home";
   }
   function showScreen() {
@@ -2581,6 +2623,7 @@
     if (scr === "profile") renderProfileScreen();
     if (scr === "history") renderHistoryScreen();
     if (scr === "logs") renderLogsScreen();
+    if (scr === "mynotes") renderMyNotesScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2620,6 +2663,9 @@
   });
   document.getElementById("homeLogs").addEventListener("click", () => {
     location.hash = "#logs";
+  });
+  document.getElementById("homeMyNotes").addEventListener("click", () => {
+    location.hash = "#mynotes";
   });
 
   // ---- Continue screen ----
@@ -2783,6 +2829,73 @@
       <button type="button" id="profileSaveBtn">Save</button>
       <div id="profileMsg"></div>`;
   }
+
+  // ---- My notes screen (private personal checklist) ----
+  async function renderMyNotesScreen() {
+    const body = document.getElementById("mynotesBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const items = await window.cloud.listMyNotes();
+    if (currentScreenFromHash() !== "mynotes") return;   // navigated away meanwhile
+    renderMyNotesList(body, items);
+  }
+
+  function renderMyNotesList(body, items) {
+    const hasChecked = items.some(i => i.done);
+    const rows = items.length
+      ? items.map(i => `
+        <div class="mynotes-item${i.done ? " done" : ""}">
+          <input type="checkbox" data-mynote-toggle="${escAttr(i.id)}" ${i.done ? "checked" : ""} aria-label="Mark done">
+          <span>${escHtml(i.text)}</span>
+          <button type="button" data-mynote-delete="${escAttr(i.id)}" aria-label="Delete">✕</button>
+        </div>`).join("")
+      : `<p class="screen-sub">No notes yet — add one above.</p>`;
+    body.innerHTML = `
+      <div class="mynotes-add">
+        <input type="text" id="mynoteInput" placeholder="Add an item…" aria-label="New note text">
+        <button type="button" id="mynoteAddBtn">+ Add</button>
+      </div>
+      <div id="mynotesList">${rows}</div>
+      ${hasChecked ? `<button type="button" class="mynotes-clear" id="mynotesClearBtn">Clear checked</button>` : ""}`;
+  }
+
+  async function submitMyNote() {
+    const input = document.getElementById("mynoteInput");
+    const text = input.value;
+    if (!text.trim()) return;
+    input.disabled = true;
+    const res = await window.cloud.addMyNote(text);
+    input.disabled = false;
+    if (res.error) { toast("Couldn't add — " + res.error, "error"); return; }
+    input.value = "";
+    renderMyNotesScreen();
+  }
+
+  document.getElementById("mynotesBody").addEventListener("click", async (e) => {
+    if (e.target.id === "mynoteAddBtn") { submitMyNote(); return; }
+    if (e.target.id === "mynotesClearBtn") {
+      const res = await window.cloud.clearCheckedNotes();
+      if (res.error) { toast("Couldn't clear — " + res.error, "error"); return; }
+      renderMyNotesScreen();
+      return;
+    }
+    const delBtn = e.target.closest("[data-mynote-delete]");
+    if (delBtn) {
+      const res = await window.cloud.deleteMyNote(delBtn.dataset.mynoteDelete);
+      if (res.error) { toast("Couldn't delete — " + res.error, "error"); return; }
+      renderMyNotesScreen();
+      return;
+    }
+  });
+  document.getElementById("mynotesBody").addEventListener("keydown", (e) => {
+    if (e.target.id === "mynoteInput" && e.key === "Enter") submitMyNote();
+  });
+  document.getElementById("mynotesBody").addEventListener("change", async (e) => {
+    const cb = e.target.closest("[data-mynote-toggle]");
+    if (!cb) return;
+    const res = await window.cloud.toggleMyNote(cb.dataset.mynoteToggle, cb.checked);
+    if (res.error) { toast("Couldn't save — " + res.error, "error"); cb.checked = !cb.checked; return; }
+    renderMyNotesScreen();
+  });
 
   async function renderHistoryScreen() {
     const body = document.getElementById("historyBody");
