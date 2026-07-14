@@ -27,8 +27,10 @@ Spec: `docs/superpowers/specs/2026-07-14-daily-logs-design.md`; plan:
 - **`cloud.js`:** `saveVisit()` now calls `stampDailyLog()` after a successful
   save — best-effort (a failed stamp NEVER blocks the visit save; logs to
   `console.warn`), upserts today's auto row using the **client's current local
-  date** (NOT `v.date`, which is a user-editable field) so a multi-day visit
-  lands on each real workday it was saved. Plus 4 exported functions:
+  date** via `localToday()` (NOT `toISOString()`/UTC — techs are in Minnesota
+  so an evening save must not roll to tomorrow; and NOT `v.date`, a
+  user-editable field) so a multi-day visit lands on each real workday it was
+  saved. Plus 4 exported functions:
   `listLogsInRange(start,end)` (own rows in a date range, one month/call),
   `addLogEntry(date,note)`, `updateLogEntry(id,note)`, `deleteLogEntry(id)` —
   all self-scoped `tech_id=me` (mutators also `kind='manual'`) atop RLS.
@@ -41,7 +43,10 @@ Spec: `docs/superpowers/specs/2026-07-14-daily-logs-design.md`; plan:
   the prior day's snapshot for the same visit, computed client-side), then
   manual notes (each Edit/Delete), then "+ Add note" (works on past days).
   Unknown `done_keys` (checklist changed since the visit) list under "Other" by
-  raw key.
+  raw key. The per-day diff and the grid key on **`visit_id`** (returned by
+  `listLogsInRange`), not house name, so two visits to the same house in a month
+  don't conflate; a day with progress saved on **two different visits** shows
+  both (cell lists both house names, detail shows both sections).
 - **Explicitly out of scope this slice:** the on-call rotation calendar
   (slice 4), hours/mileage/structured fields, linking a manual note to a house,
   editing/deleting auto rows, cross-tech or house-level views, search/export,
