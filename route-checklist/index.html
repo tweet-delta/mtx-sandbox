@@ -555,6 +555,24 @@
   .hist-answer { font-weight: 600; text-transform: capitalize; }
   .hist-note { margin: 4px 0 0; color: var(--muted, #555); white-space: pre-wrap; }
 
+  /* Daily logs calendar (slice 3) */
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin:.25rem 0 .5rem; }
+  .cal-head h2 { font-size:1rem; margin:0; }
+  .cal-nav { background:none; border:1px solid var(--line); border-radius:6px; font-size:1.1rem; line-height:1; padding:4px 10px; cursor:pointer; color:var(--accent); }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .cal-dow { text-align:center; font-size:.7rem; opacity:.7; padding:2px 0; }
+  .cal-day { min-height:3.2rem; border:1px solid var(--line); border-radius:6px; padding:3px; font-size:.75rem; background:none; text-align:left; overflow:hidden; }
+  .cal-day.empty { border:none; }
+  .cal-day.has-activity { cursor:pointer; }
+  .cal-day.today { outline:2px solid var(--accent); outline-offset:-2px; }
+  .cal-day.selected { background:#E7F0FA; }
+  .cal-daynum { font-weight:600; display:block; }
+  .cal-daylabel { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.85; }
+  .cal-detail { margin-top:1rem; }
+  .cal-detail h3 { font-size:.95rem; margin:.6rem 0 .2rem; }
+  .cal-note { display:flex; gap:8px; align-items:flex-start; margin:6px 0; }
+  .cal-note p { margin:0; flex:1; white-space:pre-wrap; }
+
   .profile-readonly { font-size: 0.95rem; color: var(--muted); margin: 0 0 14px; }
   #profileMsg { font-size: 0.88rem; margin-top: 8px; }
   #profileMsg.ok { color: var(--ok, green); }
@@ -2838,9 +2856,156 @@
   });
 
   // ---- Daily logs screen (slice 3) ----
+  let logsMonth = startOfMonth(new Date());
+  let logsSelectedDate = null;
+  let logsMonthRows = [];   // the last month's rows — needed by the per-day diff
+
+  function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+
   async function renderLogsScreen() {
-    document.getElementById("logsBody").innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const body = document.getElementById("logsBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const first = logsMonth;
+    const last = new Date(first.getFullYear(), first.getMonth()+1, 0);
+    const rows = await window.cloud.listLogsInRange(isoDate(first), isoDate(last));
+    if (currentScreenFromHash() !== "logs") return;   // navigated away meanwhile
+    logsMonthRows = rows;   // stash for renderDayDetail's diff
+    const byDay = {};
+    rows.forEach(r => { (byDay[r.logDate] = byDay[r.logDate] || []).push(r); });
+    body.innerHTML = renderCalHead(first) + renderGrid(first, last, byDay)
+      + (logsSelectedDate ? renderDayDetail(logsSelectedDate, byDay[logsSelectedDate] || []) : "");
   }
+
+  function renderCalHead(first) {
+    const label = first.toLocaleDateString(undefined, { month:"long", year:"numeric" });
+    return `<div class="cal-head">
+      <button type="button" class="cal-nav" data-cal-prev aria-label="Previous month">‹</button>
+      <h2>${escHtml(label)}</h2>
+      <button type="button" class="cal-nav" data-cal-next aria-label="Next month">›</button>
+    </div>`;
+  }
+
+  function renderGrid(first, last, byDay) {
+    const dow = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+    const cells = dow.map(d => `<div class="cal-dow">${d}</div>`);
+    for (let i = 0; i < first.getDay(); i++) cells.push(`<div class="cal-day empty"></div>`);
+    const todayIso = isoDate(new Date());
+    for (let day = 1; day <= last.getDate(); day++) {
+      const iso = isoDate(new Date(first.getFullYear(), first.getMonth(), day));
+      const dayRows = byDay[iso] || [];
+      const auto = dayRows.find(r => r.kind === "auto");
+      const hasManual = dayRows.some(r => r.kind === "manual");
+      const active = dayRows.length > 0;
+      let label = "", aria = `${iso}, no activity`;
+      if (auto) { label = auto.houseName || "Visit"; aria = `${iso}, worked at ${label}`; }
+      else if (hasManual) { label = "Daily log"; aria = `${iso}, daily log`; }
+      const cls = ["cal-day", active ? "has-activity" : "",
+        iso === todayIso ? "today" : "", iso === logsSelectedDate ? "selected" : ""].join(" ").replace(/\s+/g," ").trim();
+      const tag = active ? "button" : "div";
+      const attrs = active ? `type="button" data-cal-day="${escAttr(iso)}" aria-label="${escAttr(aria)}" title="${escAttr(label)}"` : "";
+      cells.push(`<${tag} class="${cls}" ${attrs}>
+        <span class="cal-daynum">${day}</span>
+        <span class="cal-daylabel">${escHtml(label)}</span></${tag}>`);
+    }
+    return `<div class="cal-grid" role="grid">${cells.join("")}</div>`;
+  }
+
+  // Items finished on THIS day = this day's auto snapshot minus the previous
+  // auto row's snapshot for the SAME visit (most recent earlier day). No prior
+  // row → everything checked counts as finished today.
+  function finishedToday(auto, monthRows) {
+    if (!auto) return [];
+    const prior = monthRows
+      .filter(r => r.kind === "auto" && r.houseName === auto.houseName && r.logDate < auto.logDate)
+      .sort((a, b) => a.logDate < b.logDate ? 1 : -1)[0];
+    const prev = new Set(prior ? prior.doneKeys : []);
+    return auto.doneKeys.filter(k => !prev.has(k));
+  }
+
+  // Section-by-section summary for an auto entry: "n/m done (+k today)" + the
+  // today-list. Uses GROUPS/ITEM_BY_KEY; unknown keys go under "Other".
+  function renderAutoDetail(auto, monthRows) {
+    const today = new Set(finishedToday(auto, monthRows));
+    const doneSet = new Set(auto.doneKeys);
+    let html = "";
+    GROUPS.forEach(g => g.sections.forEach(sec => {
+      const keys = sec.items.map(it => it.key);
+      const doneInSec = keys.filter(k => doneSet.has(k));
+      const todayInSec = keys.filter(k => today.has(k));
+      if (!doneInSec.length && !todayInSec.length) return;
+      const plus = todayInSec.length ? ` (+${todayInSec.length} today)` : "";
+      html += `<h3>${escHtml(sec.title)} — ${doneInSec.length}/${keys.length} done${plus}</h3>`;
+      const list = todayInSec.length ? todayInSec : doneInSec;
+      html += list.map(k => {
+        const def = ITEM_BY_KEY[k];
+        return `<div class="hist-item">✓ ${escHtml(def ? (def.q || def.text) : k)}</div>`;
+      }).join("");
+    }));
+    const unknown = auto.doneKeys.filter(k => !ITEM_BY_KEY[k]);
+    if (unknown.length) {
+      html += `<h3>Other</h3>` + unknown.map(k => `<div class="hist-item">✓ ${escHtml(k)}</div>`).join("");
+    }
+    return `<h2 style="font-size:1rem">${escHtml(auto.houseName || "Visit")}</h2>` + html;
+  }
+
+  function renderDayDetail(iso, dayRows) {
+    // The per-day diff needs the WHOLE month's rows (to find the prior auto
+    // snapshot for the same visit), not just this day's — so use the month
+    // stash set in renderLogsScreen, not dayRows.
+    const monthRows = logsMonthRows;
+    const auto = dayRows.find(r => r.kind === "auto");
+    const manual = dayRows.filter(r => r.kind === "manual");
+    let html = `<div class="cal-detail"><h2 style="font-size:1rem">${escHtml(fmtDate(iso))}</h2>`;
+    if (auto) html += renderAutoDetail(auto, monthRows);
+    html += manual.map(m => `<div class="cal-note" data-note-id="${escAttr(m.id)}">
+      <p>${escHtml(m.note)}</p>
+      <button type="button" class="menu-btn" data-note-edit="${escAttr(m.id)}" aria-label="Edit note">Edit</button>
+      <button type="button" class="menu-btn" data-note-del="${escAttr(m.id)}" aria-label="Delete note">Delete</button>
+    </div>`).join("");
+    html += `<div class="cal-note"><textarea id="calNoteInput" rows="2" aria-label="New note for ${escAttr(fmtDate(iso))}" placeholder="Add a note for this day…"></textarea>
+      <button type="button" class="menu-btn" data-note-add aria-label="Save note">+ Add note</button></div>`;
+    return html + `</div>`;
+  }
+
+  document.getElementById("logsBody").addEventListener("click", async e => {
+    if (e.target.closest("[data-cal-prev]")) {
+      logsMonth = new Date(logsMonth.getFullYear(), logsMonth.getMonth()-1, 1);
+      logsSelectedDate = null; return renderLogsScreen();
+    }
+    if (e.target.closest("[data-cal-next]")) {
+      logsMonth = new Date(logsMonth.getFullYear(), logsMonth.getMonth()+1, 1);
+      logsSelectedDate = null; return renderLogsScreen();
+    }
+    const dayBtn = e.target.closest("[data-cal-day]");
+    if (dayBtn) { logsSelectedDate = dayBtn.dataset.calDay; return renderLogsScreen(); }
+
+    const addBtn = e.target.closest("[data-note-add]");
+    if (addBtn) {
+      const val = document.getElementById("calNoteInput").value;
+      if (!val.trim()) return;
+      const res = await window.cloud.addLogEntry(logsSelectedDate, val);
+      if (res.error) { alert(res.error); return; }
+      return renderLogsScreen();
+    }
+    const delBtn = e.target.closest("[data-note-del]");
+    if (delBtn) {
+      if (!confirm("Delete this note?")) return;
+      const res = await window.cloud.deleteLogEntry(delBtn.dataset.noteDel);
+      if (res.error) { alert(res.error); return; }
+      return renderLogsScreen();
+    }
+    const editBtn = e.target.closest("[data-note-edit]");
+    if (editBtn) {
+      const row = editBtn.closest("[data-note-id]");
+      const current = row.querySelector("p").textContent;
+      const next = prompt("Edit note:", current);
+      if (next == null || !next.trim()) return;
+      const res = await window.cloud.updateLogEntry(editBtn.dataset.noteEdit, next);
+      if (res.error) { alert(res.error); return; }
+      return renderLogsScreen();
+    }
+  });
 
   document.getElementById("profileBody").addEventListener("click", async e => {
     if (!e.target.closest("#profileSaveBtn")) return;
