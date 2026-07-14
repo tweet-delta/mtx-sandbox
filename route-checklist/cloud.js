@@ -146,6 +146,16 @@ async function saveMyProfile({ fullName, phone }) {
 
 // ---- Visit history (the app calls these via window.cloud) ----
 
+// The client's CURRENT LOCAL date as YYYY-MM-DD. NOT toISOString(), which is
+// UTC — an evening save in a US timezone (this app's techs are in Minnesota,
+// UTC−5/−6) would otherwise stamp tomorrow's date. Must match the calendar
+// grid's day math in index.html (getFullYear/getMonth/getDate), or the auto
+// entry lands on a different day than the cell that shows it.
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
 // Stamp today's auto daily-log row for a saved visit. Best-effort: a failure
 // here NEVER blocks the visit save (the diary is a record, not a gate). Uses
 // the client's CURRENT local date — v.date is a user-editable field and may not
@@ -155,7 +165,7 @@ async function stampDailyLog(visitId, houseId, items) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const doneKeys = (items || []).filter(it => it.done === true).map(it => it.key);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const { error } = await supabase.from("daily_logs").upsert({
       tech_id: user.id, log_date: today, kind: "auto",
       visit_id: visitId, house_id: houseId, note: "", done_keys: doneKeys,
@@ -337,7 +347,7 @@ async function listLogsInRange(startDate, endDate) {
   if (!user) return [];
   const { data, error } = await supabase
     .from("daily_logs")
-    .select("id, log_date, kind, note, done_keys, houses(name)")
+    .select("id, log_date, kind, visit_id, note, done_keys, houses(name)")
     .eq("tech_id", user.id)
     .gte("log_date", startDate).lte("log_date", endDate)
     .order("log_date", { ascending: true });
@@ -346,6 +356,7 @@ async function listLogsInRange(startDate, endDate) {
     id: r.id,
     logDate: r.log_date,
     kind: r.kind,
+    visitId: r.visit_id || null,
     houseName: r.houses?.name || "",
     note: r.note || "",
     doneKeys: Array.isArray(r.done_keys) ? r.done_keys : [],

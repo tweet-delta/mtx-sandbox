@@ -2894,11 +2894,14 @@
     for (let day = 1; day <= last.getDate(); day++) {
       const iso = isoDate(new Date(first.getFullYear(), first.getMonth(), day));
       const dayRows = byDay[iso] || [];
-      const auto = dayRows.find(r => r.kind === "auto");
+      const autos = dayRows.filter(r => r.kind === "auto");
       const hasManual = dayRows.some(r => r.kind === "manual");
       const active = dayRows.length > 0;
+      // A day can hold more than one auto row (progress saved on two visits the
+      // same day). Show each distinct house name, joined.
+      const houses = [...new Set(autos.map(a => a.houseName || "Visit"))];
       let label = "", aria = `${iso}, no activity`;
-      if (auto) { label = auto.houseName || "Visit"; aria = `${iso}, worked at ${label}`; }
+      if (houses.length) { label = houses.join(", "); aria = `${iso}, worked at ${label}`; }
       else if (hasManual) { label = "Daily log"; aria = `${iso}, daily log`; }
       const cls = ["cal-day", active ? "has-activity" : "",
         iso === todayIso ? "today" : "", iso === logsSelectedDate ? "selected" : ""].join(" ").replace(/\s+/g," ").trim();
@@ -2912,12 +2915,14 @@
   }
 
   // Items finished on THIS day = this day's auto snapshot minus the previous
-  // auto row's snapshot for the SAME visit (most recent earlier day). No prior
-  // row → everything checked counts as finished today.
+  // auto row's snapshot for the SAME visit (most recent earlier day). Keyed on
+  // visitId, NOT houseName — two separate visits to the same house must not
+  // subtract each other's snapshots. No prior row → everything checked counts
+  // as finished today.
   function finishedToday(auto, monthRows) {
     if (!auto) return [];
     const prior = monthRows
-      .filter(r => r.kind === "auto" && r.houseName === auto.houseName && r.logDate < auto.logDate)
+      .filter(r => r.kind === "auto" && r.visitId === auto.visitId && r.logDate < auto.logDate)
       .sort((a, b) => a.logDate < b.logDate ? 1 : -1)[0];
     const prev = new Set(prior ? prior.doneKeys : []);
     return auto.doneKeys.filter(k => !prev.has(k));
@@ -2954,10 +2959,10 @@
     // snapshot for the same visit), not just this day's — so use the month
     // stash set in renderLogsScreen, not dayRows.
     const monthRows = logsMonthRows;
-    const auto = dayRows.find(r => r.kind === "auto");
+    const autos = dayRows.filter(r => r.kind === "auto");
     const manual = dayRows.filter(r => r.kind === "manual");
     let html = `<div class="cal-detail"><h2 style="font-size:1rem">${escHtml(fmtDate(iso))}</h2>`;
-    if (auto) html += renderAutoDetail(auto, monthRows);
+    autos.forEach(auto => { html += renderAutoDetail(auto, monthRows); });
     html += manual.map(m => `<div class="cal-note" data-note-id="${escAttr(m.id)}">
       <p>${escHtml(m.note)}</p>
       <button type="button" class="menu-btn" data-note-edit="${escAttr(m.id)}" aria-label="Edit note">Edit</button>
@@ -2997,11 +3002,15 @@
     }
     const editBtn = e.target.closest("[data-note-edit]");
     if (editBtn) {
-      const row = editBtn.closest("[data-note-id]");
-      const current = row.querySelector("p").textContent;
+      const id = editBtn.dataset.noteEdit;
+      // Edit from the STORED note (exact text incl. newlines), not the DOM's
+      // whitespace-normalized textContent, so a small tweak can't silently
+      // rewrite the rest of a multi-line note.
+      const stored = logsMonthRows.find(r => r.id === id);
+      const current = stored ? stored.note : "";
       const next = prompt("Edit note:", current);
       if (next == null || !next.trim()) return;
-      const res = await window.cloud.updateLogEntry(editBtn.dataset.noteEdit, next);
+      const res = await window.cloud.updateLogEntry(id, next);
       if (res.error) { alert(res.error); return; }
       return renderLogsScreen();
     }
