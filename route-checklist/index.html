@@ -369,37 +369,8 @@
     box-shadow: 0 0 30px rgba(20, 30, 40, 0.2);
   }
   #sidebar h2 { font-size: 0.95rem; margin: 0 0 10px; display: flex; align-items: center; gap: 4px; }
-  /* Spread the search and close buttons to opposite ends so they can't be
-     tapped by accident; the centered title fills the space between them. */
   .sidebar-title { flex: 1; text-align: center; }
-  .sidebar-search-toggle {
-    background: none; border: none; cursor: pointer; color: var(--muted);
-    font-size: 1.05rem; line-height: 1;
-    min-width: 44px; min-height: 44px; padding: 4px 8px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .sidebar-search-toggle:hover { color: var(--ink); }
-  .sidebar-search-toggle[aria-expanded="true"] { color: var(--ink); }
   #sidebar .modal-x { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
-  #houseSearch {
-    font: inherit; font-size: 0.9rem; width: 100%;
-    border: 1px solid var(--line); border-radius: 6px;
-    padding: 8px 10px; margin-bottom: 10px;
-  }
-  .house-btn {
-    display: block; width: 100%; text-align: left;
-    font: inherit; font-size: 0.9rem; font-weight: 600;
-    background: none; border: 1px solid transparent; border-radius: 6px;
-    padding: 9px 10px; cursor: pointer; color: var(--ink);
-  }
-  .house-btn:hover { background: var(--ground); }
-  .house-btn.sel { background: var(--accent); color: var(--accent-ink); }
-  .house-btn.none { color: var(--muted); font-weight: 500; }
-  #houseInfo { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
-  #houseInfo h3 {
-    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.1em; color: var(--muted); margin: 0 0 8px;
-  }
   .info-item { font-size: 0.84rem; padding: 5px 0; border-top: 1px solid #EEF1F4; }
   .info-item:first-of-type { border-top: none; }
   .info-head {
@@ -713,7 +684,7 @@
   <div class="visit">
     <div class="titlerow">
       <button type="button" class="menu-btn" data-nav-home aria-label="Back to home">← Home</button>
-      <button id="menuBtn" class="menu-btn" aria-label="Pick house">☰ Houses</button>
+      <button id="menuBtn" class="menu-btn" aria-label="Account">👤</button>
       <button type="button" id="houseInfoBtn" class="menu-btn" aria-label="House info" hidden>ℹ️ House info</button>
       <h1>Maintenance House Visit</h1>
     </div>
@@ -838,15 +809,11 @@
 </div>
 
 <div id="sideBackdrop" hidden></div>
-<aside id="sidebar" hidden aria-label="House picker">
+<aside id="sidebar" hidden aria-label="Account menu">
   <h2>
-    <button type="button" class="sidebar-search-toggle" id="houseSearchToggle" aria-label="Search houses" aria-expanded="false">🔍</button>
-    <span class="sidebar-title">Houses</span>
+    <span class="sidebar-title">Account</span>
     <button type="button" class="modal-x" id="sidebarClose" aria-label="Close">✕</button>
   </h2>
-  <input type="search" id="houseSearch" placeholder="Search houses…" aria-label="Search houses" hidden>
-  <div id="houseList"></div>
-  <div id="houseInfo"></div>
   <div id="account">
     <div>Signed in as <span id="whoami">…</span></div>
     <details class="setpw">
@@ -1979,19 +1946,6 @@
     if (window.cloud && await sugClickActions(e, loadChecklistNotes)) return;
   });
 
-  function renderHouseList() {
-    const filter = document.getElementById("houseSearch").value.trim().toLowerCase();
-    const cur = currentHouse();
-    const rows = [`<button type="button" class="house-btn none${cur ? "" : " sel"}" data-house="">(no house — full checklist)</button>`];
-    ALL_HOUSES
-      .filter(h => !filter || h.name.toLowerCase().includes(filter))
-      .forEach(h => {
-        const sel = cur && cur.name === h.name ? " sel" : "";
-        rows.push(`<button type="button" class="house-btn${sel}" data-house="${escAttr(h.name)}">${escHtml(h.name)}</button>`);
-      });
-    document.getElementById("houseList").innerHTML = rows.join("");
-  }
-
   // Build the current house's codes + info into `el`. Codes come from
   // ALL_CODES (house-codes.local.js, on-device only); info from h.info.
   // If the local codes file isn't present, ALL_CODES[h.name] is empty and the
@@ -2016,11 +1970,6 @@
     el.innerHTML = rows.join("");
   }
 
-  function renderHouseInfo() {
-    const box = document.getElementById("houseInfo");
-    if (box) renderHouseInfoInto(box);
-  }
-
   function openHouseInfo() {
     const h = currentHouse();
     if (!h) return;
@@ -2033,49 +1982,14 @@
     document.getElementById("houseInfoModal").close());
 
   function openSidebar() {
-    // Always open with search collapsed and cleared, so the list starts at full
-    // height and no stale filter from a previous open is silently applied.
-    const search = document.getElementById("houseSearch");
-    search.value = "";
-    search.hidden = true;
-    document.getElementById("houseSearchToggle").setAttribute("aria-expanded", "false");
-    renderHouseList();
-    renderHouseInfo();
     sidebar.hidden = false;
     sideBackdrop.hidden = false;
   }
   function closeSidebar() { sidebar.hidden = true; sideBackdrop.hidden = true; }
 
-  // The search box starts hidden so the house list gets full height. Tapping
-  // 🔍 reveals it and focuses it; tapping again hides it AND clears the filter
-  // so the full list returns (a hidden-but-active filter would be confusing).
-  function toggleHouseSearch() {
-    const search = document.getElementById("houseSearch");
-    const toggle = document.getElementById("houseSearchToggle");
-    const show = search.hidden;
-    search.hidden = !show;
-    toggle.setAttribute("aria-expanded", String(show));
-    if (show) {
-      search.focus();
-    } else {
-      search.value = "";
-      renderHouseList();
-    }
-  }
-
   document.getElementById("menuBtn").addEventListener("click", openSidebar);
   document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
-  document.getElementById("houseSearchToggle").addEventListener("click", toggleHouseSearch);
   sideBackdrop.addEventListener("click", closeSidebar);
-  document.getElementById("houseSearch").addEventListener("input", renderHouseList);
-  document.getElementById("houseList").addEventListener("click", e => {
-    const btn = e.target.closest("[data-house]");
-    if (!btn) return;
-    selectHouse(btn.dataset.house);
-    renderHouseList();
-    renderHouseInfo();
-    closeSidebar();
-  });
   // Typing a house name by hand re-tailors once the field loses focus.
   document.getElementById("house").addEventListener("change", (e) => { selectHouse(e.target.value); });
 
