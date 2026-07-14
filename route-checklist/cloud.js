@@ -146,6 +146,28 @@ async function saveMyProfile({ fullName, phone }) {
 
 // ---- Visit history (the app calls these via window.cloud) ----
 
+// Stamp today's auto daily-log row for a saved visit. Best-effort: a failure
+// here NEVER blocks the visit save (the diary is a record, not a gate). Uses
+// the client's CURRENT local date — v.date is a user-editable field and may not
+// be the actual save day, so a multi-day visit lands on each real workday.
+async function stampDailyLog(visitId, houseId, items) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const doneKeys = (items || []).filter(it => it.done === true).map(it => it.key);
+    const today = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase.from("daily_logs").upsert({
+      tech_id: user.id, log_date: today, kind: "auto",
+      visit_id: visitId, house_id: houseId, note: "", done_keys: doneKeys,
+    }, { onConflict: "tech_id,visit_id,log_date" });
+    if (error && !isMissingTable(error)) {
+      console.warn("Daily-log stamp failed (visit still saved):", error.message);
+    }
+  } catch (e) {
+    console.warn("Daily-log stamp threw (visit still saved):", e.message);
+  }
+}
+
 // Save a visit: one `visits` row + one `visit_items` row per answered item.
 //   status "in_progress" â†’ the Save progress button (resume later/elsewhere).
 //   status "completed"   â†’ the survey's Save & Send (the finalize).
@@ -191,6 +213,7 @@ async function saveVisit(v, status = "completed") {
     }
     if (error) return { error: error.message, visitId };
   }
+  await stampDailyLog(visitId, house.id, v.items);
   return { visitId, degraded };
 }
 
