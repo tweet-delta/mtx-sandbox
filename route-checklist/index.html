@@ -402,6 +402,11 @@
   }
   .info-item { font-size: 0.84rem; padding: 5px 0; border-top: 1px solid #EEF1F4; }
   .info-item:first-of-type { border-top: none; }
+  .info-head {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted); margin: 12px 0 8px;
+  }
+  .info-head:first-child { margin-top: 0; }
   .info-item b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .info-item.code b { color: var(--note); }
 
@@ -709,6 +714,7 @@
     <div class="titlerow">
       <button type="button" class="menu-btn" data-nav-home aria-label="Back to home">← Home</button>
       <button id="menuBtn" class="menu-btn" aria-label="Pick house">☰ Houses</button>
+      <button type="button" id="houseInfoBtn" class="menu-btn" aria-label="House info" hidden>ℹ️ House info</button>
       <h1>Maintenance House Visit</h1>
     </div>
     <div class="fields">
@@ -736,6 +742,16 @@
       <span class="modal-msg" id="surveyMsg"></span>
       <button type="button" id="surveySend" class="send-btn">Save &amp; Send</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="houseInfoModal" aria-label="House info">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="houseInfoTitle">House info</h2>
+      <button type="button" class="modal-x" id="houseInfoClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="houseInfoBody"></div>
   </div>
 </dialog>
 
