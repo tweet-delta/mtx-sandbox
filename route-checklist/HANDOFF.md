@@ -23,17 +23,29 @@ no `cloud.js` change, no RLS change. Spec:
 `docs/superpowers/specs/2026-07-14-house-info-panel-design.md`; plan:
 `docs/superpowers/plans/2026-07-14-house-info-panel.md`.
 
+**Follow-on same day (owner feedback):** the panel was converted from a
+centered modal `<dialog>` to a **right-docked sticky `<aside id="houseInfoPanel">`**
+(no backdrop) so a tech can leave it open while scrolling and tapping checklist
+items underneath — ℹ️ now **toggles** it open/closed (`toggleHouseInfo()`)
+instead of only opening it, and it auto-closes on every house switch
+(`hydrate()`) so it never shows stale data for the wrong house. The **4
+standard code labels** (`Garage code`, `Med lock code`, `Apartment/door code`,
+`Alarm code`) always render as rows now, even when `house-codes.local.js` has
+nothing for that house at that label (shown as muted "Not on file" via the new
+`.blank` class) — matched by exact label via `STANDARD_CODE_LABELS`. Any other
+code label already in the local file for a house (e.g. a shed code) still
+renders below the standard 4, unchanged from before. SW bumped `v20` → `v21`.
+
 - **New ℹ️ House info button** in the sticky visit header, next to ☰. Hidden
   until a house is selected (toggled in `hydrate()`, which runs on every
-  `rebuild()`). Tapping it opens a modal `<dialog id="houseInfoModal">` (same
-  focus-trap/Esc/✕ pattern as the survey modal) showing the **current house
-  only**: codes section first (from `ALL_CODES`, sourced from the gitignored
-  `house-codes.local.js` — on-device only), then house info pairs (paint,
-  attic access, etc., from `h.info`). If a section has no data it's omitted
-  entirely (no empty headers); if neither exists, a plain "No codes or info on
-  file for this house" line shows. New shared renderer
-  `renderHouseInfoInto(el)` builds this markup; `openHouseInfo()` wires the
-  button to it.
+  `rebuild()`). Tapping it opens/closes a docked side panel (same visual
+  language as the ☰ account sidebar, opposite side, no backdrop) showing the
+  **current house only**: codes section first (from `ALL_CODES`, sourced from
+  the gitignored `house-codes.local.js` — on-device only — always showing the
+  4 standard labels plus any extras), then house info pairs (paint, attic
+  access, etc., from `h.info`, omitted if empty). New shared renderer
+  `renderHouseInfoInto(el)` builds this markup; `toggleHouseInfo()` /
+  `closeHouseInfo()` wire the button and ✕ to it.
 - **Codes deliberately stay local-only.** The original design explored moving
   codes into a protected Supabase table so every device would see them, but
   the **owner explicitly chose to keep the existing "codes never in Supabase"
@@ -53,24 +65,28 @@ no `cloud.js` change, no RLS change. Spec:
   `.sidebar-search-toggle`) was removed; `.info-item` / `.info-item.code` are
   kept (now used only by the modal) and a new `.info-head` class labels the
   "Codes" / "House info" sub-sections inside it.
-- SW cache bumped `v19` → `v20`.
+- SW cache bumped `v19` → `v20` → `v21`.
 - **NOT YET verified end-to-end on the live site** — no signed-in browser
   session or local `house-codes.local.js` content was available in this
   session (sandboxed agent, no automated test harness in this repo). Owner/next
-  session, after hard-refresh (Ctrl+Shift+R, may take two for the v20 SW to
+  session, after hard-refresh (Ctrl+Shift+R, may take two for the v21 SW to
   take over) and fully closing/reopening the PWA on phones:
   1. Start a visit at a house with codes in your local file → confirm ℹ️
-     appears in the header only once a house is picked → tap it → codes show
-     first, then info; Esc/✕ closes and focus returns to ℹ️.
-  2. Pick "(no house — full checklist)" → confirm ℹ️ disappears.
-  3. Pick a house with no codes/info → confirm the "No codes or info on file"
-     line, no error.
-  4. On a device without `house-codes.local.js` → confirm the codes section is
-     simply absent (info pairs still show if present).
-  5. Tap 👤 → confirm only account actions show (no house list/search).
-  6. Confirm ← Home → 🏠 New house visit still prompts before discarding an
+     appears in the header only once a house is picked → tap it → the panel
+     slides in from the right listing all 4 standard codes (filled ones from
+     your local file, "Not on file" for the rest), any extra codes, then house
+     info. It should stay open while you scroll and tap checklist items.
+  2. Tap ℹ️ again (or ✕) → panel closes.
+  3. Pick "(no house — full checklist)" → confirm ℹ️ disappears and the panel
+     auto-closes if it was open.
+  4. Switch to a different house while the panel is open → confirm it closes
+     (doesn't show the old house's data) rather than staying open stale.
+  5. On a device without `house-codes.local.js` → confirm all 4 standard rows
+     show "Not on file", no error.
+  6. Tap 👤 → confirm only account actions show (no house list/search).
+  7. Confirm ← Home → 🏠 New house visit still prompts before discarding an
      in-progress checklist.
-  7. Deep-link/reload mid-visit → header + ℹ️ still work, no console errors.
+  8. Deep-link/reload mid-visit → header + ℹ️ still work, no console errors.
 
 ---
 

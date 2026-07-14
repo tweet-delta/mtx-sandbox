@@ -380,6 +380,20 @@
   .info-head:first-child { margin-top: 0; }
   .info-item b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .info-item.code b { color: var(--note); }
+  .info-item .blank { color: var(--muted); font-style: italic; }
+
+  /* House info panel: docks to the right, stays open over the checklist (no
+     backdrop) so a tech can glance at codes/info while scrolling and tapping
+     items underneath — unlike the account sidebar, it never traps focus. */
+  #houseInfoPanel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 20;
+    width: min(85vw, 320px);
+    background: var(--card); border-left: 1px solid var(--line);
+    padding: 14px; overflow-y: auto;
+    box-shadow: 0 0 30px rgba(20, 30, 40, 0.2);
+  }
+  #houseInfoPanel h2 { font-size: 0.95rem; margin: 0 0 10px; display: flex; align-items: center; gap: 4px; }
+  #houseInfoPanel .modal-x { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 
   /* House-specific note under a checklist item */
   .house-note {
@@ -716,15 +730,13 @@
   </div>
 </dialog>
 
-<dialog id="houseInfoModal" aria-label="House info">
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2 id="houseInfoTitle">House info</h2>
-      <button type="button" class="modal-x" id="houseInfoClose" aria-label="Close">✕</button>
-    </div>
-    <div class="modal-body" id="houseInfoBody"></div>
-  </div>
-</dialog>
+<aside id="houseInfoPanel" hidden aria-label="House info">
+  <h2>
+    <span class="sidebar-title" id="houseInfoTitle">House info</span>
+    <button type="button" class="modal-x" id="houseInfoClose" aria-label="Close">✕</button>
+  </h2>
+  <div id="houseInfoBody"></div>
+</aside>
 
 <div class="report-bar">
   <button id="saveProgress">Save progress</button>
@@ -1449,6 +1461,7 @@
     document.getElementById("name").value = loadName();
     document.getElementById("house").value = s.house || "";
     document.getElementById("houseInfoBtn").hidden = !currentHouse();
+    document.getElementById("houseInfoPanel").hidden = true;   // avoid showing stale data after a house switch
     document.getElementById("date").value = s.date || "";
     document.querySelectorAll("[data-check]").forEach(cb => {
       const st = s.items[cb.dataset.check];
@@ -1946,40 +1959,54 @@
     if (window.cloud && await sugClickActions(e, loadChecklistNotes)) return;
   });
 
+  // The codes every house is expected to have, shown even when not yet on
+  // file so the panel's shape is consistent across houses. Matched against
+  // ALL_CODES entries by exact label.
+  const STANDARD_CODE_LABELS = ["Garage code", "Med lock code", "Apartment/door code", "Alarm code"];
+
   // Build the current house's codes + info into `el`. Codes come from
   // ALL_CODES (house-codes.local.js, on-device only); info from h.info.
-  // If the local codes file isn't present, ALL_CODES[h.name] is empty and the
-  // codes section is simply omitted (no error, no empty header).
+  // The 4 STANDARD_CODE_LABELS always render (blank as "Not on file" if
+  // absent); any other code label already in the local file for this house
+  // still renders too, below the standard ones.
   function renderHouseInfoInto(el) {
     const h = currentHouse();
     if (!h) { el.innerHTML = ""; return; }
     const codes = ALL_CODES[h.name] || [];
+    const codeMap = new Map(codes.map(([label, val]) => [label, val]));
+    const extraCodes = codes.filter(([label]) => !STANDARD_CODE_LABELS.includes(label));
     const info = h.info || [];
-    const rows = [];
-    if (codes.length) {
-      rows.push(`<div class="info-head">Codes</div>`);
-      codes.forEach(([label, val]) =>
-        rows.push(`<div class="info-item code"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
-    }
+    const rows = [`<div class="info-head">Codes</div>`];
+    STANDARD_CODE_LABELS.forEach(label => {
+      const val = codeMap.get(label);
+      rows.push(val
+        ? `<div class="info-item code"><b>${escHtml(label)}</b>${escHtml(val)}</div>`
+        : `<div class="info-item code"><b>${escHtml(label)}</b><span class="blank">Not on file</span></div>`);
+    });
+    extraCodes.forEach(([label, val]) =>
+      rows.push(`<div class="info-item code"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
     if (info.length) {
       rows.push(`<div class="info-head">House info</div>`);
       info.forEach(([label, val]) =>
         rows.push(`<div class="info-item"><b>${escHtml(label)}</b>${escHtml(val)}</div>`));
     }
-    if (!rows.length) rows.push(`<div class="info-item">No codes or info on file for this house.</div>`);
     el.innerHTML = rows.join("");
   }
 
-  function openHouseInfo() {
+  // The panel stays open (no backdrop) while the tech scrolls and taps
+  // checklist items underneath — ℹ️ toggles it rather than only opening it.
+  function toggleHouseInfo() {
     const h = currentHouse();
     if (!h) return;
+    const panel = document.getElementById("houseInfoPanel");
+    if (!panel.hidden) { panel.hidden = true; return; }
     document.getElementById("houseInfoTitle").textContent = h.name + " — house info";
     renderHouseInfoInto(document.getElementById("houseInfoBody"));
-    document.getElementById("houseInfoModal").showModal();
+    panel.hidden = false;
   }
-  document.getElementById("houseInfoBtn").addEventListener("click", openHouseInfo);
-  document.getElementById("houseInfoClose").addEventListener("click", () =>
-    document.getElementById("houseInfoModal").close());
+  function closeHouseInfo() { document.getElementById("houseInfoPanel").hidden = true; }
+  document.getElementById("houseInfoBtn").addEventListener("click", toggleHouseInfo);
+  document.getElementById("houseInfoClose").addEventListener("click", closeHouseInfo);
 
   function openSidebar() {
     sidebar.hidden = false;
