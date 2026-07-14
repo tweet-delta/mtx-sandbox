@@ -3,7 +3,62 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
-## STATE AS OF 2026-07-13 (My Visit History — slice 2 of 4) — read this first
+## STATE AS OF 2026-07-14 (Daily Logs calendar — slice 3 of 4) — read this first
+
+**Built inline (executing-plans, 6 tasks, per-task committed) on
+`claude/claude-code-tutorial-5l5ew2`.** Slice 3 of 4 (slice 4 — shared on-call
+rotation calendar — is a separate future cycle, NOT built).
+Spec: `docs/superpowers/specs/2026-07-14-daily-logs-design.md`; plan:
+`docs/superpowers/plans/2026-07-14-daily-logs.md`.
+
+- **Migration `0016_daily_logs.sql`** (pushed & verified live: 4 auto rows
+  backfilled from 4 completed visits). New `public.daily_logs` table — a
+  per-tech work diary. Columns: `tech_id`, `log_date`, `kind` (`auto`|`manual`),
+  `visit_id`+`house_id` (auto only), `note` (manual only), `done_keys` (jsonb,
+  auto only — cumulative snapshot of checked item keys as of that day),
+  timestamps. Partial unique index `(tech_id, visit_id, log_date) where
+  kind='auto'` = one auto row per tech+visit+day. RLS: **select** own-or-
+  supervisor; **insert/update/delete** own rows. The update policy is
+  ownership-only (NOT `kind`-restricted) so the auto-stamp upsert can refresh
+  its own auto row; user-facing immutability of auto rows is enforced in the
+  **app** (UI shows no edit/delete on auto entries + `updateLogEntry`/
+  `deleteLogEntry` self-scope `kind='manual'`). One-time backfill: one auto row
+  per completed visit on its `visit_date` with final done keys.
+- **`cloud.js`:** `saveVisit()` now calls `stampDailyLog()` after a successful
+  save — best-effort (a failed stamp NEVER blocks the visit save; logs to
+  `console.warn`), upserts today's auto row using the **client's current local
+  date** (NOT `v.date`, which is a user-editable field) so a multi-day visit
+  lands on each real workday it was saved. Plus 4 exported functions:
+  `listLogsInRange(start,end)` (own rows in a date range, one month/call),
+  `addLogEntry(date,note)`, `updateLogEntry(id,note)`, `deleteLogEntry(id)` —
+  all self-scoped `tech_id=me` (mutators also `kind='manual'`) atop RLS.
+- **New `#logs` screen** (hash-router, same pattern as `#history`). Home button
+  **"🗓️ Daily logs"**, always visible (NOT `admin-only`). Month grid, `‹`/`›`
+  to change month, today highlighted. Day cell shows the **house name** if an
+  auto row exists, else **"Daily log"** for manual-only days, else a plain
+  number. Tap a day → detail below: per-section `"<section> — n/m done
+  (+k today)"` + the list of items finished THAT day (cumulative snapshot minus
+  the prior day's snapshot for the same visit, computed client-side), then
+  manual notes (each Edit/Delete), then "+ Add note" (works on past days).
+  Unknown `done_keys` (checklist changed since the visit) list under "Other" by
+  raw key.
+- **Explicitly out of scope this slice:** the on-call rotation calendar
+  (slice 4), hours/mileage/structured fields, linking a manual note to a house,
+  editing/deleting auto rows, cross-tech or house-level views, search/export,
+  photos (Phase 2).
+- SW cache bumped `v16` → `v17`.
+- **NOT YET verified end-to-end on the live site.** Owner/next session:
+  hard-refresh (Ctrl+Shift+R), sign in as `tech1@example.com` → confirm
+  "🗓️ Daily logs" appears; open it → current month renders with backfilled dots
+  on past completed-visit dates. Start a visit, **Save progress** → today's cell
+  shows the house name; tap it → sections/items finished so far are listed. Save
+  progress **again same day** → list grows, still exactly ONE auto entry (no
+  duplicate). Add a manual note to today and a past day; edit one; delete one →
+  each re-renders and the month updates. Sign in as `tech2@example.com` → sees
+  only their own diary (isolation). Deep-link reload on `#logs` → re-renders, no
+  console errors. Test accounts: `tech1@example.com`, `tech2@example.com`.
+
+## STATE AS OF 2026-07-13 (My Visit History — slice 2 of 4)
 
 **Built via subagent-driven-development (6 tasks, each task-reviewed + final
 whole-branch reviewed on Opus: Ready to merge, 0 Critical/0 Important), all
