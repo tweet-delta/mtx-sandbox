@@ -15,6 +15,65 @@ supervisor view) are complete and live on `main`.
 
 ---
 
+## STATE AS OF 2026-07-14 (In-checklist House info panel) — read this first
+
+**Built inline (executing-plans), all 4 tasks committed on
+`claude/claude-code-tutorial-5l5ew2`.** Front-end-only slice — no migration,
+no `cloud.js` change, no RLS change. Spec:
+`docs/superpowers/specs/2026-07-14-house-info-panel-design.md`; plan:
+`docs/superpowers/plans/2026-07-14-house-info-panel.md`.
+
+- **New ℹ️ House info button** in the sticky visit header, next to ☰. Hidden
+  until a house is selected (toggled in `hydrate()`, which runs on every
+  `rebuild()`). Tapping it opens a modal `<dialog id="houseInfoModal">` (same
+  focus-trap/Esc/✕ pattern as the survey modal) showing the **current house
+  only**: codes section first (from `ALL_CODES`, sourced from the gitignored
+  `house-codes.local.js` — on-device only), then house info pairs (paint,
+  attic access, etc., from `h.info`). If a section has no data it's omitted
+  entirely (no empty headers); if neither exists, a plain "No codes or info on
+  file for this house" line shows. New shared renderer
+  `renderHouseInfoInto(el)` builds this markup; `openHouseInfo()` wires the
+  button to it.
+- **Codes deliberately stay local-only.** The original design explored moving
+  codes into a protected Supabase table so every device would see them, but
+  the **owner explicitly chose to keep the existing "codes never in Supabase"
+  posture** — real codes for real houses stay in `house-codes.local.js` only,
+  copied by hand to devices that should show them. This slice does NOT change
+  that; it only makes whatever's already in the local file reachable with one
+  tap instead of scrolling into the old sidebar.
+- **☰ Houses sidebar slimmed to an account-only menu.** The house list, the
+  🔍 search toggle, and the buried house-info panel are all removed from the
+  sidebar (and their JS — `renderHouseList`, `toggleHouseSearch`, the
+  house-list click handler, the search input handler — deleted). What remains:
+  "Signed in as…", Set/change password, Sign out. The header button changed
+  from `☰ Houses` to **👤** (`aria-label="Account"`). House switching is
+  unaffected — it already worked via **← Home → 🏠 New house visit**, which
+  still confirms before discarding unsaved work (`selectHouse()` unchanged).
+- Orphaned sidebar-only CSS (`#houseSearch`, `.house-btn`, `#houseInfo`,
+  `.sidebar-search-toggle`) was removed; `.info-item` / `.info-item.code` are
+  kept (now used only by the modal) and a new `.info-head` class labels the
+  "Codes" / "House info" sub-sections inside it.
+- SW cache bumped `v19` → `v20`.
+- **NOT YET verified end-to-end on the live site** — no signed-in browser
+  session or local `house-codes.local.js` content was available in this
+  session (sandboxed agent, no automated test harness in this repo). Owner/next
+  session, after hard-refresh (Ctrl+Shift+R, may take two for the v20 SW to
+  take over) and fully closing/reopening the PWA on phones:
+  1. Start a visit at a house with codes in your local file → confirm ℹ️
+     appears in the header only once a house is picked → tap it → codes show
+     first, then info; Esc/✕ closes and focus returns to ℹ️.
+  2. Pick "(no house — full checklist)" → confirm ℹ️ disappears.
+  3. Pick a house with no codes/info → confirm the "No codes or info on file"
+     line, no error.
+  4. On a device without `house-codes.local.js` → confirm the codes section is
+     simply absent (info pairs still show if present).
+  5. Tap 👤 → confirm only account actions show (no house list/search).
+  6. Confirm ← Home → 🏠 New house visit still prompts before discarding an
+     in-progress checklist.
+  7. Deep-link/reload mid-visit → header + ℹ️ still work, no console errors.
+
+---
+
 ## STATE AS OF 2026-07-14 (Daily Logs calendar — slice 3 of 4) — read this first
 
 **Built inline (executing-plans, 6 tasks, per-task committed) on
