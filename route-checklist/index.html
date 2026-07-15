@@ -512,6 +512,7 @@
   body:not([data-screen="history"])  #historyScreen,
   body:not([data-screen="logs"])     #logsScreen,
   body:not([data-screen="mynotes"])  #mynotesScreen,
+  body:not([data-screen="reviews"])  #reviewsScreen,
   body:not([data-screen="notes"])    #notesScreen { display: none; }
 
   .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
@@ -577,6 +578,7 @@
     border: 1px solid var(--line); border-radius: 8px;
     background: var(--card); color: var(--ink);
   }
+  .review-tech { font-size: 0.85rem; margin: 12px 0 4px; color: var(--ink); }
   .hist-item { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
   .hist-item b { display: block; }
   .hist-answer { font-weight: 600; text-transform: capitalize; }
@@ -782,6 +784,8 @@
 
 <div id="homeScreen" class="screen" aria-label="Home">
   <div class="screen-head"><h1>Maintenance House Visit</h1></div>
+  <button type="button" class="home-btn admin-only" id="homeReviews">✅ Completed visits<span class="pending-count" id="reviewCountBadge"></span>
+    <small>Review techs' visits &amp; surveys</small></button>
   <button type="button" class="home-btn" id="homeNewVisit">🏠 New house visit
     <small>Pick a house and start the checklist</small></button>
   <button type="button" class="home-btn" id="homeContinue">▶ Continue house visit
@@ -865,6 +869,14 @@
     <h1>Pending changes</h1>
   </div>
   <div id="pendingBody"></div>
+</div>
+
+<div id="reviewsScreen" class="screen" aria-label="Completed visits">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>Completed visits</h1>
+  </div>
+  <div id="reviewsBody"></div>
 </div>
 
 <div id="sideBackdrop" hidden></div>
@@ -2618,6 +2630,7 @@
     if (h.startsWith("#history")) return "history";
     if (h.startsWith("#logs")) return "logs";
     if (h.startsWith("#mynotes")) return "mynotes";
+    if (h.startsWith("#reviews")) return "reviews";
     return "home";
   }
   function showScreen() {
@@ -2630,6 +2643,7 @@
     if (scr === "history") renderHistoryScreen();
     if (scr === "logs") renderLogsScreen();
     if (scr === "mynotes") renderMyNotesScreen();
+    if (scr === "reviews") renderReviewsScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2673,6 +2687,9 @@
   document.getElementById("homeMyNotes").addEventListener("click", () => {
     editingNoteId = null;   // always land on My notes with no card mid-edit
     location.hash = "#mynotes";
+  });
+  document.getElementById("homeReviews").addEventListener("click", () => {
+    location.hash = "#reviews";
   });
 
   // ---- Continue screen ----
@@ -2934,6 +2951,27 @@
     }
   });
 
+  // Shared by My Visit History and the supervisor review detail so the two
+  // can never drift: only the items worth revisiting — flagged (answer ===
+  // item.bad, polarity from GROUPS) OR carrying a note. An item_key no
+  // longer in the checklist still shows, labelled by its raw key.
+  function problemItems(items) {
+    return (items || []).filter(it => {
+      const def = ITEM_BY_KEY[it.item_key];
+      const flagged = def && it.answer && it.answer === def.bad;
+      return flagged || (it.note && it.note.trim());
+    });
+  }
+  function problemRowsHTML(items) {
+    return items.map(it => {
+      const def = ITEM_BY_KEY[it.item_key];
+      const label = def ? escHtml(def.q || def.text) : escHtml(it.item_key);
+      const ans = it.answer ? `<span class="hist-answer">${escHtml(it.answer)}</span>` : "";
+      const note = it.note && it.note.trim() ? `<p class="hist-note">${escHtml(it.note)}</p>` : "";
+      return `<div class="hist-item"><b>${label}</b> ${ans}${note}</div>`;
+    }).join("");
+  }
+
   async function renderHistoryScreen() {
     const body = document.getElementById("historyBody");
     const m = location.hash.match(/^#history\/(.+)$/);
@@ -2951,10 +2989,7 @@
       </button>`).join("");
   }
 
-  // Detail = only the items worth revisiting: flagged (answer === item.bad,
-  // where `bad` is the item's polarity from GROUPS) OR carrying a note. An
-  // item_key no longer in the checklist still shows, labelled by its raw key,
-  // so history never drops what a tech actually recorded.
+  // Detail for one of MY OWN visits (tech screen).
   async function renderVisitDetail(body, visitId) {
     body.innerHTML = `<p class="screen-sub">Loading…</p>`;
     const res = await window.cloud.getVisitDetail(visitId);
@@ -2964,24 +2999,14 @@
       body.innerHTML = backBtn + `<p class="screen-sub">Couldn't load this visit — ${escHtml(res.error)}</p>`;
       return;
     }
-    const shown = res.items.filter(it => {
-      const def = ITEM_BY_KEY[it.item_key];
-      const flagged = def && it.answer && it.answer === def.bad;
-      return flagged || (it.note && it.note.trim());
-    });
+    const shown = problemItems(res.items);
     const header = backBtn + `
       <h2 style="font-size:1rem">${escHtml(res.houseName)} — ${fmtDate(res.visitDate)}</h2>`;
     if (!shown.length) {
       body.innerHTML = header + `<p class="screen-sub">No issues flagged on this visit.</p>`;
       return;
     }
-    const rows = shown.map(it => {
-      const def = ITEM_BY_KEY[it.item_key];
-      const label = def ? escHtml(def.q || def.text) : escHtml(it.item_key);
-      const ans = it.answer ? `<span class="hist-answer">${escHtml(it.answer)}</span>` : "";
-      const note = it.note && it.note.trim() ? `<p class="hist-note">${escHtml(it.note)}</p>` : "";
-      return `<div class="hist-item"><b>${label}</b> ${ans}${note}</div>`;
-    }).join("");
+    const rows = problemRowsHTML(shown);
     body.innerHTML = header + rows;
   }
 
@@ -2990,6 +3015,121 @@
     const row = e.target.closest("[data-visit-id]");
     if (!row) return;
     location.hash = "#history/" + row.dataset.visitId;
+  });
+
+  // ---- Completed-visits review screen (supervisor) ----
+  // The router shows it to anyone, so gate in the renderer; RLS/RPC are the
+  // real enforcement — a tech forcing #reviews gets an empty/error screen,
+  // never data.
+
+  // "2 flagged · 1 note" row hint; polarity logic stays here, not in cloud.js.
+  function reviewHint(items) {
+    let flagged = 0, noted = 0;
+    (items || []).forEach(it => {
+      const def = ITEM_BY_KEY[it.item_key];
+      if (def && it.answer && it.answer === def.bad) flagged++;
+      if (it.note && it.note.trim()) noted++;
+    });
+    const parts = [];
+    if (flagged) parts.push(`${flagged} flagged`);
+    if (noted) parts.push(`${noted} note${noted === 1 ? "" : "s"}`);
+    return parts.length ? parts.join(" · ") : "no issues";
+  }
+
+  // One section (Awaiting review / Reviewed), grouped by tech name.
+  function reviewSectionHTML(title, visits, emptyText) {
+    if (!visits.length) {
+      return `<div class="notes-sec"><h2>${escHtml(title)}</h2>
+        <p class="screen-sub">${escHtml(emptyText)}</p></div>`;
+    }
+    const byTech = new Map();
+    visits.forEach(v => {
+      const name = v.techName || "Unnamed tech";
+      if (!byTech.has(name)) byTech.set(name, []);
+      byTech.get(name).push(v);
+    });
+    return `<div class="notes-sec"><h2>${escHtml(title)}</h2>` +
+      [...byTech.entries()].map(([tech, rows]) =>
+        `<h3 class="review-tech">${escHtml(tech)}</h3>` +
+        rows.map(v => `
+          <button type="button" class="list-btn" data-review-id="${escAttr(v.id)}">
+            ${escHtml(v.houseName)} <small>${fmtDate(v.visitDate)} · ${escHtml(reviewHint(v.items))}</small>
+          </button>`).join("")
+      ).join("") + `</div>`;
+  }
+
+  async function renderReviewsScreen() {
+    const body = document.getElementById("reviewsBody");
+    const m = location.hash.match(/^#reviews\/(.+)$/);
+    if (m) { return renderReviewDetail(body, decodeURIComponent(m[1])); }
+    if (!window.cloud || window.cloud.role !== "supervisor" || !window.cloud.listCompletedVisits) {
+      body.innerHTML = `<p class="screen-sub">Supervisors only.</p>`;
+      return;
+    }
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const res = await window.cloud.listCompletedVisits();
+    if (currentScreenFromHash() !== "reviews") return;   // navigated away meanwhile
+    if (res.error) {
+      body.innerHTML = `<p class="screen-sub">${res.notReady
+        ? "Visit reviews aren't set up in the database yet (migration 0020)."
+        : "Couldn't load — " + escHtml(res.error)}</p>`;
+      return;
+    }
+    const unreviewed = res.visits.filter(v => !v.reviewedAt);
+    const reviewed = res.visits.filter(v => v.reviewedAt);
+    if (window.applyReviewCount) window.applyReviewCount(unreviewed.length);
+    body.innerHTML =
+      reviewSectionHTML("Awaiting review", unreviewed, "You're all caught up.") +
+      reviewSectionHTML("Reviewed — last 3 months", reviewed, "Nothing reviewed in the last 3 months.");
+  }
+
+  // Detail: survey answers, then only the flagged/noted items (same shared
+  // filter as My Visit History), then Mark reviewed or the review stamp.
+  async function renderReviewDetail(body, visitId) {
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const res = await window.cloud.getAnyVisitDetail(visitId);
+    if (currentScreenFromHash() !== "reviews") return;
+    const backBtn = `<button type="button" class="menu-btn" data-review-back>← All visits</button>`;
+    if (res.error) {
+      body.innerHTML = backBtn + `<p class="screen-sub">Couldn't load this visit — ${escHtml(res.error)}</p>`;
+      return;
+    }
+    const surveyRows = SURVEY.map(sv => {
+      const a = res.survey[sv.id];
+      return `<div class="hist-item"><b>${escHtml(sv.q)}</b>${
+        a ? `<p class="hist-note">${escHtml(a)}</p>`
+          : `<p class="hist-note">(no answer)</p>`}</div>`;
+    }).join("");
+    const probs = problemItems(res.items);
+    const probRows = probs.length ? problemRowsHTML(probs)
+      : `<p class="screen-sub">No issues flagged on this visit.</p>`;
+    const footer = res.reviewedAt
+      ? `<p class="screen-sub">✓ Reviewed by ${escHtml(res.reviewerName || "a supervisor")} on ${escHtml(new Date(res.reviewedAt).toLocaleDateString())}</p>`
+      : `<button type="button" class="menu-btn" data-mark-reviewed="${escAttr(visitId)}">✓ Mark reviewed</button>
+         <p class="screen-sub" id="reviewMsg" aria-live="polite"></p>`;
+    body.innerHTML = backBtn + `
+      <h2 style="font-size:1rem">${escHtml(res.techName || "Unnamed tech")} — ${escHtml(res.houseName)} — ${fmtDate(res.visitDate)}</h2>
+      <div class="notes-sec"><h2>Survey</h2>${surveyRows}</div>
+      <div class="notes-sec"><h2>Problems</h2>${probRows}</div>` + footer;
+  }
+
+  document.getElementById("reviewsBody").addEventListener("click", async e => {
+    if (e.target.closest("[data-review-back]")) { location.hash = "#reviews"; return; }
+    const mark = e.target.closest("[data-mark-reviewed]");
+    if (mark) {
+      mark.disabled = true;
+      const res = await window.cloud.markVisitReviewed(mark.dataset.markReviewed);
+      if (res.error) {
+        mark.disabled = false;
+        const msg = document.getElementById("reviewMsg");
+        if (msg) msg.textContent = "Couldn't mark reviewed — " + res.error;
+        return;
+      }
+      location.hash = "#reviews";   // hashchange re-renders the list
+      return;
+    }
+    const row = e.target.closest("[data-review-id]");
+    if (row) location.hash = "#reviews/" + row.dataset.reviewId;
   });
 
   // ---- Daily logs screen (slice 3) ----
@@ -3274,6 +3414,11 @@
 
   window.applyPendingCount = function (n) {
     const el = document.getElementById("pendingCountBadge");
+    if (el) el.textContent = n > 0 ? ` (${n})` : "";
+  };
+
+  window.applyReviewCount = function (n) {
+    const el = document.getElementById("reviewCountBadge");
     if (el) el.textContent = n > 0 ? ` (${n})` : "";
   };
 
