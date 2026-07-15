@@ -382,35 +382,41 @@
   .info-item.code b { color: var(--note); }
   .info-item .blank { color: var(--muted); font-style: italic; }
 
-  /* My notes (private personal checklist) */
-  .mynotes-add { display: flex; gap: 8px; margin-bottom: 14px; }
-  .mynotes-add input {
-    flex: 1; font: inherit; font-size: 0.9rem;
-    border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px;
+  /* My notes (private personal note cards: optional title + body) */
+  .mynotes-add, .mynotes-edit-fields {
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;
   }
-  .mynotes-add button {
+  .mynotes-add input, .mynotes-edit-fields input,
+  .mynotes-add textarea, .mynotes-edit-fields textarea {
+    font: inherit; font-size: 0.9rem; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px;
+    resize: vertical;
+  }
+  .mynotes-add textarea, .mynotes-edit-fields textarea { min-height: 70px; }
+  .mynotes-add-actions, .mynotes-edit-actions { display: flex; gap: 8px; }
+  .mynotes-add-actions button, .mynotes-edit-actions button {
     font: inherit; font-weight: 600; font-size: 0.88rem;
+    border-radius: 6px; padding: 9px 14px; cursor: pointer;
+  }
+  #mynoteAddBtn, .mynote-save {
     background: var(--accent); color: var(--accent-ink); border: none;
-    border-radius: 6px; padding: 9px 14px; cursor: pointer; flex: none;
+  }
+  .mynote-cancel {
+    background: none; color: var(--muted); border: 1px solid var(--line);
   }
   .mynotes-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 0; border-top: 1px solid #EEF1F4;
+    padding: 10px 0; border-top: 1px solid #EEF1F4;
   }
   .mynotes-item:first-of-type { border-top: none; }
-  .mynotes-item input[type="checkbox"] { width: 20px; height: 20px; flex: none; }
-  .mynotes-item span { flex: 1; font-size: 0.9rem; }
-  .mynotes-item.done span { text-decoration: line-through; color: var(--muted); }
-  .mynotes-item button {
+  .mynotes-item h3 { font-size: 0.92rem; margin: 0 0 4px; }
+  .mynotes-item p { font-size: 0.9rem; margin: 0; white-space: pre-wrap; }
+  .mynotes-item-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .mynotes-item-actions button {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 1rem; min-width: 32px; min-height: 32px; flex: none;
+    font-size: 0.85rem; padding: 4px 8px; min-height: 32px;
   }
-  .mynotes-item button:hover { color: var(--bad, crimson); }
-  .mynotes-clear {
-    margin-top: 14px; font: inherit; font-size: 0.85rem;
-    background: none; color: var(--accent); border: 1px solid var(--accent);
-    border-radius: 6px; padding: 8px 14px; cursor: pointer;
-  }
+  .mynotes-item-actions button:hover { color: var(--ink); }
+  .mynotes-item-actions [data-mynote-delete]:hover { color: var(--bad, crimson); }
 
   /* House info panel: docks to the right, stays open over the checklist (no
      backdrop) so a tech can glance at codes/info while scrolling and tapping
@@ -2665,6 +2671,7 @@
     location.hash = "#logs";
   });
   document.getElementById("homeMyNotes").addEventListener("click", () => {
+    editingNoteId = null;   // always land on My notes with no card mid-edit
     location.hash = "#mynotes";
   });
 
@@ -2830,7 +2837,12 @@
       <div id="profileMsg"></div>`;
   }
 
-  // ---- My notes screen (private personal checklist) ----
+  // ---- My notes screen (private note cards: optional title + body) ----
+  // At most one note is ever in edit mode at a time (opening ✎ on another
+  // card closes the first without saving), tracked here since the list is
+  // fully re-rendered from the server after every mutation.
+  let editingNoteId = null;
+
   async function renderMyNotesScreen() {
     const body = document.getElementById("mynotesBody");
     body.innerHTML = `<p class="screen-sub">Loading…</p>`;
@@ -2839,62 +2851,87 @@
     renderMyNotesList(body, items);
   }
 
+  function mynoteCardHTML(i) {
+    if (i.id === editingNoteId) {
+      return `
+        <div class="mynotes-item" data-mynote-card="${escAttr(i.id)}">
+          <div class="mynotes-edit-fields">
+            <input type="text" class="mynote-edit-title" placeholder="Title (optional)" value="${escAttr(i.title || "")}" aria-label="Note title">
+            <textarea class="mynote-edit-body" aria-label="Note text">${escHtml(i.text)}</textarea>
+            <div class="mynotes-edit-actions">
+              <button type="button" class="mynote-save" data-mynote-save="${escAttr(i.id)}">Save</button>
+              <button type="button" class="mynote-cancel" data-mynote-cancel="${escAttr(i.id)}">Cancel</button>
+            </div>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="mynotes-item" data-mynote-card="${escAttr(i.id)}">
+        ${i.title ? `<h3>${escHtml(i.title)}</h3>` : ""}
+        <p>${escHtml(i.text)}</p>
+        <div class="mynotes-item-actions">
+          <button type="button" data-mynote-edit="${escAttr(i.id)}" aria-label="Edit">✎ Edit</button>
+          <button type="button" data-mynote-delete="${escAttr(i.id)}" aria-label="Delete">✕ Delete</button>
+        </div>
+      </div>`;
+  }
+
   function renderMyNotesList(body, items) {
-    const hasChecked = items.some(i => i.done);
     const rows = items.length
-      ? items.map(i => `
-        <div class="mynotes-item${i.done ? " done" : ""}">
-          <input type="checkbox" data-mynote-toggle="${escAttr(i.id)}" ${i.done ? "checked" : ""} aria-label="Mark done">
-          <span>${escHtml(i.text)}</span>
-          <button type="button" data-mynote-delete="${escAttr(i.id)}" aria-label="Delete">✕</button>
-        </div>`).join("")
-      : `<p class="screen-sub">No notes yet — add one above.</p>`;
+      ? items.map(mynoteCardHTML).join("")
+      : `<p class="screen-sub">No notes yet — add one below.</p>`;
     body.innerHTML = `
       <div class="mynotes-add">
-        <input type="text" id="mynoteInput" placeholder="Add an item…" aria-label="New note text">
-        <button type="button" id="mynoteAddBtn">+ Add</button>
+        <input type="text" id="mynoteTitleInput" placeholder="Title (optional)" aria-label="New note title">
+        <textarea id="mynoteBodyInput" placeholder="Write your note…" aria-label="New note text"></textarea>
+        <div class="mynotes-add-actions">
+          <button type="button" id="mynoteAddBtn">+ Add</button>
+        </div>
       </div>
-      <div id="mynotesList">${rows}</div>
-      ${hasChecked ? `<button type="button" class="mynotes-clear" id="mynotesClearBtn">Clear checked</button>` : ""}`;
+      <div id="mynotesList">${rows}</div>`;
   }
 
   async function submitMyNote() {
-    const input = document.getElementById("mynoteInput");
-    const text = input.value;
-    if (!text.trim()) return;
-    input.disabled = true;
-    const res = await window.cloud.addMyNote(text);
-    input.disabled = false;
+    const titleInput = document.getElementById("mynoteTitleInput");
+    const bodyInput = document.getElementById("mynoteBodyInput");
+    if (!bodyInput.value.trim()) return;
+    bodyInput.disabled = true;
+    const res = await window.cloud.addMyNote(titleInput.value, bodyInput.value);
+    bodyInput.disabled = false;
     if (res.error) { toast("Couldn't add — " + res.error, "error"); return; }
-    input.value = "";
     renderMyNotesScreen();
   }
 
   document.getElementById("mynotesBody").addEventListener("click", async (e) => {
     if (e.target.id === "mynoteAddBtn") { submitMyNote(); return; }
-    if (e.target.id === "mynotesClearBtn") {
-      const res = await window.cloud.clearCheckedNotes();
-      if (res.error) { toast("Couldn't clear — " + res.error, "error"); return; }
+
+    const editBtn = e.target.closest("[data-mynote-edit]");
+    if (editBtn) { editingNoteId = editBtn.dataset.mynoteEdit; renderMyNotesScreen(); return; }
+
+    const cancelBtn = e.target.closest("[data-mynote-cancel]");
+    if (cancelBtn) { editingNoteId = null; renderMyNotesScreen(); return; }
+
+    const saveBtn = e.target.closest("[data-mynote-save]");
+    if (saveBtn) {
+      const card = saveBtn.closest("[data-mynote-card]");
+      const title = card.querySelector(".mynote-edit-title").value;
+      const bodyText = card.querySelector(".mynote-edit-body").value;
+      if (!bodyText.trim()) { toast("Note text can't be empty.", "error"); return; }
+      const res = await window.cloud.updateMyNote(saveBtn.dataset.mynoteSave, title, bodyText);
+      if (res.error) { toast("Couldn't save — " + res.error, "error"); return; }
+      editingNoteId = null;
       renderMyNotesScreen();
       return;
     }
+
     const delBtn = e.target.closest("[data-mynote-delete]");
     if (delBtn) {
       const res = await window.cloud.deleteMyNote(delBtn.dataset.mynoteDelete);
       if (res.error) { toast("Couldn't delete — " + res.error, "error"); return; }
+      if (editingNoteId === delBtn.dataset.mynoteDelete) editingNoteId = null;
       renderMyNotesScreen();
       return;
     }
-  });
-  document.getElementById("mynotesBody").addEventListener("keydown", (e) => {
-    if (e.target.id === "mynoteInput" && e.key === "Enter") submitMyNote();
-  });
-  document.getElementById("mynotesBody").addEventListener("change", async (e) => {
-    const cb = e.target.closest("[data-mynote-toggle]");
-    if (!cb) return;
-    const res = await window.cloud.toggleMyNote(cb.dataset.mynoteToggle, cb.checked);
-    if (res.error) { toast("Couldn't save — " + res.error, "error"); cb.checked = !cb.checked; return; }
-    renderMyNotesScreen();
   });
 
   async function renderHistoryScreen() {
