@@ -15,7 +15,97 @@ supervisor view) are complete and live on `main`.
 
 ---
 
-## STATE AS OF 2026-07-14 (My notes — private note cards) — read this first
+## STATE AS OF 2026-07-15 (Supervisor Completed-Visits review + Field tools) — read this first
+
+**Built inline (executing-plans), all 5 tasks committed on
+`claude/claude-code-tutorial-5l5ew2`.** Spec:
+`docs/superpowers/specs/2026-07-15-supervisor-completed-visits-design.md`;
+plan: `docs/superpowers/plans/2026-07-15-supervisor-completed-visits.md`.
+Shaped with the owner 2026-07-15: supervisors review completed visits/surveys
+and don't run visits themselves, so (1) a badged review screen and (2) the
+field buttons demoted into a collapsed drawer. The agreed FOLLOW-ON slice
+(separate cycle, not started): **in-app checklist task editing** (moves
+`GROUPS` into the DB).
+
+- **Migration `0020_visit_reviews.sql`** (pushed & verified via `supabase db
+  query --linked`: columns exist, FK names confirmed, RPC exists): adds
+  nullable `visits.reviewed_at timestamptz` + `visits.reviewed_by uuid →
+  profiles`, and RPC `mark_visit_reviewed(p_visit_id uuid)` — security
+  definer, supervisor-only, stamps `now()` + `auth.uid()` (client can't forge
+  the reviewer), refuses non-completed and ALREADY-REVIEWED visits (first
+  review wins; the stamp is never overwritten). No new RLS policy needed:
+  `visits_select`/`profiles_select` (0001) already give supervisors read.
+  **NOTE: visits now has TWO FKs to profiles** (`visits_tech_id_fkey`,
+  `visits_reviewed_by_fkey`) — any future PostgREST embed of profiles from
+  visits MUST name its FK (`tech:profiles!visits_tech_id_fkey(...)`) or the
+  query fails as ambiguous.
+- **`cloud.js`:** `listCompletedVisits()` (ALL unreviewed of any age +
+  reviewed within ~3 months, with nested `visit_items` so the UI computes
+  hints — polarity logic stays in index.html), `getAnyVisitDetail(id)` (no
+  self-scope, RLS is the gate; returns survey + reviewer name),
+  `markVisitReviewed(id)` (RPC + badge refresh), `unreviewedVisitCount()`.
+  `loadRole()` now pushes the count via `window.applyReviewCount(n)` and
+  calls `window.applyRole(role)` (also called with `null` on sign-out).
+- **New `#reviews` screen** (hash-router: `#reviews` list, `#reviews/<id>`
+  detail). Home button **"✅ Completed visits (N)"**, `admin-only`, FIRST in
+  the stack, badge = unreviewed count (`#reviewCountBadge`). List = two
+  `notes-sec` sections — "Awaiting review" then "Reviewed — last 3 months" —
+  each grouped by tech name (`.review-tech` headers), rows = house · date ·
+  hint ("2 flagged · 1 note" / "no issues"). Detail = Survey section (all 7
+  SURVEY questions, "(no answer)" when blank) + Problems section (shared
+  filter, below) + either "✓ Mark reviewed" or "✓ Reviewed by ‹name› on
+  ‹date›". Renderer gates on `role === "supervisor"` ("Supervisors only." for
+  techs); RLS/RPC are the real enforcement.
+- **Shared history filter extracted:** `problemItems(items)` +
+  `problemRowsHTML(items)` now power BOTH the tech `#history` detail and the
+  supervisor review detail (same flagged-or-noted rule, unknown keys shown by
+  raw key) — they can't drift.
+- **🧰 Field tools drawer:** `<details id="fieldTools" class="admin-only">`
+  at the bottom of the home stack. The three field buttons (`homeNewVisit`,
+  `homeContinue`, `homeHistory`) stay in the flat tech layout in the static
+  markup; `window.applyRole("supervisor")` MOVES them into the collapsed
+  drawer (listeners survive the move), and any other role/null moves them
+  back (New/Continue before House notes, History before Daily logs). Techs'
+  home screen — including pre-login and while role loads — is unchanged.
+- **Supervisor button order (deliberate deviation from the spec's sketch,
+  flagged to owner):** ✅ Completed visits · ⏳ Pending changes · 📝 House
+  notes · 👤 My profile · 🗓️ Daily logs · 📋 My notes · 🗺️ Routes · 🧰 Field
+  tools. Matching the spec's exact middle order would need extra JS
+  reordering for zero value.
+- SW cache bumped `v23` → `v24`. Parse checks ran clean (headless Chrome —
+  the per-user install at `%LOCALAPPDATA%\Google\Chrome\Application\
+  chrome.exe`; the Program Files path doesn't exist on this box and headless
+  Edge silently prints nothing — don't trust it): zero SyntaxError, reviews
+  screen + empty drawer render, cloud.js module loads clean over
+  `python -m http.server`.
+- **NOT YET verified end-to-end on the live site** — no signed-in browser
+  session in this session. Owner/next session, after hard-refresh
+  (Ctrl+Shift+R, may take two for the v24 SW) and fully closing/reopening
+  the PWA on phones:
+  1. As the supervisor: home shows "✅ Completed visits (N)" first, N =
+     existing completed visits; 🧰 Field tools collapsed at the bottom;
+     expanding it shows the three field buttons and each still works
+     (New visit picker, Continue list, own history).
+  2. Open Completed visits → Awaiting review grouped by tech, newest first;
+     hints match a visit known to have flags.
+  3. Open a visit → survey answers render ("(no answer)" for blanks); only
+     flagged/noted items under Problems; a clean visit says "No issues
+     flagged on this visit."
+  4. Mark reviewed → back at the list, visit under "Reviewed — last 3
+     months", badge decremented; reload → persisted; detail now reads
+     "✓ Reviewed by ‹you› on ‹today›".
+  5. `supabase db query --linked "select reviewed_at, reviewed_by from
+     visits where status='completed' order by reviewed_at desc nulls last
+     limit 3"` → the stamped row shows.
+  6. As tech1: home screen identical to before (three field buttons flat,
+     no drawer summary, no Completed visits button); typing `#reviews` in
+     the URL shows "Supervisors only."
+  7. As tech1, complete a visit → supervisor's badge increments; the visit
+     tops tech1's Awaiting-review group.
+
+---
+
+## STATE AS OF 2026-07-14 (My notes — private note cards)
 
 **Built inline (executing-plans), all 4 tasks on `claude/claude-code-tutorial-5l5ew2`.**
 Spec: `docs/superpowers/specs/2026-07-14-my-notes-design.md`; follow-on spec

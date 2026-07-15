@@ -4,7 +4,7 @@
 // Strategy is "network-first" for our own files, so while online you always get
 // the freshest version; the cache is only a fallback when offline.
 
-const CACHE = "route-checklist-v23";
+const CACHE = "route-checklist-v24";
 const SHELL = [
   "./", "index.html", "house-data.js", "supabase-config.js", "cloud.js",
   "manifest.webmanifest", "icon-192.png", "icon-512.png"
