@@ -70,10 +70,12 @@ async function loadRole() {
   if (error) { console.error("Could not load role:", error.message); return; }
   window.cloud.role = data?.role || "tech";
   document.body.classList.toggle("is-admin", window.cloud.role === "supervisor");
+  if (window.applyRole) window.applyRole(window.cloud.role);
   if (window.cloud.role === "supervisor") {
     pendingCount().then(r => {
       if (!r.error && window.applyPendingCount) window.applyPendingCount(r.count);
     });
+    refreshReviewBadge();
   }
 }
 
@@ -337,6 +339,90 @@ async function getVisitDetail(visitId) {
     visitDate: data.visit_date,
     items: data.visit_items || [],
   };
+}
+
+// ---- Supervisor: completed-visit review queue ----
+
+// Every completed visit for the review screen: ALL unreviewed (any age —
+// unreviewed work must never silently disappear) plus reviewed ones from the
+// last ~3 months (one rotation). Includes raw visit_items so the UI can
+// compute the "2 flagged · 1 note" hint with its GROUPS polarity logic —
+// cloud.js deliberately knows nothing about checklist polarity.
+// NOTE: after 0020, visits has TWO foreign keys to profiles (tech_id,
+// reviewed_by), so every profiles embed must name its FK or PostgREST
+// rejects the query as ambiguous.
+async function listCompletedVisits() {
+  const d = new Date(); d.setMonth(d.getMonth() - 3);
+  const cutoff = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const { data, error } = await supabase
+    .from("visits")
+    .select("id, visit_date, reviewed_at, houses(name), tech:profiles!visits_tech_id_fkey(full_name), visit_items(item_key, answer, note)")
+    .eq("status", "completed")
+    .or(`reviewed_at.is.null,visit_date.gte.${cutoff}`)
+    .order("visit_date", { ascending: false })
+    .order("completed_at", { ascending: false });
+  if (error) return { error: error.message, notReady: isMissingColumn(error) };
+  return {
+    visits: data.map(v => ({
+      id: v.id,
+      visitDate: v.visit_date,
+      reviewedAt: v.reviewed_at || null,
+      houseName: v.houses?.name || "",
+      techName: v.tech?.full_name || "",
+      items: v.visit_items || [],
+    })),
+  };
+}
+
+// Any staff member's completed visit + items, for the supervisor detail
+// page. Deliberately NO tech_id self-scope (that's the point of the screen);
+// RLS is the gate — a tech calling this for someone else's visit gets
+// "Visit not found." back, not data.
+async function getAnyVisitDetail(visitId) {
+  const { data, error } = await supabase
+    .from("visits")
+    .select("visit_date, survey, reviewed_at, houses(name), tech:profiles!visits_tech_id_fkey(full_name), reviewer:profiles!visits_reviewed_by_fkey(full_name), visit_items(item_key, answer, note)")
+    .eq("id", visitId).eq("status", "completed")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "Visit not found." };
+  return {
+    houseName: data.houses?.name || "",
+    techName: data.tech?.full_name || "",
+    visitDate: data.visit_date,
+    survey: data.survey || {},
+    reviewedAt: data.reviewed_at || null,
+    reviewerName: data.reviewer?.full_name || "",
+    items: data.visit_items || [],
+  };
+}
+
+// Stamp a completed visit as reviewed. The RPC (0020) runs server-side and
+// always records auth.uid() as the reviewer — the client can't forge it —
+// and refuses to overwrite an existing stamp (first review wins; a second
+// supervisor gets the "already reviewed" error back).
+async function markVisitReviewed(visitId) {
+  const { error } = await supabase.rpc("mark_visit_reviewed", { p_visit_id: visitId });
+  if (error) return { error: error.message };
+  refreshReviewBadge();
+  return { ok: true };
+}
+
+async function unreviewedVisitCount() {
+  const { count, error } = await supabase
+    .from("visits")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "completed")
+    .is("reviewed_at", null);
+  return error ? { error: error.message } : { count: count || 0 };
+}
+
+// Push the current unreviewed count to the home-screen badge. Best-effort:
+// on any error the badge just doesn't update (pre-0020 DB included).
+function refreshReviewBadge() {
+  unreviewedVisitCount().then(r => {
+    if (!r.error && window.applyReviewCount) window.applyReviewCount(r.count);
+  });
 }
 
 // Slice 3: the signed-in tech's own daily-log rows within a date range (one
@@ -743,6 +829,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
                  listMyVisits, getVisitDetail,
+                 listCompletedVisits, getAnyVisitDetail, markVisitReviewed, unreviewedVisitCount,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
                  listMyNotes, addMyNote, updateMyNote, deleteMyNote,
                  refreshMyRoute: loadMyRoute,
@@ -804,6 +891,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
     if (whoami) whoami.textContent = "";
     if (window.cloud) window.cloud.role = null;
     document.body.classList.remove("is-admin");
+    if (window.applyRole) window.applyRole(null);
     if (window.applyMyHouses) window.applyMyHouses(null);
     // Clear any per-user Daily Logs view state so the next sign-in (possibly a
     // different user, no page reload) doesn't inherit the prior user's picked
