@@ -530,6 +530,10 @@
   .home-btn small { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-top: 3px; }
   .home-btn:hover { border-color: var(--accent); }
   .home-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #fieldTools > summary { list-style: none; cursor: pointer; }
+  #fieldTools > summary::-webkit-details-marker { display: none; }
+  #fieldTools[open] > summary { border-color: var(--accent); }
+  #fieldTools > .home-btn { margin-left: 14px; }
   .pending-count { font-weight: 700; }
 
   /* Quiet on purpose — must not compete with the three big task buttons. */
@@ -804,6 +808,10 @@
     <small>Assign techs &amp; houses to routes</small></button>
   <button type="button" class="home-btn admin-only" id="homePending">⏳ Pending changes<span class="pending-count" id="pendingCountBadge"></span>
     <small>Review techs' suggested note fixes</small></button>
+  <details id="fieldTools" class="admin-only">
+    <summary class="home-btn">🧰 Field tools
+      <small>New visit, continue &amp; my own history — rarely needed</small></summary>
+  </details>
   <button type="button" class="home-signout" data-sign-out>Sign out</button>
 </div>
 
@@ -3420,6 +3428,30 @@
   window.applyReviewCount = function (n) {
     const el = document.getElementById("reviewCountBadge");
     if (el) el.textContent = n > 0 ? ` (${n})` : "";
+  };
+
+  // Called by cloud.js whenever the signed-in role resolves (null on
+  // sign-out). Supervisors rarely run visits themselves (owner decision
+  // 2026-07-15), so their three field buttons tuck into the collapsed
+  // Field tools drawer; everyone else keeps today's flat layout. Moving
+  // nodes preserves their event listeners; restore order matters: New /
+  // Continue sit before House notes, My visit history before Daily logs.
+  window.applyRole = function (role) {
+    const drawer = document.getElementById("fieldTools");
+    const newBtn = document.getElementById("homeNewVisit");
+    const contBtn = document.getElementById("homeContinue");
+    const histBtn = document.getElementById("homeHistory");
+    if (!drawer || !newBtn || !contBtn || !histBtn) return;
+    if (role === "supervisor") {
+      drawer.append(newBtn, contBtn, histBtn);
+      drawer.open = false;
+    } else {
+      const notesBtn = document.getElementById("homeNotes");
+      const logsBtn = document.getElementById("homeLogs");
+      notesBtn.parentNode.insertBefore(newBtn, notesBtn);
+      notesBtn.parentNode.insertBefore(contBtn, notesBtn);
+      logsBtn.parentNode.insertBefore(histBtn, logsBtn);
+    }
   };
 
   document.getElementById("pendingBody").addEventListener("click", async e => {
