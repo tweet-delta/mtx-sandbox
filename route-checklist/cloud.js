@@ -405,15 +405,16 @@ async function deleteLogEntry(id) {
   return { error: null };
 }
 
-// ---- My notes (private personal checklist) ----
+// ---- My notes (private personal note cards) ----
 // Fully tech-scoped, no supervisor read path — see 0018_personal_notes.sql.
+// Each note has an optional title and a required body (`text`).
 
 async function listMyNotes() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
   const { data, error } = await supabase
     .from("personal_notes")
-    .select("id, text, done, position")
+    .select("id, title, text, position")
     .eq("tech_id", user.id)
     .order("position", { ascending: true });
   if (error) {
@@ -423,11 +424,11 @@ async function listMyNotes() {
   return data || [];
 }
 
-async function addMyNote(text) {
+async function addMyNote(title, body) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
-  const trimmed = (text || "").trim();
-  if (!trimmed) return { error: "Note text can't be empty." };
+  const trimmedBody = (body || "").trim();
+  if (!trimmedBody) return { error: "Note text can't be empty." };
   const { data: maxRow } = await supabase
     .from("personal_notes")
     .select("position")
@@ -438,16 +439,18 @@ async function addMyNote(text) {
   const nextPosition = maxRow ? maxRow.position + 1 : 0;
   const { error } = await supabase
     .from("personal_notes")
-    .insert({ tech_id: user.id, text: trimmed, position: nextPosition });
+    .insert({ tech_id: user.id, title: (title || "").trim(), text: trimmedBody, position: nextPosition });
   return { error: error ? error.message : null };
 }
 
-async function toggleMyNote(id, done) {
+async function updateMyNote(id, title, body) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
+  const trimmedBody = (body || "").trim();
+  if (!trimmedBody) return { error: "Note text can't be empty." };
   const { error } = await supabase
     .from("personal_notes")
-    .update({ done })
+    .update({ title: (title || "").trim(), text: trimmedBody })
     .eq("id", id)
     .eq("tech_id", user.id);
   return { error: error ? error.message : null };
@@ -461,17 +464,6 @@ async function deleteMyNote(id) {
     .delete()
     .eq("id", id)
     .eq("tech_id", user.id);
-  return { error: error ? error.message : null };
-}
-
-async function clearCheckedNotes() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
-  const { error } = await supabase
-    .from("personal_notes")
-    .delete()
-    .eq("tech_id", user.id)
-    .eq("done", true);
   return { error: error ? error.message : null };
 }
 
@@ -752,7 +744,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getMyProfile, saveMyProfile,
                  listMyVisits, getVisitDetail,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
-                 listMyNotes, addMyNote, toggleMyNote, deleteMyNote, clearCheckedNotes,
+                 listMyNotes, addMyNote, updateMyNote, deleteMyNote,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
