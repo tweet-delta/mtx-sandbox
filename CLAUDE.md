@@ -133,10 +133,10 @@ What this means for how we build **today**:
 - **Sensitive data.** This is group-home data; **photos can accidentally capture
   residents.** Storage buckets are private with signed URLs. Advise the owner on
   what should and shouldn't be photographed.
-- **Door/entry codes** currently live in the gitignored `house-codes.local.js`.
-  Once auth exists, they can move to a protected DB table readable only by
-  signed-in staff (better than manual per-device copying). Still never in the
-  repo.
+- **Door/entry codes stay in the gitignored `house-codes.local.js` — permanently,
+  by owner decision (2026-07-14).** Moving them into a protected DB table was
+  considered and explicitly rejected: codes never touch Supabase or this repo,
+  full stop. Copy the file by hand to devices that should show codes.
 
 ## Conventions
 
@@ -155,21 +155,30 @@ What this means for how we build **today**:
 
 - **Phase 0 — Foundations.** ✅ Done: this file; Supabase project created;
   stable-item-keys refactor (verified: 114 unique keys, app renders correctly).
-- **Phase 1 — Accounts + one visit in the cloud (current).** The thinnest
-  end-to-end slice. ✅ Database schema written (`supabase/migrations/0001_init.sql`
-  — profiles/houses/visits/visit_items with RLS + seed houses). Next: run it in
-  the dashboard, then move the app to a served project, add magic-link login,
-  load houses from the DB, and save a completed visit to the DB. Proves the whole
-  stack before adding features.
-- **Phase 2 — Photos.** Private storage bucket; upload on flagged items and as
-  general visit photos; thumbnails; signed URLs.
-- **Phase 3 — Rotation + advance-notice email.** Store rotation order + RS
-  contact per house; on completion, compute the house two ahead and offer
-  send / delay / customize; Edge Function sends the email; log every notice sent.
-- **Phase 4 — Supervisor dashboard.** Supervisors review completed visits,
-  flagged issues across houses, photos, and history.
-- **Phase 5 — Real offline-first sync.** The hardest piece, done deliberately
-  last: service worker + a sync queue that merges when back online.
+- **Phase 1 — Accounts + one visit in the cloud.** ✅ Done. Email+password auth,
+  `profiles`/`houses`/`visits`/`visit_items` with RLS, houses load from the DB,
+  visits (in-progress + completed) save to and resume from the DB. Since then
+  the thin slice has widened well past "one visit": house-note suggestions
+  (tech propose / supervisor review), tech routes, My Profile, My Visit
+  History, Daily Logs (with a supervisor read-only view of any tech's log —
+  see HANDOFF.md), an in-checklist House Info panel, and a private My Notes
+  scratchpad are all live. See `route-checklist/HANDOFF.md` for the current,
+  detailed state — it's updated far more often than this roadmap.
+- **Phase 2 — Photos (current, not started).** Private storage bucket; upload
+  on flagged items and as general visit photos; thumbnails; signed URLs.
+- **Phase 3 — Rotation + advance-notice email (not started).** Store rotation
+  order + RS contact per house; on completion, compute the house two ahead and
+  offer send / delay / customize; Edge Function sends the email; log every
+  notice sent.
+- **Phase 4 — Supervisor dashboard (partially underway).** The Daily Logs
+  supervisor view (any tech's calendar, read-only) and the house-note
+  suggestion review queue are live pieces of this. Still missing: a unified
+  view across completed visits, flagged issues, and photos.
+- **Phase 5 — Real offline-first sync (not started).** The hardest piece, done
+  deliberately last: service worker + a sync queue that merges when back online.
+- **Slice 4 — Shared on-call rotation calendar (deferred, not started).** A
+  fifth owner-requested slice alongside My Profile/Visit History/Daily Logs;
+  not yet brainstormed. See HANDOFF.md's top section.
 
 ## Repo layout
 
@@ -186,6 +195,6 @@ What this means for how we build **today**:
 
 There are no automated tests yet. Verify by actually running the app in a
 browser and exercising the changed flow end-to-end (fill a visit, flag an item,
-reload to confirm it persisted). Once Phase 1 lands, "verify" also means
-checking the row actually appears in Supabase. Don't claim something works
-without having driven it.
+reload to confirm it persisted). "Verify" also means checking the row actually
+appears in Supabase (`supabase db query --linked ...`). Don't claim something
+works without having driven it.
