@@ -17,8 +17,15 @@ supervisor view) are complete and live on `main`.
 
 ## STATE AS OF 2026-07-15 (Supervisor Completed-Visits review + Field tools) — read this first
 
-**Built inline (executing-plans), all 5 tasks committed on
-`claude/claude-code-tutorial-5l5ew2`.** Spec:
+**Built inline (executing-plans), all 5 tasks committed, MERGED TO `main`
+and DEPLOYED** — the live site was confirmed serving the new SW (`v24`) the
+same session. Per the owner's standing rule (2026-07-15, after months of
+finished work sat undeployed on the side branch): **every finished slice
+merges to `main` and pushes in the same session** — the live site deploys
+from `main`, so "committed on a branch" is not "done". The old working
+branch `claude/claude-code-tutorial-5l5ew2` is kept in sync at the same
+commit until the owner confirms GitHub Settings → Pages points at `main`;
+then it can be deleted. Spec:
 `docs/superpowers/specs/2026-07-15-supervisor-completed-visits-design.md`;
 plan: `docs/superpowers/plans/2026-07-15-supervisor-completed-visits.md`.
 Shaped with the owner 2026-07-15: supervisors review completed visits/surveys
@@ -78,8 +85,9 @@ field buttons demoted into a collapsed drawer. The agreed FOLLOW-ON slice
   Edge silently prints nothing — don't trust it): zero SyntaxError, reviews
   screen + empty drawer render, cloud.js module loads clean over
   `python -m http.server`.
-- **NOT YET verified end-to-end on the live site** — no signed-in browser
-  session in this session. Owner/next session, after hard-refresh
+- **Deployed and live** (sw.js on the live site serves `v24`), but **not
+  yet exercised by a signed-in user** — the owner still needs to run this
+  checklist in the real app, after hard-refresh
   (Ctrl+Shift+R, may take two for the v24 SW) and fully closing/reopening
   the PWA on phones:
   1. As the supervisor: home shows "✅ Completed visits (N)" first, N =

@@ -150,6 +150,11 @@ What this means for how we build **today**:
   `:focus-visible`, and `prefers-reduced-motion` support and extend it.
 - **Never lose a tech's in-progress work.** Even online-first, keep a local
   buffer so a dropped connection or closed tab doesn't wipe a half-filled visit.
+- **Finished work ships the same session (owner rule, 2026-07-15).** The live
+  site (GitHub Pages) deploys from `main`, so every finished, verified slice
+  merges to `main` and pushes before the session ends — never left sitting on
+  a side branch. Then remind the owner to hard-refresh (Ctrl+Shift+R; fully
+  close/reopen the PWA on phones).
 
 ## Roadmap (each phase is shippable)
 
@@ -170,10 +175,15 @@ What this means for how we build **today**:
   order + RS contact per house; on completion, compute the house two ahead and
   offer send / delay / customize; Edge Function sends the email; log every
   notice sent.
-- **Phase 4 — Supervisor dashboard (partially underway).** The Daily Logs
-  supervisor view (any tech's calendar, read-only) and the house-note
-  suggestion review queue are live pieces of this. Still missing: a unified
-  view across completed visits, flagged issues, and photos.
+- **Phase 4 — Supervisor dashboard (partially underway).** Live pieces: the
+  Daily Logs supervisor view (any tech's calendar, read-only), the house-note
+  suggestion review queue, and (2026-07-15) the **Completed-visits review
+  screen** — a badged "✅ Completed visits" home button, visits grouped by
+  tech (unreviewed first), a survey + problems detail view, and an audited
+  "Mark reviewed" stamp (`reviewed_at`/`reviewed_by`, supervisor-only RPC);
+  the supervisor's field buttons now live in a collapsed 🧰 Field tools
+  drawer. Still missing: photos in the review view (needs Phase 2). Agreed
+  next slice: **in-app checklist task editing** (moves `GROUPS` into the DB).
 - **Phase 5 — Real offline-first sync (not started).** The hardest piece, done
   deliberately last: service worker + a sync queue that merges when back online.
 - **Slice 4 — Shared on-call rotation calendar (deferred, not started).** A
