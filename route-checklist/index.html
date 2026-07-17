@@ -513,6 +513,7 @@
   body:not([data-screen="logs"])     #logsScreen,
   body:not([data-screen="mynotes"])  #mynotesScreen,
   body:not([data-screen="reviews"])  #reviewsScreen,
+  body:not([data-screen="team"])     #teamScreen,
   body:not([data-screen="notes"])    #notesScreen { display: none; }
 
   .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
@@ -583,6 +584,21 @@
     background: var(--card); color: var(--ink);
   }
   .review-tech { font-size: 0.85rem; margin: 12px 0 4px; color: var(--ink); }
+  .team-card { border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; margin: 10px 0; background: var(--card); }
+  .team-card h3 { margin: 0 0 6px; font-size: 1rem;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .team-role-badge { font-size: .72rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 999px; background: var(--line); color: var(--ink); }
+  .team-card .muted-row { color: var(--muted); font-size: .85rem; margin: 2px 0; }
+  .team-field { display: block; margin: 8px 0; }
+  .team-field span { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 2px; }
+  .team-field input, .team-field select {
+    width: 100%; min-height: 42px; font: inherit;
+    padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--ink); }
+  .team-me-tag { font-size: .72rem; color: var(--muted); font-weight: 400; }
+  .team-error { color: var(--bad); font-size: .85rem; margin-top: 6px; }
   .hist-item { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
   .hist-item b { display: block; }
   .hist-answer { font-weight: 600; text-transform: capitalize; }
@@ -790,6 +806,8 @@
   <div class="screen-head"><h1>Maintenance House Visit</h1></div>
   <button type="button" class="home-btn admin-only" id="homeReviews">✅ Completed visits<span class="pending-count" id="reviewCountBadge"></span>
     <small>Review techs' visits &amp; surveys</small></button>
+  <button type="button" class="home-btn admin-only" id="homeTeam">👥 Team
+    <small>Edit techs' name, phone &amp; role</small></button>
   <button type="button" class="home-btn" id="homeNewVisit">🏠 New house visit
     <small>Pick a house and start the checklist</small></button>
   <button type="button" class="home-btn" id="homeContinue">▶ Continue house visit
@@ -885,6 +903,14 @@
     <h1>Completed visits</h1>
   </div>
   <div id="reviewsBody"></div>
+</div>
+
+<div id="teamScreen" class="screen" aria-label="Team">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>Team</h1>
+  </div>
+  <div id="teamBody"><p class="screen-sub">Loading…</p></div>
 </div>
 
 <div id="sideBackdrop" hidden></div>
@@ -1323,6 +1349,11 @@
     previewBanner.hidden = false;
     document.body.classList.add("previewing");
     document.body.classList.remove("is-admin");   // hide supervisor controls
+    // A tech's home screen has New visit / Continue / My history flat on the
+    // page; supervisors keep them tucked in the admin-only Field tools drawer,
+    // which removing is-admin just hid. Re-lay them as the tech's so the
+    // checklist stays reachable while previewing.
+    if (window.applyRole) window.applyRole("tech");
     MY_HOUSE_NAMES = houseNames;                  // scope pickers like the tech's
     pickerShowAll = false;
     location.hash = "#home";                      // land where the tech lands
@@ -1332,6 +1363,9 @@
     clearPreviewUI();
     document.body.classList.toggle("is-admin",
       !!window.cloud && window.cloud.role === "supervisor");
+    // Undo the tech re-lay from startPreview: tuck the field buttons back into
+    // the supervisor's drawer (or leave them flat if somehow not a supervisor).
+    if (window.applyRole) window.applyRole(window.cloud && window.cloud.role);
     // Re-derive the real scoping from the cloud layer (supervisor → unscoped).
     if (window.cloud && window.cloud.refreshMyRoute) window.cloud.refreshMyRoute();
     else window.applyMyHouses(null);
@@ -2639,6 +2673,7 @@
     if (h.startsWith("#logs")) return "logs";
     if (h.startsWith("#mynotes")) return "mynotes";
     if (h.startsWith("#reviews")) return "reviews";
+    if (h.startsWith("#team")) return "team";
     return "home";
   }
   function showScreen() {
@@ -2652,6 +2687,7 @@
     if (scr === "logs") renderLogsScreen();
     if (scr === "mynotes") renderMyNotesScreen();
     if (scr === "reviews") renderReviewsScreen();
+    if (scr === "team") renderTeamScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2698,6 +2734,10 @@
   });
   document.getElementById("homeReviews").addEventListener("click", () => {
     location.hash = "#reviews";
+  });
+  document.getElementById("homeTeam").addEventListener("click", () => {
+    editingTeamId = null;   // always land on Team with no card mid-edit
+    location.hash = "#team";
   });
 
   // ---- Continue screen ----
@@ -2867,6 +2907,10 @@
   // card closes the first without saving), tracked here since the list is
   // fully re-rendered from the server after every mutation.
   let editingNoteId = null;
+  // Team roster: id of the person whose card is open for editing, or null.
+  // Same single-open discipline as editingNoteId; the roster is re-rendered
+  // from the server after every mutation.
+  let editingTeamId = null;
 
   async function renderMyNotesScreen() {
     const body = document.getElementById("mynotesBody");
@@ -3064,6 +3108,16 @@
             ${escHtml(v.houseName)} <small>${fmtDate(v.visitDate)} · ${escHtml(reviewHint(v.items))}</small>
           </button>`).join("")
       ).join("") + `</div>`;
+  }
+
+  async function renderTeamScreen() {
+    const body = document.getElementById("teamBody");
+    if (!window.cloud || window.cloud.role !== "supervisor" || !window.cloud.listAllProfiles) {
+      body.innerHTML = `<p class="screen-sub">Supervisors only.</p>`;
+      return;
+    }
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    // Task 4 fills in the roster render here.
   }
 
   async function renderReviewsScreen() {
