@@ -31,9 +31,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+  // SUPABASE_URL and SUPABASE_ANON_KEY are auto-injected by the platform.
+  // The secret key uses a NON-"SUPABASE_" name because the platform reserves
+  // that prefix and rejects `secrets set SUPABASE_...`.
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const SECRET = Deno.env.get("ADMIN_SERVICE_KEY")!;
   if (!SUPABASE_URL || !ANON || !SECRET) {
     return json({ error: "Function is not configured." }, 500);
   }
