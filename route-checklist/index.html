@@ -3019,6 +3019,45 @@
       editingTeamId = null; renderTeamScreen(); return;
     }
 
+    // --- Add new team member ---
+    if (e.target.closest("#teamAddBtn")) {
+      teamAddOpen = true; editingTeamId = null; renderTeamScreen(); return;
+    }
+    if (e.target.closest("[data-team-add-cancel]")) {
+      teamAddOpen = false; renderTeamScreen(); return;
+    }
+    if (e.target.closest("[data-team-gen-pw]")) {
+      const form = e.target.closest("[data-team-add-form]");
+      // Readable temp password: no ambiguous chars, always meets the 8+ rule.
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+      let pw = "";
+      const rnd = crypto.getRandomValues(new Uint32Array(12));
+      for (let i = 0; i < 12; i++) pw += chars[rnd[i] % chars.length];
+      form.querySelector("[data-team-new-pw]").value = pw;
+      return;
+    }
+    if (e.target.closest("[data-team-create]")) {
+      const form = e.target.closest("[data-team-add-form]");
+      const fullName = form.querySelector("[data-team-new-name]").value.trim();
+      const email = form.querySelector("[data-team-new-email]").value.trim();
+      const password = form.querySelector("[data-team-new-pw]").value;
+      const errEl = form.querySelector("[data-team-error]");
+      const showErr = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
+      errEl.hidden = true;
+      if (!fullName) { showErr("Name can't be empty."); return; }
+      if (!email) { showErr("Email can't be empty."); return; }
+      if (password.length < 8) { showErr("Password must be at least 8 characters."); return; }
+      const btn = e.target.closest("[data-team-create]");
+      btn.disabled = true; btn.textContent = "Creating…";
+      const r = await window.cloud.createTeamMember({ fullName, email, password });
+      btn.disabled = false; btn.textContent = "Create";
+      if (r.error) { showErr(r.error); return; }
+      alert(`Created ${fullName}.\nLogin: ${email}\nTemporary password: ${password}\n\nHand these to them; they can change the password in ☰ → Set / change password.`);
+      teamAddOpen = false;
+      renderTeamScreen();
+      return;
+    }
+
     const saveBtn = e.target.closest("[data-team-save]");
     if (!saveBtn) return;
     const card = saveBtn.closest("[data-team-card]");
@@ -3156,44 +3195,64 @@
       ).join("") + `</div>`;
   }
 
+  // When the Add-member form is open, this holds a truthy flag so a roster
+  // re-render keeps it open. Cleared on cancel / successful create.
+  let teamAddOpen = false;
+
   async function renderTeamScreen() {
     const body = document.getElementById("teamBody");
-    if (!window.cloud || window.cloud.role !== "supervisor" || !window.cloud.listAllProfiles) {
+    if (!window.cloud || window.cloud.role !== "supervisor" || !window.cloud.listTeam) {
       body.innerHTML = `<p class="screen-sub">Supervisors only.</p>`;
       return;
     }
     body.innerHTML = `<p class="screen-sub">Loading…</p>`;
-    const res = await window.cloud.listAllProfiles();
+    // listTeam hits the Edge Function → real emails + active flag. Falls back
+    // with a friendly message if the function isn't reachable.
+    const res = await window.cloud.listTeam();
     if (currentScreenFromHash() !== "team") return;   // navigated away meanwhile
     if (res.error) {
-      body.innerHTML = `<p class="screen-sub">${escHtml(res.error)}</p>`;
+      body.innerHTML = `<p class="screen-sub">Couldn't load the team — ${escHtml(res.error)}</p>`;
       return;
     }
-    const { people, myEmail } = res;
+    const people = res.people || [];
     body.innerHTML =
-      `<button type="button" class="home-btn" id="teamAddBtn" disabled
-         aria-disabled="true">+ Add new team member</button>
-       <p class="screen-sub">Adding members, email, and password changes are
-         coming in account admin.</p>` +
-      people.map(p => teamCardHTML(p, myEmail)).join("");
+      `<button type="button" class="home-btn" id="teamAddBtn">+ Add new team member</button>` +
+      (teamAddOpen ? teamAddFormHTML() : "") +
+      people.map(p => teamCardHTML(p)).join("");
+    if (teamAddOpen) body.querySelector("[data-team-new-name]")?.focus();
   }
 
-  // A person's card. Own card: shows real email, no role control. Others:
-  // muted email/password seams + an editable role.
-  function teamCardHTML(p, myEmail) {
+  // The inline "add member" form (name / email / temp password + generate).
+  function teamAddFormHTML() {
+    return `<div class="team-card" data-team-add-form>
+      <label class="team-field"><span>Full name</span>
+        <input type="text" data-team-new-name></label>
+      <label class="team-field"><span>Email (their login)</span>
+        <input type="email" data-team-new-email autocomplete="off"></label>
+      <label class="team-field"><span>Temporary password (8+ chars)</span>
+        <input type="text" data-team-new-pw autocomplete="off"></label>
+      <button type="button" class="menu-btn" data-team-gen-pw>Generate password</button>
+      <p class="team-error" data-team-error hidden></p>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-save" data-team-create>Create</button>
+        <button type="button" class="menu-btn team-cancel" data-team-add-cancel>Cancel</button>
+      </div>
+    </div>`;
+  }
+
+  // A person's card. Real email now shown for everyone (from the Edge
+  // Function). Own card has no role control. Password reset arrives in 2c.
+  function teamCardHTML(p) {
     if (editingTeamId === p.id) return teamEditHTML(p);
     const name = p.fullName || "Unnamed";
     const meTag = p.isMe ? ` <span class="team-me-tag">(you)</span>` : "";
-    const emailRow = p.isMe
-      ? escHtml(myEmail)
-      : "Managed in account admin (coming soon)";
     return `<div class="team-card" data-team-card data-team-id="${escAttr(p.id)}">
       <h3>${escHtml(name)}${meTag}
         <span class="team-role-badge">${escHtml(p.role)}</span></h3>
       <div class="muted-row">📞 ${escHtml(p.phone || "—")}</div>
       <div class="muted-row">🏷️ ${escHtml(p.jobTitle || "—")}</div>
-      <div class="muted-row">✉️ ${emailRow}</div>
-      <div class="muted-row">🔒 Password — managed in account admin (coming soon)</div>
+      <div class="muted-row">✉️ ${escHtml(p.email || "—")}</div>
+      <div class="muted-row">🔒 Password — reset coming next</div>
       <button type="button" class="menu-btn team-edit-btn" data-team-edit="${escAttr(p.id)}">✎ Edit</button>
     </div>`;
   }
