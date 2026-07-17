@@ -112,7 +112,7 @@ async function getMyProfile() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
   let { data, error } = await supabase
-    .from("profiles").select("full_name, phone, role").eq("id", user.id).maybeSingle();
+    .from("profiles").select("full_name, phone, job_title, role").eq("id", user.id).maybeSingle();
   if (error && isMissingColumn(error)) {
     ({ data, error } = await supabase
       .from("profiles").select("full_name, role").eq("id", user.id).maybeSingle());
@@ -121,6 +121,7 @@ async function getMyProfile() {
   return {
     fullName: data?.full_name || "",
     phone: data?.phone || "",
+    jobTitle: data?.job_title || "",
     role: data?.role || "tech",
     email: user.email || "",
   };
@@ -129,12 +130,12 @@ async function getMyProfile() {
 // Save the signed-in user's OWN name/phone. Never sends role — role changes
 // stay a deliberate dashboard action (guard_profile_role trigger blocks a
 // non-supervisor from changing it anyway).
-async function saveMyProfile({ fullName, phone }) {
+async function saveMyProfile({ fullName, phone, jobTitle }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
   let { error } = await supabase
     .from("profiles")
-    .update({ full_name: fullName, phone })
+    .update({ full_name: fullName, phone, job_title: jobTitle })
     .eq("id", user.id);
   if (error && isMissingColumn(error)) {
     ({ error } = await supabase
@@ -152,12 +153,13 @@ async function saveMyProfile({ fullName, phone }) {
 // for a tech it returns only their own (the #team renderer blocks techs first
 // anyway). profiles has no email column, so only the caller's OWN email is
 // known here (auth.getUser()); other rows' email is a Slice-2 concern.
-// Returns { people:[{id,fullName,phone,role,isMe}], myId, myEmail } or { error }.
+// Returns { people:[{id,fullName,phone,jobTitle,role,isMe}], myId, myEmail }
+// or { error }.
 async function listAllProfiles() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
   let { data, error } = await supabase
-    .from("profiles").select("id, full_name, phone, role").order("full_name");
+    .from("profiles").select("id, full_name, phone, job_title, role").order("full_name");
   if (error && isMissingColumn(error)) {
     ({ data, error } = await supabase
       .from("profiles").select("id, full_name, role").order("full_name"));
@@ -167,18 +169,19 @@ async function listAllProfiles() {
     id: p.id,
     fullName: p.full_name || "",
     phone: p.phone || "",
+    jobTitle: p.job_title || "",
     role: p.role || "tech",
     isMe: p.id === user.id,
   }));
   return { people, myId: user.id, myEmail: user.email || "" };
 }
 
-// Supervisor edits ANOTHER person's name/phone. Never sends role (that goes
-// through setProfileRole). RLS refuses this for a non-supervisor. Name-only
-// fallback if the phone column is missing (matches saveMyProfile).
-async function saveProfileAsSupervisor(id, { fullName, phone }) {
+// Supervisor edits ANOTHER person's name/phone/job title. Never sends role
+// (that goes through setProfileRole). RLS refuses this for a non-supervisor.
+// Name-only fallback if the phone/job_title columns are missing.
+async function saveProfileAsSupervisor(id, { fullName, phone, jobTitle }) {
   let { error } = await supabase
-    .from("profiles").update({ full_name: fullName, phone }).eq("id", id);
+    .from("profiles").update({ full_name: fullName, phone, job_title: jobTitle }).eq("id", id);
   if (error && isMissingColumn(error)) {
     ({ error } = await supabase
       .from("profiles").update({ full_name: fullName }).eq("id", id));
