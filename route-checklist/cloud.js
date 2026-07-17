@@ -146,6 +146,57 @@ async function saveMyProfile({ fullName, phone }) {
   return { error: error ? error.message : null };
 }
 
+// ---- Team roster (supervisor-only; RLS is the real gate) ----
+
+// Every profile the caller may see. For a supervisor, RLS returns all rows;
+// for a tech it returns only their own (the #team renderer blocks techs first
+// anyway). profiles has no email column, so only the caller's OWN email is
+// known here (auth.getUser()); other rows' email is a Slice-2 concern.
+// Returns { people:[{id,fullName,phone,role,isMe}], myId, myEmail } or { error }.
+async function listAllProfiles() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  let { data, error } = await supabase
+    .from("profiles").select("id, full_name, phone, role").order("full_name");
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase
+      .from("profiles").select("id, full_name, role").order("full_name"));
+  }
+  if (error) return { error: error.message };
+  const people = (data || []).map(p => ({
+    id: p.id,
+    fullName: p.full_name || "",
+    phone: p.phone || "",
+    role: p.role || "tech",
+    isMe: p.id === user.id,
+  }));
+  return { people, myId: user.id, myEmail: user.email || "" };
+}
+
+// Supervisor edits ANOTHER person's name/phone. Never sends role (that goes
+// through setProfileRole). RLS refuses this for a non-supervisor. Name-only
+// fallback if the phone column is missing (matches saveMyProfile).
+async function saveProfileAsSupervisor(id, { fullName, phone }) {
+  let { error } = await supabase
+    .from("profiles").update({ full_name: fullName, phone }).eq("id", id);
+  if (error && isMissingColumn(error)) {
+    ({ error } = await supabase
+      .from("profiles").update({ full_name: fullName }).eq("id", id));
+    if (!error) return { error: null, degraded: true };
+  }
+  return { error: error ? error.message : null };
+}
+
+// The higher-stakes role change, kept its own function so call sites are
+// unmistakable. Sends only { role }. The DB guards (guard_profile_role +
+// guard_last_supervisor) may refuse — their message is returned verbatim so
+// the UI can show exactly why.
+async function setProfileRole(id, role) {
+  const { error } = await supabase
+    .from("profiles").update({ role }).eq("id", id);
+  return { error: error ? error.message : null };
+}
+
 // ---- Visit history (the app calls these via window.cloud) ----
 
 // The client's CURRENT LOCAL date as YYYY-MM-DD. NOT toISOString(), which is
@@ -828,6 +879,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listPendingSuggestions, pendingCount,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
+                 listAllProfiles, saveProfileAsSupervisor, setProfileRole,
                  listMyVisits, getVisitDetail,
                  listCompletedVisits, getAnyVisitDetail, markVisitReviewed, unreviewedVisitCount,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
