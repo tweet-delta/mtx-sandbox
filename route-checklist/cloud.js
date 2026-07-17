@@ -200,6 +200,33 @@ async function setProfileRole(id, role) {
   return { error: error ? error.message : null };
 }
 
+// ---- Account admin (the admin-users Edge Function) ----
+// These call the server component that holds the service_role secret. The
+// browser can't do any of this directly. supabase.functions.invoke attaches
+// the caller's JWT automatically; the function verifies they're a supervisor.
+
+async function callAdmin(action, payload = {}) {
+  const { data, error } = await supabase.functions
+    .invoke("admin-users", { body: { action, ...payload } });
+  if (error) {
+    // Function not deployed / network / non-2xx → a friendly, catchable
+    // message so the UI degrades instead of throwing.
+    return { error: error.message || "Account admin isn't available right now." };
+  }
+  return data;
+}
+
+// Roster WITH real emails + active flag (only the server can read auth.users).
+// Returns { people:[{id,email,fullName,phone,jobTitle,role,active,isMe}], myId }
+// or { error }.
+async function listTeam() { return callAdmin("list"); }
+
+// Create a new account with a supervisor-set temp password. Returns
+// { ok:true, id } or { error }.
+async function createTeamMember({ fullName, email, password }) {
+  return callAdmin("create", { fullName, email, password });
+}
+
 // ---- Visit history (the app calls these via window.cloud) ----
 
 // The client's CURRENT LOCAL date as YYYY-MM-DD. NOT toISOString(), which is
@@ -883,6 +910,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
                  listAllProfiles, saveProfileAsSupervisor, setProfileRole,
+                 listTeam, createTeamMember,
                  listMyVisits, getVisitDetail,
                  listCompletedVisits, getAnyVisitDetail, markVisitReviewed, unreviewedVisitCount,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
