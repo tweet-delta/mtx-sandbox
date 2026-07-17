@@ -2901,6 +2901,10 @@
         <label for="profilePhone">Phone</label>
         <input type="tel" id="profilePhone" value="${escAttr(res.phone)}" placeholder="e.g. 555-123-4567">
       </div>
+      <div class="profile-field">
+        <label for="profileTitle">Job title</label>
+        <input type="text" id="profileTitle" value="${escAttr(res.jobTitle || "")}" placeholder="e.g. Lead Tech">
+      </div>
       <button type="button" id="profileSaveBtn">Save</button>
       <div id="profileMsg"></div>`;
   }
@@ -3021,6 +3025,7 @@
     const id = saveBtn.dataset.teamSave;
     const fullName = card.querySelector("[data-team-name]").value.trim();
     const phone = card.querySelector("[data-team-phone]").value.trim();
+    const jobTitle = card.querySelector("[data-team-title]").value.trim();
     const errEl = card.querySelector("[data-team-error]");
     const showErr = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
     errEl.hidden = true;
@@ -3038,7 +3043,7 @@
       if (r.error) { showErr(r.error); return; }
     }
 
-    const s = await window.cloud.saveProfileAsSupervisor(id, { fullName, phone });
+    const s = await window.cloud.saveProfileAsSupervisor(id, { fullName, phone, jobTitle });
     if (s.error) { showErr(s.error); return; }
     editingTeamId = null;
     renderTeamScreen();
@@ -3186,6 +3191,7 @@
       <h3>${escHtml(name)}${meTag}
         <span class="team-role-badge">${escHtml(p.role)}</span></h3>
       <div class="muted-row">📞 ${escHtml(p.phone || "—")}</div>
+      <div class="muted-row">🏷️ ${escHtml(p.jobTitle || "—")}</div>
       <div class="muted-row">✉️ ${emailRow}</div>
       <div class="muted-row">🔒 Password — managed in account admin (coming soon)</div>
       <button type="button" class="menu-btn team-edit-btn" data-team-edit="${escAttr(p.id)}">✎ Edit</button>
@@ -3206,6 +3212,8 @@
         <input type="text" data-team-name value="${escAttr(p.fullName)}"></label>
       <label class="team-field"><span>Phone</span>
         <input type="text" data-team-phone value="${escAttr(p.phone)}"></label>
+      <label class="team-field"><span>Job title</span>
+        <input type="text" data-team-title value="${escAttr(p.jobTitle || "")}"></label>
       ${roleField}
       <p class="team-error" data-team-error hidden></p>
       <div class="team-edit-actions">
@@ -3503,6 +3511,7 @@
     if (!e.target.closest("#profileSaveBtn")) return;
     const nameInput = document.getElementById("profileName");
     const phoneInput = document.getElementById("profilePhone");
+    const titleInput = document.getElementById("profileTitle");
     const msg = document.getElementById("profileMsg");
     const fullName = nameInput.value.trim();
     if (!fullName) {
@@ -3514,7 +3523,7 @@
     btn.disabled = true;
     msg.textContent = "Saving…";
     msg.className = "";
-    const res = await window.cloud.saveMyProfile({ fullName, phone: phoneInput.value.trim() });
+    const res = await window.cloud.saveMyProfile({ fullName, phone: phoneInput.value.trim(), jobTitle: titleInput.value.trim() });
     btn.disabled = false;
     if (res.error) {
       msg.textContent = "Couldn't save — " + res.error;
