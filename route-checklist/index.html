@@ -598,7 +598,10 @@
     padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
     background: var(--card); color: var(--ink); }
   .team-me-tag { font-size: .72rem; color: var(--muted); font-weight: 400; }
-  .team-error { color: var(--bad); font-size: .85rem; margin-top: 6px; }
+  .team-error { color: var(--bad); font-size: .85rem; margin: 6px 0 0; }
+  .team-edit-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .team-save { background: var(--accent); color: var(--accent-ink); border: none; }
+  .team-edit-btn { margin-top: 4px; }
   .hist-item { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
   .hist-item b { display: block; }
   .hist-answer { font-weight: 600; text-transform: capitalize; }
@@ -3003,6 +3006,44 @@
     }
   });
 
+  // ---- Team roster interactions (supervisor-only; RLS/guards enforce) ----
+  document.getElementById("teamBody").addEventListener("click", async (e) => {
+    const editBtn = e.target.closest("[data-team-edit]");
+    if (editBtn) { editingTeamId = editBtn.dataset.teamEdit; renderTeamScreen(); return; }
+
+    if (e.target.closest("[data-team-cancel]")) {
+      editingTeamId = null; renderTeamScreen(); return;
+    }
+
+    const saveBtn = e.target.closest("[data-team-save]");
+    if (!saveBtn) return;
+    const card = saveBtn.closest("[data-team-card]");
+    const id = saveBtn.dataset.teamSave;
+    const fullName = card.querySelector("[data-team-name]").value.trim();
+    const phone = card.querySelector("[data-team-phone]").value.trim();
+    const errEl = card.querySelector("[data-team-error]");
+    const showErr = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
+    errEl.hidden = true;
+    if (!fullName) { showErr("Name can't be empty."); return; }
+
+    // Role change (only on other people's cards) — confirm, then apply first.
+    // If the DB guard refuses (last/own supervisor), its message shows inline
+    // and the card stays open so nothing is silently lost.
+    const roleSel = card.querySelector("[data-team-role]");
+    if (roleSel && roleSel.value !== roleSel.dataset.origRole) {
+      const ok = confirm(
+        `Change ${fullName} from ${roleSel.dataset.origRole} to ${roleSel.value}?`);
+      if (!ok) return;
+      const r = await window.cloud.setProfileRole(id, roleSel.value);
+      if (r.error) { showErr(r.error); return; }
+    }
+
+    const s = await window.cloud.saveProfileAsSupervisor(id, { fullName, phone });
+    if (s.error) { showErr(s.error); return; }
+    editingTeamId = null;
+    renderTeamScreen();
+  });
+
   // Shared by My Visit History and the supervisor review detail so the two
   // can never drift: only the items worth revisiting — flagged (answer ===
   // item.bad, polarity from GROUPS) OR carrying a note. An item_key no
@@ -3117,7 +3158,61 @@
       return;
     }
     body.innerHTML = `<p class="screen-sub">Loading…</p>`;
-    // Task 4 fills in the roster render here.
+    const res = await window.cloud.listAllProfiles();
+    if (currentScreenFromHash() !== "team") return;   // navigated away meanwhile
+    if (res.error) {
+      body.innerHTML = `<p class="screen-sub">${escHtml(res.error)}</p>`;
+      return;
+    }
+    const { people, myEmail } = res;
+    body.innerHTML =
+      `<button type="button" class="home-btn" id="teamAddBtn" disabled
+         aria-disabled="true">+ Add new team member</button>
+       <p class="screen-sub">Adding members, email, and password changes are
+         coming in account admin.</p>` +
+      people.map(p => teamCardHTML(p, myEmail)).join("");
+  }
+
+  // A person's card. Own card: shows real email, no role control. Others:
+  // muted email/password seams + an editable role.
+  function teamCardHTML(p, myEmail) {
+    if (editingTeamId === p.id) return teamEditHTML(p);
+    const name = p.fullName || "Unnamed";
+    const meTag = p.isMe ? ` <span class="team-me-tag">(you)</span>` : "";
+    const emailRow = p.isMe
+      ? escHtml(myEmail)
+      : "Managed in account admin (coming soon)";
+    return `<div class="team-card" data-team-card data-team-id="${escAttr(p.id)}">
+      <h3>${escHtml(name)}${meTag}
+        <span class="team-role-badge">${escHtml(p.role)}</span></h3>
+      <div class="muted-row">📞 ${escHtml(p.phone || "—")}</div>
+      <div class="muted-row">✉️ ${emailRow}</div>
+      <div class="muted-row">🔒 Password — managed in account admin (coming soon)</div>
+      <button type="button" class="menu-btn team-edit-btn" data-team-edit="${escAttr(p.id)}">✎ Edit</button>
+    </div>`;
+  }
+
+  // Inline editor. The role <select> appears only on OTHER people's cards —
+  // you can't demote yourself (the DB guard also enforces this).
+  function teamEditHTML(p) {
+    const roleField = p.isMe ? "" : `
+      <label class="team-field"><span>Role</span>
+        <select data-team-role data-orig-role="${escAttr(p.role)}">
+          <option value="tech"${p.role === "tech" ? " selected" : ""}>tech</option>
+          <option value="supervisor"${p.role === "supervisor" ? " selected" : ""}>supervisor</option>
+        </select></label>`;
+    return `<div class="team-card" data-team-card data-team-id="${escAttr(p.id)}">
+      <label class="team-field"><span>Full name</span>
+        <input type="text" data-team-name value="${escAttr(p.fullName)}"></label>
+      <label class="team-field"><span>Phone</span>
+        <input type="text" data-team-phone value="${escAttr(p.phone)}"></label>
+      ${roleField}
+      <p class="team-error" data-team-error hidden></p>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-save" data-team-save="${escAttr(p.id)}">Save</button>
+        <button type="button" class="menu-btn team-cancel" data-team-cancel>Cancel</button>
+      </div>
+    </div>`;
   }
 
   async function renderReviewsScreen() {
