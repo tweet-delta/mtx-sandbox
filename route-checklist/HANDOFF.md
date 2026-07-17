@@ -15,6 +15,90 @@ supervisor view) are complete and live on `main`.
 
 ---
 
+## STATE AS OF 2026-07-17 (Supervisor Team roster — Slice 1 of account admin) — read this first
+
+**Built inline (executing-plans), all tasks committed, MERGED TO `main` and
+DEPLOYED the same session** per the owner's standing ship-same-session rule.
+Spec: `docs/superpowers/specs/2026-07-17-supervisor-team-roster-design.md`;
+plan: `docs/superpowers/plans/2026-07-17-supervisor-team-roster.md`.
+
+**What this is:** the owner asked for supervisors to have "complete control"
+over tech accounts (name, email, password, role) AND to **add new team
+members** from the app. Brainstorming split the request along the
+`service_role` boundary:
+
+- **Slice 1 (THIS — shipped):** name / phone / role of EXISTING accounts.
+  These live in `public.profiles`, governed by RLS (`profiles_update`, 0001
+  already permits a supervisor to update any row), so NO server code was
+  needed — pure front-end + cloud.js + one guard migration.
+- **Slice 2 (NOT built — next cycle):** change email, reset password, and
+  **add new team member**. All three write to Supabase's protected
+  `auth.users` table, which needs the `service_role` secret key → an **Edge
+  Function** (the project's first, under `supabase/functions/`, which still
+  does not exist). Owner's decisions already captured for Slice 2: "Add
+  member" and password reset both use a **supervisor-typed temp password**
+  (reset style to be reconfirmed when we design it).
+
+**Migration `0021_guard_last_supervisor.sql`** (PUSHED & verified live —
+trigger + function confirmed via `supabase db query --linked`): a
+`before update` trigger on `public.profiles` that refuses (1) a supervisor
+demoting their OWN account and (2) demoting the LAST remaining supervisor.
+Dashboard/service_role actions (`auth.uid()` IS NULL) are exempt so roles are
+always repairable from the Supabase dashboard. Additive — no data change, no
+RLS/grant change. Runs ALONGSIDE 0001's `guard_profile_role` (which blocks a
+tech self-promoting); the two are independent.
+
+**`cloud.js`:** three new `window.cloud` functions —
+`listAllProfiles()` (roster rows `{id,fullName,phone,role,isMe}` + caller's
+own email via `auth.getUser()`; RLS decides which rows return — a tech gets
+only their own), `saveProfileAsSupervisor(id,{fullName,phone})` (never sends
+role; name-only fallback if the phone column is missing), and
+`setProfileRole(id,role)` (sends only role; the DB guard's refusal message is
+returned verbatim so the UI can explain it).
+
+**New `#team` screen** (hash-router, mirrors `#reviews`/`#profile`): home
+button **"👥 Team"**, `admin-only`. `renderTeamScreen()` gates on
+`role === "supervisor"` ("Supervisors only." for techs; RLS is the real gate).
+Roster = one `.team-card` per person: name, role badge, phone, an Email row
+(own card shows the real email, others show "Managed in account admin (coming
+soon)"), a Password seam row, and ✎ Edit. Edit opens inline name/phone fields;
+OTHER people's cards also get a role `<select>` (own card has NONE — you can't
+demote yourself, and the DB guard backs that up). Role changes `confirm()`
+first, then apply via `setProfileRole`; a guard refusal shows inline and the
+card stays open. A disabled **"+ Add new team member"** button sits at the top
+as the visible Slice-2 seam. Every mutation re-renders the roster from the
+server. `editingTeamId` tracks the single open card (same discipline as My
+Notes' `editingNoteId`).
+
+**IMPORTANT known limitation (by design, resolves in Slice 2):** because
+`profiles` has no email column and the browser can only read its OWN email,
+the roster shows every OTHER person's email as a "coming soon" placeholder,
+not their real address. The Edge Function in Slice 2 can read all users'
+emails server-side.
+
+- SW cache bumped `v24` → `v25`.
+- **Verified** via headless Chrome (per-user Chrome install) with a stubbed
+  supervisor session: 2 cards render, "+ Add" disabled, own email shown /
+  others masked, a tech card gets a role select, own card does not; zero
+  SyntaxError; `#team` gates to "Supervisors only." with no session.
+- **NOT YET exercised by a real signed-in supervisor** — the build box can't
+  sign in to real Supabase. Owner live-drive (after hard-refresh
+  Ctrl+Shift+R, maybe twice for the v25 SW; fully reopen the PWA on phones):
+  1. Sign in as supervisor → **👥 Team** appears (techs don't see it); open
+     it → all accounts listed, "+ Add" disabled, own email shown, others
+     masked.
+  2. ✎ Edit a tech → change name + phone → Save → reload → persists; confirm
+     in Supabase (`select full_name, phone from profiles where …`).
+  3. ✎ Edit that tech → Role = supervisor → confirm dialog names them → Save
+     → reload → sign in as them → supervisor screens now visible. Demote back
+     (works with 2+ supervisors).
+  4. With only you as supervisor: ✎ Edit your own card → NO role control
+     present. (The DB guard also blocks demoting the last/own supervisor.)
+  5. As a tech: no 👥 Team button; deep-link `#team` → "Supervisors only.";
+     no console errors. Deep-link reload on `#team` as supervisor re-renders.
+
+---
+
 ## STATE AS OF 2026-07-15 (Supervisor Completed-Visits review + Field tools) — read this first
 
 **Built inline (executing-plans), all 5 tasks committed, MERGED TO `main`
