@@ -18,7 +18,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const APP_ORIGIN = "https://tweet-delta.github.io";
 const cors = {
   "Access-Control-Allow-Origin": APP_ORIGIN,
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  // supabase-js sends apikey + x-client-info on every invoke; the preflight
+  // fails (and the browser never sends the real request) unless they're allowed.
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) =>
