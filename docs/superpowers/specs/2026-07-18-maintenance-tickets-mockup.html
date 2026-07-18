@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tickets feature — mockup (fake data)</title>
+<style>
+  :root{
+    --ground:#F2F4F6; --card:#FFFFFF; --ink:#1C2733; --muted:#5D6B7A;
+    --line:#D9DFE6; --accent:#2D5580; --accent-ink:#FFFFFF;
+    --done:#2E7D4F; --bad:#A63A2B; --bad-bg:#F7E9E6;
+    --note:#8A5E10; --note-bg:#F6EDDA; --resident:#2D5580; --rs:#6A4B8A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#DDE3E9;font-family:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);padding:24px}
+  h1{font-size:1.3rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 24px;font-size:.95rem}
+  .row{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+  .phone{width:390px;background:var(--ground);border:1px solid #B8C2CC;border-radius:22px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.12);flex-shrink:0}
+  .phone h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px;text-align:center}
+  .appbar{background:var(--accent);color:#fff;border-radius:12px;padding:10px 14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .bell{position:relative;font-weight:400}
+  .bell .n{position:absolute;top:-7px;right:-10px;background:var(--bad);color:#fff;font-size:.65rem;border-radius:999px;padding:1px 5px;font-weight:700}
+  .homebtn{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:9px;font-weight:600}
+  .homebtn .cnt{background:#E7F0FA;color:var(--accent);border-radius:999px;padding:2px 9px;font-size:.8rem}
+  .homebtn.dim{opacity:.55;font-weight:400}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .chip{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:.8rem;color:var(--muted)}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .chip .b{background:rgba(255,255,255,.25);border-radius:999px;padding:0 6px;margin-left:4px;font-size:.7rem}
+  .chip.stale{border-color:var(--note);color:var(--note)}
+  .ticket{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px}
+  .t-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .t-title{font-weight:600}
+  .t-house{color:var(--muted);font-size:.85rem;white-space:nowrap}
+  .pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .pill{font-size:.72rem;border-radius:999px;padding:2px 9px;font-weight:600}
+  .p-urgent{background:var(--bad);color:#fff}
+  .p-time{background:var(--note-bg);color:var(--note);border:1px solid var(--note)}
+  .p-normal{background:#E7F0FA;color:var(--accent)}
+  .p-wish{background:#EFE9F5;color:var(--rs)}
+  .p-res{background:#E7F0FA;color:var(--resident);font-weight:500}
+  .p-rs{background:#EFE9F5;color:var(--rs);font-weight:500}
+  .p-new{background:#E6F2EA;color:var(--done)}
+  .p-prog{background:#FFF6E3;color:var(--note)}
+  .p-unassigned{background:var(--bad-bg);color:var(--bad)}
+  .p-stale{background:var(--note-bg);color:var(--note);border:1px dashed var(--note)}
+  .meta{color:var(--muted);font-size:.78rem;margin-top:7px}
+  .btns{display:flex;gap:7px;margin-top:9px}
+  .btn{border:1.5px solid var(--accent);color:var(--accent);background:var(--card);border-radius:9px;padding:6px 11px;font-size:.82rem;font-weight:600}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.done{border-color:var(--done);color:var(--done)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .panel h3{margin:0 0 8px;font-size:.95rem}
+  .notebox{border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;font-size:.85rem}
+  .notebox .who{color:var(--muted);font-size:.75rem}
+  .notebox.sys{color:var(--muted);font-style:italic}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:.8rem;font-weight:600;margin-bottom:3px}
+  .field input,.field select,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:9px;padding:8px;font:inherit;font-size:.88rem;background:var(--card)}
+  .checkitem{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:7px;font-size:.9rem}
+  .checkitem .box{width:20px;height:20px;border:2px solid var(--line);border-radius:5px;flex-shrink:0}
+  .tickets-panel{border:2px solid var(--accent);border-radius:12px;background:#EDF3F9;padding:11px;margin-bottom:10px}
+  .tickets-panel h3{margin:0;font-size:.92rem;color:var(--accent);display:flex;justify-content:space-between}
+  .route-house{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:7px}
+  .route-house .tb{background:var(--bad-bg);color:var(--bad);border-radius:999px;padding:2px 9px;font-size:.75rem;font-weight:700}
+  .route-house .tb.z{background:#E6F2EA;color:var(--done)}
+  .notif{display:flex;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:7px;font-size:.85rem}
+  .notif.unread{border-left:4px solid var(--accent)}
+  .notif .when{color:var(--muted);font-size:.73rem}
+  .cap{font-size:.8rem;color:var(--muted);margin:14px 4px 0;line-height:1.45}
+  .banner{background:var(--note-bg);border:1px solid var(--note);color:var(--note);border-radius:10px;padding:8px 12px;font-size:.83rem;margin-bottom:20px;max-width:900px}
+</style>
+</head>
+<body>
+<h1>🎫 Tickets in the MTX app — mockup</h1>
+<p class="sub">All names/houses below are the <b>fake demo houses</b> (Dogwood, Roselawn, Amble) — not real data. Six screens, left to right in the order a tech would meet them.</p>
+<div class="banner">This is a picture, not the real app — nothing here is clickable. It shows where each piece of the design lives.</div>
+
+<div class="row">
+
+  <!-- 1. HOME -->
+  <div class="phone">
+    <h2>1 · Home screen (tech)</h2>
+    <div class="appbar"><span>MTX Route Checklist</span><span class="bell">🔔<span class="n">2</span></span></div>
+    <div class="homebtn"><span>▶️ Start / resume visit</span></div>
+    <div class="homebtn"><span>📌 My tickets</span><span class="cnt">5 open</span></div>
+    <div class="homebtn"><span>🎫 All tickets</span><span class="cnt">12</span></div>
+    <div class="homebtn dim"><span>📆 Daily Logs</span></div>
+    <div class="homebtn dim"><span>🗺️ My route</span></div>
+    <div class="homebtn dim"><span>👤 My profile</span></div>
+    <p class="cap">Two new buttons + the 🔔 bell with an unread count. Supervisor home gets the same, and their 🎫 view includes triage controls.</p>
+  </div>
+
+  <!-- 2. TICKETS LIST -->
+  <div class="phone">
+    <h2>2 · 🎫 Tickets (supervisor view)</h2>
+    <div class="appbar"><span>🎫 Tickets</span><span>Dogwood ▾</span></div>
+    <div class="chips">
+      <span class="chip on">New <span class="b">4</span></span>
+      <span class="chip">Unassigned 3</span>
+      <span class="chip">Urgent 1</span>
+      <span class="chip">Time sensitive 2</span>
+      <span class="chip">Wish list 2</span>
+      <span class="chip stale">Stale 30d+ 2</span>
+      <span class="chip">All open</span>
+      <span class="chip">Completed</span>
+    </div>
+    <div class="ticket">
+      <div class="t-top"><span class="t-title">Water heater leaking at base</span><span class="t-house">Dogwood</span></div>
+      <div class="pills"><span class="pill p-urgent">Urgent</span><span class="pill p-new">New</span><span class="pill p-unassigned">Unassigned</span><span class="pill p-res">Resident level</span></div>
+      <div class="meta">Plumbing · requested by RS · submitted by Tech Two · 2 days ago</div>
+      <div class="btns"><span class="btn primary">Assign ▾</span><span class="btn">Priority ▾</span></div>
+    </div>
+    <div class="ticket">
+      <div class="t-top"><span class="t-title">Replace hallway smoke detector</span><span class="t-house">Roselawn</span></div>
+      <div class="pills"><span class="pill p-time">Time sensitive</span><span class="pill p-new">New</span><span class="pill p-rs">RS level</span></div>
+      <div class="meta">Electrical · requested by PD · assigned to Tech One · yesterday</div>
+    </div>
+    <div class="ticket">
+      <div class="t-top"><span class="t-title">Touch-up paint, sunroom trim</span><span class="t-house">Amble</span></div>
+      <div class="pills"><span class="pill p-wish">Wish list</span><span class="pill p-stale">Stale · 34 days</span><span class="pill p-res">Resident level</span></div>
+      <div class="meta">Interior Painting · requested by Staff · unassigned · June 12</div>
+    </div>
+    <p class="cap">Filter chips (counts live), house picker top-right. Sorted priority-first, oldest-first. Techs see this same screen without the Assign/Priority buttons.</p>
+  </div>
+
+  <!-- 3. TICKET DETAIL -->
+  <div class="phone">
+    <h2>3 · Ticket detail + notes trail</h2>
+    <div class="appbar"><span>← Ticket</span></div>
+    <div class="panel">
+      <div class="t-title" style="font-size:1.05rem">Water heater leaking at base</div>
+      <div class="pills"><span class="pill p-urgent">Urgent</span><span class="pill p-prog">In Progress</span><span class="pill p-res">Resident level</span></div>
+      <div class="meta">Dogwood · Plumbing · requested by RS<br>submitted by Tech Two · Jul 16 · assigned to Tech One</div>
+      <p style="font-size:.88rem;margin:8px 0 0">Slow drip from the relief valve, small puddle forming. Shut-off works.</p>
+    </div>
+    <div class="panel">
+      <h3>History</h3>
+      <div class="notebox sys"><span>Supervisor assigned this to Tech One — Jul 16, 3:02 PM</span></div>
+      <div class="notebox"><div class="who">Tech One · Jul 17, 9:40 AM</div>Ordered a new relief valve, arriving Friday.</div>
+      <div class="notebox sys"><span>Tech One marked this In Progress — Jul 17, 9:41 AM</span></div>
+      <div class="field" style="margin-top:10px"><textarea rows="2" placeholder="Add a note…"></textarea></div>
+      <div class="btns"><span class="btn primary">Add note</span><span class="btn">On hold</span><span class="btn done">✔ Completed</span></div>
+    </div>
+    <p class="cap">Every comment and status change lands in one history trail — who, what, when. Notes trigger a 🔔 for the submitter, assignee, and supervisors.</p>
+  </div>
+
+  <!-- 4. VISIT PANEL -->
+  <div class="phone">
+    <h2>4 · During a visit (checklist screen)</h2>
+    <div class="appbar"><span>Dogwood — visit</span></div>
+    <div class="tickets-panel">
+      <h3><span>🎫 Open tickets at this house</span><span>3 ▾</span></h3>
+      <div class="ticket" style="margin-top:9px">
+        <div class="t-top"><span class="t-title">Water heater leaking at base</span></div>
+        <div class="pills"><span class="pill p-urgent">Urgent</span><span class="pill p-prog">In Progress</span></div>
+        <div class="btns"><span class="btn done">✔ Completed</span><span class="btn">＋ Note</span></div>
+      </div>
+      <div class="ticket" style="margin-bottom:0">
+        <div class="t-top"><span class="t-title">Adjust closet door — Rm 3</span></div>
+        <div class="pills"><span class="pill p-normal">Normal</span><span class="pill p-new">New</span><span class="pill" style="background:#E7F0FA;color:var(--accent)">📋 House Visit List</span></div>
+        <div class="btns"><span class="btn">▶ In progress</span><span class="btn done">✔ Completed</span></div>
+      </div>
+    </div>
+    <div class="checkitem"><span class="box"></span> Furnace filter checked / changed</div>
+    <div class="checkitem"><span class="box"></span> Water softener salt level</div>
+    <div class="checkitem"><span class="box"></span> Exit lights working</div>
+    <p class="cap">The panel sits above the checklist, collapsed by default with the count. “House Visit List” tickets are pinned to the top of it.</p>
+  </div>
+
+  <!-- 5. NEW TICKET -->
+  <div class="phone">
+    <h2>5 · ＋ New ticket (everyone)</h2>
+    <div class="appbar"><span>＋ New ticket</span></div>
+    <div class="panel">
+      <div class="field"><label>House</label><select><option>Dogwood</option></select></div>
+      <div class="field"><label>Level</label><select><option>Resident level</option><option>RS level</option></select></div>
+      <div class="field"><label>Title</label><input value="Screen door latch broken"></div>
+      <div class="field"><label>What's going on?</label><textarea rows="2">Latch doesn't catch; door blows open.</textarea></div>
+      <div class="field"><label>Category</label><select><option>Doors</option></select></div>
+      <div class="field"><label>Priority</label><select><option>Normal priority</option></select></div>
+      <div class="field"><label>Requested by</label><select><option>RS</option><option>PD</option><option>RC</option><option>Staff</option><option>Guardian</option><option>Live In</option><option>Maintenance</option></select></div>
+      <div class="btns"><span class="btn primary">Submit ticket</span></div>
+    </div>
+    <p class="cap">Same fields as your real SharePoint form. Your name + time are stamped automatically as “submitted by”.</p>
+  </div>
+
+  <!-- 6. BELL + ROUTE -->
+  <div class="phone">
+    <h2>6 · 🔔 Notifications & route badges</h2>
+    <div class="appbar"><span>🔔 Notifications</span><span>Mark all read</span></div>
+    <div class="notif unread"><span>🎫</span><div><b>You were assigned:</b> Water heater leaking at base — Dogwood<div class="when">Jul 16, 3:02 PM</div></div></div>
+    <div class="notif unread"><span>💬</span><div><b>Supervisor commented</b> on “Replace smoke detector”: “Grab one from the shop shelf.”<div class="when">Jul 17, 8:15 AM</div></div></div>
+    <div class="notif"><span>💬</span><div>Tech Two commented on “Screen door latch” <div class="when">Jul 14</div></div></div>
+    <div style="height:14px"></div>
+    <div class="appbar" style="background:#5D6B7A"><span>🗺️ My route (badges)</span></div>
+    <div class="route-house"><span>1 · Dogwood</span><span class="tb">3 open</span></div>
+    <div class="route-house"><span>2 · Roselawn</span><span class="tb">1 open</span></div>
+    <div class="route-house"><span>3 · Amble</span><span class="tb z">0</span></div>
+    <p class="cap">Bell = assigned-to-you + comments on your tickets. Route preview shows each house's open-ticket count before you drive there. Stale-30-day tickets surface via the chip on screen 2.</p>
+  </div>
+
+</div>
+</body>
+</html>
