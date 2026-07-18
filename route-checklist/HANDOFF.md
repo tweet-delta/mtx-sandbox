@@ -15,6 +15,42 @@ supervisor view) are complete and live on `main`.
 
 ---
 
+## STATE AS OF 2026-07-18 (bugfix: partial visits invisible in Daily Logs)
+
+**Bug (owner-reported):** a tech's partial (Save-progress) visit didn't show
+its work in 📆 Daily Logs. Root cause: `stampDailyLog()` in `cloud.js` put
+only `done === true` item keys into `daily_logs.done_keys` — but
+question-type items (yes/no `q:` items), N/A marks, notes, temp readings and
+date-only entries never set `done`, so an answers-only partial visit stamped
+an **empty** `done_keys` and the diary day rendered as a bare house name with
+no content (looked like nothing was recorded). Confirmed end-to-end: DB row
+existed (write path fine since migration 0017), RLS read fine (verified via
+impersonated SQL), render fine — the stamp's filter was the defect.
+
+**Fix (both sides, shipped to `main`, SW bumped to v28):**
+
+- `cloud.js stampDailyLog()`: an item now counts as "worked on" if it carries
+  ANY recorded info — checked box, yes/no/N-A answer, done-date, reading, or
+  note (the same "carries information" rule `visitPayload()` already uses).
+- `index.html renderAutoDetail()`: an auto row with no keys (pre-fix rows, or
+  a save with nothing filled in) now shows "Visit saved — no task details
+  recorded for this day." instead of a bare house name.
+- One-time data repair: the single pre-fix empty row (tech1, Amble,
+  2026-07-17) had its `done_keys` recomputed from `visit_items` via SQL.
+  Older completed-visit rows were left alone (multi-day snapshot diffs must
+  not be rewritten from final state).
+
+**How it was verified (no test framework in repo yet):** a headless-Chrome
+CDP harness (`tests/daily-log-partial-visit.test.py`) boots the REAL
+`index.html`+`cloud.js`, wraps the Supabase client (fake signed-in tech, one
+fake house, captured writes), calls the real `cloud.saveVisit(payload,
+"in_progress")` with an answers-only payload, and asserts (1) the
+`daily_logs` upsert contains the answered keys and (2) the real #logs screen
+renders them. Failed before the fix, passes after. Reusable pattern for
+future UI tests — needs only Python + `websocket-client` + Chrome.
+
+---
+
 ## STATE AS OF 2026-07-17 (Supervisor Team roster — Slice 1 of account admin) — read this first
 
 **Built inline (executing-plans), all tasks committed, MERGED TO `main` and

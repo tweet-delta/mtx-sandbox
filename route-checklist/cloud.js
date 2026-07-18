@@ -247,7 +247,13 @@ async function stampDailyLog(visitId, houseId, items) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const doneKeys = (items || []).filter(it => it.done === true).map(it => it.key);
+    // "Worked on" = the item carries ANY recorded information — a checked box,
+    // a yes/no/N-A answer, a done-date, a reading, or a note. Question-type
+    // items never set done=true, so filtering on done alone stamped an empty
+    // diary entry for an answers-only partial visit.
+    const doneKeys = (items || [])
+      .filter(it => it.done === true || it.answer || it.doneOn || it.value || it.note)
+      .map(it => it.key);
     const today = localToday();
     const { error } = await supabase.from("daily_logs").upsert({
       tech_id: user.id, log_date: today, kind: "auto",
