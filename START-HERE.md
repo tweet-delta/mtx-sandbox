@@ -7,8 +7,13 @@ this file before every session ends.)
 
 ---
 
-## ⏭️ FIRST THING NEXT TIME (as of 2026-07-17 evening)
+## ⏭️ FIRST THING NEXT TIME (as of 2026-07-18)
 
+0. **Re-check yesterday's partial-visit test:** hard-refresh (Ctrl+Shift+R),
+   sign in as tech1, open 📆 Daily Logs → July 17 → it should now list the
+   two Mechanical Room items you answered at Amble. (Bug fixed 2026-07-18:
+   partial visits that only answered yes/no questions stamped an empty diary
+   entry — see HANDOFF.md top section.)
 1. **Retry the 👥 Team screen** (plain reload is fine). It errored with
    "Failed to send a request to the Edge Function" — that was a CORS bug in
    the function; it's **fixed and verified server-side**. It should now load
@@ -28,6 +33,9 @@ this file before every session ends.)
   emails, **Add new team member** (temp-password flow).
 - Everything earlier: visits, reviews queue, house notes + suggestions,
   routes, daily logs, my notes, profile.
+- **2026-07-18 fix:** Daily Logs now records answered questions / N-A marks /
+  notes / readings, not just checked boxes — partial visits show their work.
+  First automated test lives at `tests/daily-log-partial-visit.test.py`.
 - **Data is FAKE / demo** (owner-confirmed) — safe to experiment freely.
 
 ## 🔗 The links

@@ -3490,6 +3490,12 @@
     if (unknown.length) {
       html += `<h3>Other</h3>` + unknown.map(k => `<div class="hist-item">✓ ${escHtml(k)}</div>`).join("");
     }
+    // Rows stamped with no item keys (a save before anything was filled in, or
+    // rows from before answered items counted) still deserve an honest line —
+    // a bare house name reads like the visit didn't record.
+    if (!html) {
+      html = `<div class="hist-item">Visit saved — no task details recorded for this day.</div>`;
+    }
     return `<h2 style="font-size:1rem">${escHtml(auto.houseName || "Visit")}</h2>` + html;
   }
 
