@@ -908,6 +908,193 @@ function listHousesForRoutes() {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// ---- Maintenance tickets (spec: 2026-07-18-maintenance-tickets-design.md) ----
+// The queue is shared: every signed-in user reads all tickets. Writes are
+// governed by RLS + RPCs (techs: create/comment/status; supervisors: also
+// assign/re-prioritize/edit). Field names mirror the company SharePoint list
+// so a someday-migration is a plain data copy.
+
+// tickets has THREE profiles FKs (submitted_by / assigned_to / completed_by),
+// so every profiles embed must name its FK or PostgREST rejects it (same
+// lesson as visits after 0020).
+const TICKET_COLS = `id, title, description, category, level, status, priority,
+  requested_by_role, assigned_to, created_at, updated_at, completed_at,
+  houses(name),
+  submitter:profiles!tickets_submitted_by_fkey(full_name),
+  assignee:profiles!tickets_assigned_to_fkey(full_name)`;
+
+function mapTicket(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description || "",
+    category: t.category,
+    level: t.level,
+    status: t.status,
+    priority: t.priority,
+    requestedByRole: t.requested_by_role,
+    houseName: t.houses?.name || "",
+    submittedByName: t.submitter?.full_name || "",
+    assignedTo: t.assigned_to || null,
+    assignedToName: t.assignee?.full_name || "",
+    createdAt: t.created_at,
+    updatedAt: t.updated_at,
+    completedAt: t.completed_at || null,
+  };
+}
+
+// Every ticket, open and completed alike (demo scale — filtering/counting is
+// the UI's job so one fetch feeds chips, lists, and the visit panel).
+async function listTickets() {
+  const { data, error } = await supabase
+    .from("tickets").select(TICKET_COLS)
+    .order("created_at", { ascending: false });
+  if (error) return { error: error.message, notReady: isMissingTable(error) };
+  return { tickets: (data || []).map(mapTicket) };
+}
+
+// One ticket + its full history trail (comments and system rows interleaved,
+// oldest first — the UI renders them as one timeline).
+async function getTicket(id) {
+  const { data, error } = await supabase
+    .from("tickets")
+    .select(TICKET_COLS + `, ticket_notes(id, kind, body, created_at, author:profiles(full_name))`)
+    .eq("id", id).maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "Ticket not found." };
+  const t = mapTicket(data);
+  t.notes = (data.ticket_notes || [])
+    .sort((a, b) => a.created_at < b.created_at ? -1 : 1)
+    .map(n => ({
+      id: n.id, kind: n.kind, body: n.body || "",
+      authorName: n.author?.full_name || "", createdAt: n.created_at,
+    }));
+  return t;
+}
+
+// Anyone signed in can file a ticket. submitted_by is stamped by the DB
+// default (auth.uid()) and enforced by RLS — the client never claims it.
+async function createTicket({ houseName, level, title, description, category, priority, requestedByRole }) {
+  const house = housesByName.get((houseName || "").trim().toLowerCase());
+  if (!house) return { error: `"${houseName}" isn't a house in the database.` };
+  if (!(title || "").trim()) return { error: "Give the ticket a title." };
+  const { data, error } = await supabase.from("tickets").insert({
+    house_id: house.id,
+    title: title.trim(),
+    description: (description || "").trim(),
+    category, level, priority,
+    requested_by_role: requestedByRole,
+  }).select("id").single();
+  if (error) return { error: error.message };
+  refreshTicketBadges();
+  return { id: data.id };
+}
+
+// A human comment. The DB triggers do the rest: freshen the ticket's
+// updated_at and notify the submitter/assignee/supervisors (minus the author).
+async function addTicketNote(id, body) {
+  const text = (body || "").trim();
+  if (!text) return { error: "Note can't be empty." };
+  const { error } = await supabase.from("ticket_notes")
+    .insert({ ticket_id: id, kind: "comment", body: text });
+  return error ? { error: error.message } : { ok: true };
+}
+
+// Status changes go through the RPC so every change lands in the history
+// trail with a trustworthy author (auth.uid(), never client-supplied).
+async function setTicketStatus(id, status) {
+  const { error } = await supabase.rpc("set_ticket_status",
+    { p_ticket_id: id, p_status: status });
+  if (error) return { error: error.message };
+  refreshTicketBadges();
+  return { ok: true };
+}
+
+// Supervisor-only (the RPC checks; RLS backstops). null = back to Unassigned.
+async function assignTicket(id, assigneeId) {
+  const { error } = await supabase.rpc("assign_ticket",
+    { p_ticket_id: id, p_assignee: assigneeId || null });
+  if (error) return { error: error.message };
+  refreshTicketBadges();
+  return { ok: true };
+}
+
+// Supervisor-only direct update (tickets_update policy refuses techs).
+async function setTicketPriority(id, priority) {
+  const { error } = await supabase.from("tickets")
+    .update({ priority }).eq("id", id);
+  return error ? { error: error.message } : { ok: true };
+}
+
+// ---- Notifications (assigned-to-you / commented-on-your-ticket) ----
+
+// notifications has TWO profiles FKs (recipient / actor) — name the embed.
+async function listNotifications() {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select(`id, kind, created_at, read_at, ticket_id,
+             actor:profiles!notifications_actor_fkey(full_name),
+             tickets(title, houses(name))`)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) return { error: error.message, notReady: isMissingTable(error) };
+  return {
+    items: (data || []).map(n => ({
+      id: n.id,
+      kind: n.kind,
+      ticketId: n.ticket_id,
+      ticketTitle: n.tickets?.title || "(ticket)",
+      houseName: n.tickets?.houses?.name || "",
+      actorName: n.actor?.full_name || "A teammate",
+      createdAt: n.created_at,
+      readAt: n.read_at || null,
+    })),
+  };
+}
+
+async function markAllNotificationsRead() {
+  const { error } = await supabase.from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .is("read_at", null);
+  if (error) return { error: error.message };
+  refreshTicketBadges();
+  return { ok: true };
+}
+
+// Push { mineOpen, allOpen, byHouse, unread } to the UI badges (home buttons,
+// bell, house-picker counts). Best-effort: on any error the badges just
+// don't update — same posture as refreshReviewBadge.
+async function refreshTicketBadges() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const [tk, nf] = await Promise.all([
+      supabase.from("tickets")
+        .select("status, assigned_to, houses(name)")
+        .neq("status", "completed"),
+      supabase.from("notifications")
+        .select("id", { count: "exact", head: true })
+        .is("read_at", null),
+    ]);
+    if (tk.error || nf.error) return;
+    const byHouse = {};
+    let mineOpen = 0;
+    for (const t of tk.data || []) {
+      const key = (t.houses?.name || "").trim().toLowerCase();
+      if (key) byHouse[key] = (byHouse[key] || 0) + 1;
+      if (t.assigned_to === user.id) mineOpen++;
+    }
+    if (window.applyTicketCounts) window.applyTicketCounts({
+      allOpen: (tk.data || []).length,
+      mineOpen,
+      byHouse,
+      unread: nf.count || 0,
+    });
+  } catch (e) {
+    console.warn("Ticket badge refresh failed:", e.message);
+  }
+}
+
 window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getHouseNotes, suggestNote, suggestChange, withdrawSuggestion,
                  approveSuggestion, denySuggestion, markDenialSeen,
@@ -921,6 +1108,9 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listCompletedVisits, getAnyVisitDetail, markVisitReviewed, unreviewedVisitCount,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
                  listMyNotes, addMyNote, updateMyNote, deleteMyNote,
+                 listTickets, getTicket, createTicket, addTicketNote,
+                 setTicketStatus, assignTicket, setTicketPriority,
+                 listNotifications, markAllNotificationsRead, refreshTicketBadges,
                  refreshMyRoute: loadMyRoute,
                  role: null };
 
@@ -974,6 +1164,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
       await loadRole();        // loadMyRoute needs role + houses loaded first
       await loadHouses();
       await loadMyRoute();
+      refreshTicketBadges();   // best-effort; badges stay blank on failure
     }, 0);
   } else {
     showGate(true);
