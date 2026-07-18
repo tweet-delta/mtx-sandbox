@@ -15,6 +15,51 @@ supervisor view) are complete and live on `main`.
 
 ---
 
+## STATE AS OF 2026-07-18 (feature: Maintenance Tickets)
+
+**New feature — maintenance tickets** (spec:
+`docs/superpowers/specs/2026-07-18-maintenance-tickets-design.md`, plan:
+`docs/superpowers/plans/2026-07-18-maintenance-tickets.md`, approved mockup in
+the specs folder). Brings the company's SharePoint "Current Maintenance
+Requests" workflow into the app — **fake demo data only**, same field shape so
+a someday M365 migration is a data copy.
+
+**DB (migrations 0025 + 0026, pushed + verified):**
+- `tickets` (house_id, title, description, category [28-value CHECK],
+  level resident|rs, status new|in_progress|on_hold|completed, priority
+  urgent|time_sensitive|normal|wish_list, requested_by_role, submitted_by,
+  assigned_to, timestamps, completed_*).
+- `ticket_notes` — history trail: `comment` rows (humans) + `status_change` /
+  `assignment` rows written by the RPCs.
+- `notifications` — recipient/ticket/kind(assigned|comment)/actor/read_at.
+- **RLS:** everyone signed-in reads all tickets/notes + files tickets +
+  comments; techs change STATUS only via `set_ticket_status` RPC (audited);
+  supervisors assign (`assign_ticket` RPC), re-prioritize + edit (direct
+  UPDATE, supervisor-only policy); notifications are self-scoped.
+- **Triggers:** `updated_at` touch on ticket update AND on note insert (so the
+  "Stale ≥30 days" filter is honest); comment fan-out inserts notifications for
+  submitter + assignee + all supervisors, minus the author.
+- Seed 0026 (idempotent): 22 fake tickets across the first 6 demo houses —
+  every priority + status, 3 stale (45 days), House Visit List items, history.
+
+**App:** `cloud.js` grew a tickets section on `window.cloud`
+(listTickets/getTicket/createTicket/addTicketNote/setTicketStatus/
+assignTicket/setTicketPriority/listNotifications/markAllNotificationsRead/
+refreshTicketBadges). `index.html` added four screens (#tickets +
+#tickets/mine, #ticket/<id>, #newticket, #alerts), home buttons + badges,
+a 🔔 bell, the in-visit "🎫 Open tickets at this house" panel (House Visit
+List pinned first), and house-picker open-ticket count badges. SW → v29.
+
+**Tests:** `tests/tickets.test.py` (CDP + mocked Supabase) — create, chip
+counts, Completed→RPC, visit-panel house scoping. All pass.
+
+**NOTE — profiles.role for demo submitters:** the seed's "submitted by" is the
+supervisor and "requested by role" is a free field (RS/PD/…); real SharePoint
+submitters (interior designer, program directors) are NOT app users. In-app,
+anyone signed in can file a ticket.
+
+---
+
 ## STATE AS OF 2026-07-18 (bugfix: partial visits invisible in Daily Logs)
 
 **Bug (owner-reported):** a tech's partial (Save-progress) visit didn't show

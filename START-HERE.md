@@ -9,21 +9,24 @@ this file before every session ends.)
 
 ## ⏭️ FIRST THING NEXT TIME (as of 2026-07-18)
 
-0. **Re-check yesterday's partial-visit test:** hard-refresh (Ctrl+Shift+R),
-   sign in as tech1, open 📆 Daily Logs → July 17 → it should now list the
-   two Mechanical Room items you answered at Amble. (Bug fixed 2026-07-18:
-   partial visits that only answered yes/no questions stamped an empty diary
-   entry — see HANDOFF.md top section.)
-1. **Retry the 👥 Team screen** (plain reload is fine). It errored with
-   "Failed to send a request to the Edge Function" — that was a CORS bug in
-   the function; it's **fixed and verified server-side**. It should now load
-   everyone with real emails.
-2. **The milestone test:** Team → **+ Add new team member** → name, email,
-   Generate password → Create → then sign out and sign in as that new person
-   with the temp password. If that works, the whole server foundation works.
-3. Tell Claude the result. Then Claude builds:
-   - **2c** — Reset password + Change email buttons on each Team card
-   - **2d** — Deactivate / Reactivate a tech (kept, never deleted)
+0. **Try the new 🎫 Tickets feature** (hard-refresh first, Ctrl+Shift+R):
+   - Home now has **📌 My tickets**, **🎫 Tickets**, and **🔔 Notifications**
+     buttons (with count badges).
+   - Open **🎫 Tickets** → filter chips (New / Unassigned / Urgent / Time
+     sensitive / Wish list / Stale 30d+ / Completed) + a house picker. As
+     supervisor each ticket card opens to Assign + Priority controls.
+   - **＋ New ticket** → file one (house, category, priority, requested-by).
+   - Start a **house visit** at one of the first ~6 demo houses → the
+     checklist now shows a **"🎫 Open tickets at this house"** panel up top
+     (House Visit List items pinned first) with In progress / Completed
+     buttons.
+   - Tell Claude how it looks — anything to tweak before Phase 2 (photos).
+1. **Still pending from before:** the 👥 Team **+ Add new team member**
+   milestone test (sign out, sign in as the new person). Do it when convenient.
+
+**Note on SharePoint sync:** the app does NOT talk to the real SharePoint list
+yet — that needs company IT/Graph approval. Tickets are fake demo data with the
+**same field shape**, so a real hookup later is a data copy, not a rewrite.
 
 ## ✅ What's live right now
 
@@ -31,6 +34,12 @@ this file before every session ends.)
 - Supervisor **👥 Team** screen: edit anyone's name / phone / job title /
   role (with confirm + can't-demote-yourself/last-supervisor guards), real
   emails, **Add new team member** (temp-password flow).
+- **NEW 2026-07-18 — 🎫 Maintenance tickets:** file requests in-app, filter
+  the queue (new/unassigned/urgent/time-sensitive/wish-list/stale/completed),
+  assign + re-prioritize (supervisor), work tickets during a house visit,
+  history trail per ticket, and 🔔 notifications for assignments/comments.
+  Fake demo data, shaped like the real SharePoint list. Not synced to
+  SharePoint (needs IT approval).
 - Everything earlier: visits, reviews queue, house notes + suggestions,
   routes, daily logs, my notes, profile.
 - **2026-07-18 fix:** Daily Logs now records answered questions / N-A marks /
