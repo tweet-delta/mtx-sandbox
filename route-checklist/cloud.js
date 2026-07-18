@@ -63,8 +63,10 @@ async function loadHouses() {
 // ---- Who am I? (role gates the admin controls; RLS is the real enforcement) ----
 async function loadRole() {
   window.cloud.role = null;
+  window.cloud.myId = null;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
+  window.cloud.myId = user.id;   // the UI's "is this ticket mine?" check
   const { data, error } = await supabase
     .from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (error) { console.error("Could not load role:", error.message); return; }
@@ -1169,7 +1171,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
   } else {
     showGate(true);
     if (whoami) whoami.textContent = "";
-    if (window.cloud) window.cloud.role = null;
+    if (window.cloud) { window.cloud.role = null; window.cloud.myId = null; }
     document.body.classList.remove("is-admin");
     if (window.applyRole) window.applyRole(null);
     if (window.applyMyHouses) window.applyMyHouses(null);

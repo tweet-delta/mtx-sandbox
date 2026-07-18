@@ -514,6 +514,10 @@
   body:not([data-screen="mynotes"])  #mynotesScreen,
   body:not([data-screen="reviews"])  #reviewsScreen,
   body:not([data-screen="team"])     #teamScreen,
+  body:not([data-screen="tickets"])  #ticketsScreen,
+  body:not([data-screen="ticket"])   #ticketDetailScreen,
+  body:not([data-screen="newticket"]) #newTicketScreen,
+  body:not([data-screen="alerts"])   #alertsScreen,
   body:not([data-screen="notes"])    #notesScreen { display: none; }
 
   .screen-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
@@ -536,6 +540,88 @@
   #fieldTools[open] > summary { border-color: var(--accent); }
   #fieldTools > .home-btn { margin-left: 14px; }
   .pending-count { font-weight: 700; }
+
+  /* ---- Maintenance tickets ---- */
+  .tk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .tk-chip {
+    border: 1.5px solid var(--line); background: var(--card); color: var(--muted);
+    border-radius: 999px; padding: 5px 11px; font: inherit; font-size: .82rem;
+    cursor: pointer;
+  }
+  .tk-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .tk-chip.stale:not([aria-pressed="true"]) { border-color: var(--note); color: var(--note); }
+  .tk-chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .tk-housepick { margin: 0 0 12px; }
+  .tk-housepick select { padding: 6px 8px; font: inherit; font-size: .88rem; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); }
+  .tk-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 11px 13px; margin-bottom: 9px; width: 100%; text-align: left;
+    font: inherit; cursor: pointer; display: block;
+  }
+  .tk-card:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .tk-card-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .tk-title { font-weight: 600; }
+  .tk-house { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+  .tk-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .tk-pill { font-size: .72rem; border-radius: 999px; padding: 2px 9px; font-weight: 600; }
+  .tk-p-urgent { background: var(--bad); color: #fff; }
+  .tk-p-time_sensitive { background: var(--note-bg); color: var(--note); border: 1px solid var(--note); }
+  .tk-p-normal { background: #E7F0FA; color: var(--accent); }
+  .tk-p-wish_list { background: #EFE9F5; color: var(--rs); }
+  .tk-s-new { background: #E6F2EA; color: var(--done); }
+  .tk-s-in_progress { background: #FFF6E3; color: var(--note); }
+  .tk-s-on_hold { background: var(--ground); color: var(--muted); border: 1px solid var(--line); }
+  .tk-s-completed { background: var(--done); color: #fff; }
+  .tk-l-resident { background: #E7F0FA; color: var(--resident); font-weight: 500; }
+  .tk-l-rs { background: #EFE9F5; color: var(--rs); font-weight: 500; }
+  .tk-unassigned { background: var(--bad-bg); color: var(--bad); }
+  .tk-stale-pill { background: var(--note-bg); color: var(--note); border: 1px dashed var(--note); }
+  .tk-visitlist { background: #E7F0FA; color: var(--accent); }
+  .tk-meta { color: var(--muted); font-size: .8rem; margin-top: 7px; }
+  .tk-desc { margin: 8px 0 0; font-size: .92rem; white-space: pre-wrap; }
+  .tk-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .tk-btn {
+    border: 1.5px solid var(--accent); color: var(--accent); background: var(--card);
+    border-radius: 9px; padding: 6px 11px; font: inherit; font-size: .85rem;
+    font-weight: 600; cursor: pointer;
+  }
+  .tk-btn.done { border-color: var(--done); color: var(--done); }
+  .tk-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .tk-panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .tk-panel h2 { font-size: .98rem; margin: 0 0 8px; }
+  .tk-note { border-left: 3px solid var(--line); padding: 6px 10px; margin: 8px 0; font-size: .88rem; white-space: pre-wrap; }
+  .tk-note .tk-who { color: var(--muted); font-size: .76rem; }
+  .tk-note.sys { color: var(--muted); font-style: italic; }
+  .tk-compose textarea { width: 100%; border: 1.5px solid var(--line); border-radius: 9px; padding: 8px; font: inherit; font-size: .9rem; background: #FFFDF5; resize: vertical; }
+  .tk-admin-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  .tk-admin-row label { font-size: .8rem; font-weight: 600; }
+  .tk-admin-row select { padding: 5px 7px; font: inherit; font-size: .85rem; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); }
+  .tk-form label { display: block; font-size: .82rem; font-weight: 600; margin: 10px 0 3px; }
+  .tk-form input, .tk-form select, .tk-form textarea {
+    width: 100%; border: 1.5px solid var(--line); border-radius: 9px; padding: 8px;
+    font: inherit; font-size: .9rem; background: var(--card);
+  }
+  .tk-form textarea { background: #FFFDF5; resize: vertical; }
+  .tk-msg { font-size: .85rem; margin-top: 8px; }
+  .tk-msg.error { color: var(--bad); }
+  .tk-count {
+    background: var(--bad-bg); color: var(--bad); border-radius: 999px;
+    padding: 1px 8px; font-size: .74rem; font-weight: 700; margin-left: 8px;
+  }
+  #visitTickets { border: 2px solid var(--accent); border-radius: 12px; background: #EDF3F9; padding: 10px 12px; margin: 0 0 14px; }
+  #visitTickets > summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  #visitTickets .tk-card { cursor: default; }
+  .notif-row {
+    display: flex; gap: 9px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 7px; font-size: .88rem;
+    width: 100%; text-align: left; font-family: inherit; cursor: pointer;
+  }
+  .notif-row.unread { border-left: 4px solid var(--accent); }
+  .notif-row .tk-who { color: var(--muted); font-size: .76rem; }
+  .notif-row:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .tk-chip, .tk-btn { transition: background .15s, color .15s; }
+  }
 
   /* Quiet on purpose — must not compete with the three big task buttons. */
   .home-signout {
@@ -815,6 +901,12 @@
     <small>Pick a house and start the checklist</small></button>
   <button type="button" class="home-btn" id="homeContinue">▶ Continue house visit
     <small>Pick up where you left off</small></button>
+  <button type="button" class="home-btn" id="homeMyTickets">📌 My tickets<span class="pending-count" id="myTicketsBadge"></span>
+    <small>Open tickets assigned to you</small></button>
+  <button type="button" class="home-btn" id="homeTickets">🎫 Tickets<span class="pending-count" id="ticketsBadge"></span>
+    <small>All maintenance requests — file, filter &amp; work them</small></button>
+  <button type="button" class="home-btn" id="homeAlerts">🔔 Notifications<span class="pending-count" id="alertsBadge"></span>
+    <small>Assignments &amp; comments for you</small></button>
   <button type="button" class="home-btn" id="homeNotes">📝 House notes
     <small>Info, item notes &amp; general notes per house</small></button>
   <button type="button" class="home-btn" id="homeProfile">👤 My profile
@@ -914,6 +1006,38 @@
     <h1>Team</h1>
   </div>
   <div id="teamBody"><p class="screen-sub">Loading…</p></div>
+</div>
+
+<div id="ticketsScreen" class="screen" aria-label="Tickets">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1 id="ticketsTitle">Tickets</h1>
+  </div>
+  <div id="ticketsBody"><p class="screen-sub">Loading…</p></div>
+</div>
+
+<div id="ticketDetailScreen" class="screen" aria-label="Ticket">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-tickets-back>← Tickets</button>
+    <h1>Ticket</h1>
+  </div>
+  <div id="ticketDetailBody"><p class="screen-sub">Loading…</p></div>
+</div>
+
+<div id="newTicketScreen" class="screen" aria-label="New ticket">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-tickets-back>← Tickets</button>
+    <h1>＋ New ticket</h1>
+  </div>
+  <div id="newTicketBody"></div>
+</div>
+
+<div id="alertsScreen" class="screen" aria-label="Notifications">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>🔔 Notifications</h1>
+  </div>
+  <div id="alertsBody"><p class="screen-sub">Loading…</p></div>
 </div>
 
 <div id="sideBackdrop" hidden></div>
@@ -1396,8 +1520,11 @@
         ? `<p class="pick-none">No houses are assigned to your route yet — ask a supervisor, or use "Show all houses".</p>`
         : `<p class="pick-none">No house matches "${filter.replace(/</g, "&lt;")}".</p>`;
     } else {
-      html = matches.map(h =>
-        `<button type="button" class="pick-btn" data-pick-house="${h.name.replace(/"/g, "&quot;")}">${h.name.replace(/</g, "&lt;")}</button>`).join("");
+      html = matches.map(h => {
+        const open = ticketByHouse[h.name.trim().toLowerCase()] || 0;
+        const badge = open > 0 ? `<span class="tk-count">${open} open</span>` : "";
+        return `<button type="button" class="pick-btn" data-pick-house="${h.name.replace(/"/g, "&quot;")}">${h.name.replace(/</g, "&lt;")}${badge}</button>`;
+      }).join("");
     }
     if (scoped) html += `<button type="button" class="pick-all" data-pick-all>Show all houses…</button>`;
     return html;
@@ -1415,6 +1542,13 @@
         <div class="pick-list" id="pickList">${pickListHTML("")}</div>
         <button type="button" class="pick-skip" data-pick-house="">Skip — use the full checklist</button>
       </div>`;
+    }
+    // Open tickets at this house — a slot filled async by paintVisitTickets().
+    if (house) {
+      html += `<details id="visitTickets" hidden>
+        <summary>🎫 Open tickets at this house</summary>
+        <div id="visitTicketsBody"></div>
+      </details>`;
     }
     GROUPS.forEach((group, g) => {
       html += `<div class="group-label ${group.cls}">${group.label}</div>`;
@@ -2010,7 +2144,52 @@
 
   // Rebuild the checklist (used when the selected house changes, since house
   // tailoring affects which items render). State is preserved via localStorage.
-  function rebuild() { build(); hydrate(); refreshDueInfo(); loadChecklistNotes(); }
+  function rebuild() { build(); hydrate(); refreshDueInfo(); loadChecklistNotes(); paintVisitTickets(); }
+
+  // Fill the "🎫 Open tickets at this house" panel (rendered empty+hidden by
+  // build()). House Visit List items pin to the top, then priority order. The
+  // panel only unhides when there's at least one open ticket, so a clean house
+  // shows nothing. Tech-workable inline: status buttons + a quick note.
+  async function paintVisitTickets() {
+    const panel = document.getElementById("visitTickets");
+    if (!panel || !window.cloud) return;
+    const house = currentHouse();
+    if (!house) return;
+    const res = await window.cloud.listTickets();
+    if (res.error) return;
+    const mine = res.tickets
+      .filter(t => t.houseName === house.name && t.status !== "completed")
+      .sort((a, b) => {
+        const av = a.category === "House Visit List" ? 0 : 1;
+        const bv = b.category === "House Visit List" ? 0 : 1;
+        return av - bv || (TK_PRIORITY_ORDER[a.priority] - TK_PRIORITY_ORDER[b.priority]);
+      });
+    if (!mine.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+    panel.querySelector("summary").textContent = `🎫 Open tickets at this house (${mine.length})`;
+    document.getElementById("visitTicketsBody").innerHTML = mine.map(t => `
+      <div class="tk-card" style="margin-top:9px">
+        <div class="tk-card-top"><span class="tk-title">${escHtml(t.title)}</span></div>
+        <div class="tk-pills">${tkPillsFor(t, { showStale: false })}</div>
+        <div class="tk-actions">
+          <button type="button" class="tk-btn" data-vt-open="${t.id}">Open</button>
+          ${t.status !== "in_progress" ? `<button type="button" class="tk-btn" data-vt-status="in_progress" data-vt-id="${t.id}">▶ In progress</button>` : ""}
+          <button type="button" class="tk-btn done" data-vt-status="completed" data-vt-id="${t.id}">✔ Completed</button>
+        </div>
+      </div>`).join("");
+  }
+
+  document.getElementById("app").addEventListener("click", async e => {
+    const openBtn = e.target.closest("[data-vt-open]");
+    if (openBtn) { location.hash = "#ticket/" + openBtn.dataset.vtOpen; return; }
+    const statusBtn = e.target.closest("[data-vt-status]");
+    if (statusBtn && window.cloud) {
+      statusBtn.disabled = true;
+      const r = await window.cloud.setTicketStatus(statusBtn.dataset.vtId, statusBtn.dataset.vtStatus);
+      if (r.error) statusBtn.disabled = false;
+      else paintVisitTickets();
+    }
+  });
 
   // Pending suggestions / denial notices for the checklist's 📍 notes.
   // build() renders empty <span data-hn-slot> slots synchronously; this pair
@@ -2677,6 +2856,11 @@
     if (h.startsWith("#mynotes")) return "mynotes";
     if (h.startsWith("#reviews")) return "reviews";
     if (h.startsWith("#team")) return "team";
+    // Order matters: "#tickets" must be tested before "#ticket/".
+    if (h.startsWith("#tickets")) return "tickets";
+    if (h.startsWith("#ticket/")) return "ticket";
+    if (h.startsWith("#newticket")) return "newticket";
+    if (h.startsWith("#alerts")) return "alerts";
     return "home";
   }
   function showScreen() {
@@ -2691,6 +2875,10 @@
     if (scr === "mynotes") renderMyNotesScreen();
     if (scr === "reviews") renderReviewsScreen();
     if (scr === "team") renderTeamScreen();
+    if (scr === "tickets") renderTicketsScreen();
+    if (scr === "ticket") renderTicketDetailScreen();
+    if (scr === "newticket") renderNewTicketScreen();
+    if (scr === "alerts") renderAlertsScreen();
     if (scr === "notes" && typeof renderNotesScreen === "function") renderNotesScreen();
   }
   function goHome() { location.hash = "#home"; }
@@ -2741,6 +2929,22 @@
   document.getElementById("homeTeam").addEventListener("click", () => {
     editingTeamId = null;   // always land on Team with no card mid-edit
     location.hash = "#team";
+  });
+  document.getElementById("homeTickets").addEventListener("click", () => {
+    location.hash = "#tickets";
+  });
+  document.getElementById("homeMyTickets").addEventListener("click", () => {
+    location.hash = "#tickets/mine";
+  });
+  document.getElementById("homeAlerts").addEventListener("click", () => {
+    location.hash = "#alerts";
+  });
+  // "← Tickets" on the detail + new-ticket screens: remember whether the user
+  // came from My tickets or the full queue and land them back there.
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-tickets-back]")) {
+      location.hash = ticketsMine ? "#tickets/mine" : "#tickets";
+    }
   });
 
   // ---- Continue screen ----
@@ -3646,6 +3850,358 @@
   window.applyPendingCount = function (n) {
     const el = document.getElementById("pendingCountBadge");
     if (el) el.textContent = n > 0 ? ` (${n})` : "";
+  };
+
+  // ================= Maintenance tickets =================
+  const TK_CATEGORIES = [
+    "Flooring","Plumbing","Doors","Windows","Electrical","Appliance Issues",
+    "Landscaping","Pest Control","Carpentry","Gutters","Fences","Roofing",
+    "Ceiling","Railings","Decorating","Furniture","Interior Painting",
+    "Exterior Painting","Deck Sealing or Repair","Sidewalk or Driveway",
+    "Tree Trimming or Removal","Items to Haul Away","Fire Extinguisher",
+    "Van or Vehicle Issues","Other Bathroom Issues","Other Kitchen Issues",
+    "Other/Unsure","House Visit List"];
+  const TK_PRIORITY_LABEL = { urgent: "Urgent", time_sensitive: "Time sensitive",
+    normal: "Normal", wish_list: "Wish list" };
+  const TK_PRIORITY_ORDER = { urgent: 0, time_sensitive: 1, normal: 2, wish_list: 3 };
+  const TK_STATUS_LABEL = { new: "New", in_progress: "In progress",
+    on_hold: "On hold", completed: "Completed" };
+  const TK_LEVEL_LABEL = { resident: "Resident level", rs: "RS level" };
+  const TK_ROLE_LABEL = { rs: "RS", pd: "PD", rc: "RC", staff: "Staff",
+    guardian: "Guardian", live_in: "Live In", maintenance: "Maintenance" };
+  const TK_STALE_MS = 30 * 24 * 60 * 60 * 1000;
+
+  let ticketsMine = false;        // #tickets/mine vs the full queue
+  let ticketsFilter = "all";      // active chip key
+  let ticketsHouse = "";          // house-picker value ("" = all houses)
+  let ticketsCache = null;        // last listTickets() result, for client filtering
+  let ticketByHouse = {};         // lowercase house name → open count (from badges)
+
+  function tkIsStale(t) {
+    return t.status !== "completed" && (Date.now() - new Date(t.updatedAt).getTime()) > TK_STALE_MS;
+  }
+  function tkPill(cls, text) { return `<span class="tk-pill ${cls}">${escHtml(text)}</span>`; }
+  function tkFmt(dateStr) {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function tkPillsFor(t, { showStale = true } = {}) {
+    let html = tkPill("tk-p-" + t.priority, TK_PRIORITY_LABEL[t.priority] || t.priority);
+    html += tkPill("tk-s-" + t.status, TK_STATUS_LABEL[t.status] || t.status);
+    if (!t.assignedTo && t.status !== "completed") html += tkPill("tk-unassigned", "Unassigned");
+    if (t.category === "House Visit List") html += tkPill("tk-visitlist", "📋 House Visit List");
+    if (showStale && tkIsStale(t)) {
+      const days = Math.floor((Date.now() - new Date(t.updatedAt).getTime()) / 86400000);
+      html += tkPill("tk-stale-pill", `Stale · ${days} days`);
+    }
+    return html;
+  }
+
+  function tkCardHTML(t) {
+    return `<button type="button" class="tk-card" data-ticket-id="${t.id}">
+      <span class="tk-card-top"><span class="tk-title">${escHtml(t.title)}</span>
+        <span class="tk-house">${escHtml(t.houseName)}</span></span>
+      <span class="tk-pills">${tkPillsFor(t)}</span>
+      <span class="tk-meta">${escHtml(t.category)} · requested by ${escHtml(TK_ROLE_LABEL[t.requestedByRole] || t.requestedByRole)}${
+        t.assignedToName ? " · " + escHtml(t.assignedToName) : ""} · ${tkFmt(t.createdAt)}</span>
+    </button>`;
+  }
+
+  // Which tickets survive the active chip + house-picker.
+  function tkApplyFilter(all) {
+    let rows = all.slice();
+    if (ticketsMine) {
+      const me = window.cloud && window.cloud.myId;
+      rows = rows.filter(t => t.assignedTo === me && t.status !== "completed");
+    }
+    if (ticketsHouse) rows = rows.filter(t => t.houseName === ticketsHouse);
+    switch (ticketsFilter) {
+      case "new":            rows = rows.filter(t => t.status === "new"); break;
+      case "unassigned":     rows = rows.filter(t => !t.assignedTo && t.status !== "completed"); break;
+      case "urgent":         rows = rows.filter(t => t.priority === "urgent" && t.status !== "completed"); break;
+      case "time_sensitive": rows = rows.filter(t => t.priority === "time_sensitive" && t.status !== "completed"); break;
+      case "wish_list":      rows = rows.filter(t => t.priority === "wish_list" && t.status !== "completed"); break;
+      case "stale":          rows = rows.filter(tkIsStale); break;
+      case "completed":      rows = rows.filter(t => t.status === "completed"); break;
+      case "all":  default:  rows = rows.filter(t => t.status !== "completed"); break;
+    }
+    rows.sort((a, b) => (TK_PRIORITY_ORDER[a.priority] - TK_PRIORITY_ORDER[b.priority])
+      || (new Date(a.createdAt) - new Date(b.createdAt)));   // priority, then oldest first
+    return rows;
+  }
+
+  function tkChipCounts(all) {
+    const open = all.filter(t => t.status !== "completed");
+    return {
+      all: open.length,
+      new: all.filter(t => t.status === "new").length,
+      unassigned: open.filter(t => !t.assignedTo).length,
+      urgent: open.filter(t => t.priority === "urgent").length,
+      time_sensitive: open.filter(t => t.priority === "time_sensitive").length,
+      wish_list: open.filter(t => t.priority === "wish_list").length,
+      stale: all.filter(tkIsStale).length,
+      completed: all.filter(t => t.status === "completed").length,
+    };
+  }
+
+  async function renderTicketsScreen() {
+    ticketsMine = location.hash === "#tickets/mine";
+    document.getElementById("ticketsTitle").textContent = ticketsMine ? "📌 My tickets" : "🎫 Tickets";
+    const body = document.getElementById("ticketsBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    if (!window.cloud) { body.innerHTML = `<p class="screen-sub">Sign in to see tickets.</p>`; return; }
+    const res = await window.cloud.listTickets();
+    if (res.error) {
+      body.innerHTML = res.notReady
+        ? `<p class="screen-sub">Tickets aren't set up yet (database migration pending).</p>`
+        : `<p class="screen-sub">Couldn't load tickets: ${escHtml(res.error)}</p>`;
+      return;
+    }
+    ticketsCache = res.tickets;
+    const houses = [...new Set(res.tickets.map(t => t.houseName).filter(Boolean))].sort();
+    const counts = tkChipCounts(res.tickets);
+    const chip = (key, label, extra = "") =>
+      `<button type="button" class="tk-chip ${extra}" data-tk-filter="${key}" aria-pressed="${ticketsFilter === key}">${label}${
+        counts[key] != null ? ` <b>${counts[key]}</b>` : ""}</button>`;
+    let controls = "";
+    if (!ticketsMine) {
+      controls = `<div class="tk-chips">
+        ${chip("all", "All open")}${chip("new", "New")}${chip("unassigned", "Unassigned")}
+        ${chip("urgent", "Urgent")}${chip("time_sensitive", "Time sensitive")}${chip("wish_list", "Wish list")}
+        ${chip("stale", "Stale 30d+", "stale")}${chip("completed", "Completed")}
+      </div>
+      <div class="tk-housepick"><label>House: <select id="tkHousePick">
+        <option value="">All houses</option>
+        ${houses.map(h => `<option value="${escHtml(h)}"${h === ticketsHouse ? " selected" : ""}>${escHtml(h)}</option>`).join("")}
+      </select></label></div>`;
+    }
+    const rows = tkApplyFilter(res.tickets);
+    const list = rows.length
+      ? rows.map(tkCardHTML).join("")
+      : `<p class="screen-sub">No tickets here.</p>`;
+    body.innerHTML =
+      `<button type="button" class="home-btn" id="tkNewBtn" style="margin-bottom:12px">＋ New ticket</button>`
+      + controls + list;
+  }
+
+  document.getElementById("ticketsBody").addEventListener("click", e => {
+    if (e.target.closest("#tkNewBtn")) { location.hash = "#newticket"; return; }
+    const chipEl = e.target.closest("[data-tk-filter]");
+    if (chipEl) { ticketsFilter = chipEl.dataset.tkFilter; renderTicketsScreen(); return; }
+    const card = e.target.closest("[data-ticket-id]");
+    if (card) { location.hash = "#ticket/" + card.dataset.ticketId; }
+  });
+  document.getElementById("ticketsBody").addEventListener("change", e => {
+    if (e.target.id === "tkHousePick") { ticketsHouse = e.target.value; renderTicketsScreen(); }
+  });
+
+  // ---- Ticket detail ----
+  async function renderTicketDetailScreen() {
+    const id = decodeURIComponent((location.hash.match(/^#ticket\/(.+)$/) || [])[1] || "");
+    const body = document.getElementById("ticketDetailBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    if (!id || !window.cloud) { body.innerHTML = `<p class="screen-sub">Ticket not found.</p>`; return; }
+    const t = await window.cloud.getTicket(id);
+    if (t.error) { body.innerHTML = `<p class="screen-sub">${escHtml(t.error)}</p>`; return; }
+    const isAdmin = window.cloud.role === "supervisor";
+
+    // History trail: comments and system rows in one timeline.
+    const trail = (t.notes || []).map(n => {
+      if (n.kind === "status_change")
+        return `<div class="tk-note sys">${escHtml(n.authorName || "Someone")} marked this ${escHtml(TK_STATUS_LABEL[n.body] || n.body)} — ${tkFmt(n.createdAt)}</div>`;
+      if (n.kind === "assignment")
+        return `<div class="tk-note sys">${escHtml(n.authorName || "Someone")} set assignee: ${escHtml(n.body)} — ${tkFmt(n.createdAt)}</div>`;
+      return `<div class="tk-note"><div class="tk-who">${escHtml(n.authorName || "Someone")} · ${tkFmt(n.createdAt)}</div>${escHtml(n.body)}</div>`;
+    }).join("") || `<p class="screen-sub">No history yet.</p>`;
+
+    // Supervisor triage controls.
+    let adminRow = "";
+    if (isAdmin) {
+      const techRes = await window.cloud.listTechs();
+      const techs = (techRes && techRes.techs) || [];
+      adminRow = `<div class="tk-admin-row">
+        <label>Assign: <select id="tkAssign">
+          <option value="">Unassigned</option>
+          ${techs.map(p => `<option value="${p.id}"${p.id === t.assignedTo ? " selected" : ""}>${escHtml(p.full_name || "Unnamed tech")}</option>`).join("")}
+        </select></label>
+        <label>Priority: <select id="tkPriority">
+          ${Object.keys(TK_PRIORITY_LABEL).map(p => `<option value="${p}"${p === t.priority ? " selected" : ""}>${TK_PRIORITY_LABEL[p]}</option>`).join("")}
+        </select></label>
+      </div>`;
+    }
+
+    const statusBtns = [
+      t.status !== "in_progress" ? `<button type="button" class="tk-btn" data-tk-status="in_progress">▶ In progress</button>` : "",
+      t.status !== "on_hold"     ? `<button type="button" class="tk-btn" data-tk-status="on_hold">On hold</button>` : "",
+      t.status !== "completed"   ? `<button type="button" class="tk-btn done" data-tk-status="completed">✔ Completed</button>` : "",
+      t.status === "completed"   ? `<button type="button" class="tk-btn" data-tk-status="new">Reopen</button>` : "",
+    ].join("");
+
+    const draft = localStorage.getItem("tk-draft-" + id) || "";
+    body.innerHTML = `
+      <div class="tk-panel">
+        <div class="tk-title" style="font-size:1.08rem">${escHtml(t.title)}</div>
+        <div class="tk-pills">${tkPillsFor(t)}${tkPill("tk-l-" + t.level, TK_LEVEL_LABEL[t.level] || t.level)}</div>
+        <div class="tk-meta">${escHtml(t.houseName)} · ${escHtml(t.category)} · requested by ${escHtml(TK_ROLE_LABEL[t.requestedByRole] || t.requestedByRole)}<br>
+          submitted by ${escHtml(t.submittedByName || "—")} · ${tkFmt(t.createdAt)}${t.assignedToName ? " · assigned to " + escHtml(t.assignedToName) : ""}</div>
+        ${t.description ? `<p class="tk-desc">${escHtml(t.description)}</p>` : ""}
+        ${adminRow}
+      </div>
+      <div class="tk-panel">
+        <h2>History</h2>
+        ${trail}
+        <div class="tk-compose" style="margin-top:10px">
+          <textarea id="tkNoteInput" rows="2" placeholder="Add a note…">${escHtml(draft)}</textarea>
+        </div>
+        <div class="tk-actions">
+          <button type="button" class="tk-btn" data-tk-addnote>Add note</button>
+          ${statusBtns}
+        </div>
+        <div class="tk-msg" id="tkDetailMsg"></div>
+      </div>`;
+  }
+
+  document.getElementById("ticketDetailBody").addEventListener("input", e => {
+    if (e.target.id === "tkNoteInput") {
+      const id = decodeURIComponent((location.hash.match(/^#ticket\/(.+)$/) || [])[1] || "");
+      if (id) localStorage.setItem("tk-draft-" + id, e.target.value);
+    }
+  });
+
+  document.getElementById("ticketDetailBody").addEventListener("click", async e => {
+    const id = decodeURIComponent((location.hash.match(/^#ticket\/(.+)$/) || [])[1] || "");
+    if (!id || !window.cloud) return;
+    const msg = document.getElementById("tkDetailMsg");
+    const statusBtn = e.target.closest("[data-tk-status]");
+    if (statusBtn) {
+      statusBtn.disabled = true;
+      const r = await window.cloud.setTicketStatus(id, statusBtn.dataset.tkStatus);
+      if (r.error) { if (msg) { msg.textContent = r.error; msg.className = "tk-msg error"; } statusBtn.disabled = false; }
+      else renderTicketDetailScreen();
+      return;
+    }
+    if (e.target.closest("[data-tk-addnote]")) {
+      const input = document.getElementById("tkNoteInput");
+      const r = await window.cloud.addTicketNote(id, input.value);
+      if (r.error) { if (msg) { msg.textContent = r.error; msg.className = "tk-msg error"; } }
+      else { localStorage.removeItem("tk-draft-" + id); renderTicketDetailScreen(); }
+    }
+  });
+
+  document.getElementById("ticketDetailBody").addEventListener("change", async e => {
+    const id = decodeURIComponent((location.hash.match(/^#ticket\/(.+)$/) || [])[1] || "");
+    if (!id || !window.cloud) return;
+    const msg = document.getElementById("tkDetailMsg");
+    if (e.target.id === "tkAssign") {
+      const r = await window.cloud.assignTicket(id, e.target.value || null);
+      if (r.error && msg) { msg.textContent = r.error; msg.className = "tk-msg error"; }
+      else renderTicketDetailScreen();
+    }
+    if (e.target.id === "tkPriority") {
+      const r = await window.cloud.setTicketPriority(id, e.target.value);
+      if (r.error && msg) { msg.textContent = r.error; msg.className = "tk-msg error"; }
+      else renderTicketDetailScreen();
+    }
+  });
+
+  // ---- New ticket ----
+  function renderNewTicketScreen() {
+    const body = document.getElementById("newTicketBody");
+    const houses = window.cloud && window.cloud.listHousesForRoutes
+      ? window.cloud.listHousesForRoutes() : [];
+    body.innerHTML = `<div class="tk-form">
+      <label for="ntHouse">House</label>
+      <select id="ntHouse"><option value="">Choose a house…</option>
+        ${houses.map(h => `<option value="${escHtml(h.name)}">${escHtml(h.name)}</option>`).join("")}</select>
+      <label for="ntLevel">Level</label>
+      <select id="ntLevel"><option value="resident">Resident level</option><option value="rs">RS level</option></select>
+      <label for="ntTitle">Title</label>
+      <input id="ntTitle" type="text" placeholder="Short summary (e.g. Screen door latch broken)">
+      <label for="ntDesc">What's going on?</label>
+      <textarea id="ntDesc" rows="3" placeholder="Details for whoever picks this up"></textarea>
+      <label for="ntCategory">Category</label>
+      <select id="ntCategory">${TK_CATEGORIES.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join("")}</select>
+      <label for="ntPriority">Priority</label>
+      <select id="ntPriority">
+        <option value="normal">Normal priority</option>
+        <option value="time_sensitive">Time sensitive</option>
+        <option value="urgent">Urgent</option>
+        <option value="wish_list">Wish list</option>
+      </select>
+      <label for="ntRole">Requested by</label>
+      <select id="ntRole">${Object.keys(TK_ROLE_LABEL).map(r => `<option value="${r}">${TK_ROLE_LABEL[r]}</option>`).join("")}</select>
+      <div class="tk-actions">
+        <button type="button" class="tk-btn" id="ntSubmit">Submit ticket</button>
+      </div>
+      <div class="tk-msg" id="ntMsg"></div>
+    </div>`;
+  }
+
+  document.getElementById("newTicketBody").addEventListener("click", async e => {
+    if (!e.target.closest("#ntSubmit")) return;
+    const msg = document.getElementById("ntMsg");
+    const btn = e.target.closest("#ntSubmit");
+    const payload = {
+      houseName: document.getElementById("ntHouse").value,
+      level: document.getElementById("ntLevel").value,
+      title: document.getElementById("ntTitle").value,
+      description: document.getElementById("ntDesc").value,
+      category: document.getElementById("ntCategory").value,
+      priority: document.getElementById("ntPriority").value,
+      requestedByRole: document.getElementById("ntRole").value,
+    };
+    if (!payload.houseName) { msg.textContent = "Pick a house."; msg.className = "tk-msg error"; return; }
+    if (!payload.title.trim()) { msg.textContent = "Give the ticket a title."; msg.className = "tk-msg error"; return; }
+    btn.disabled = true;
+    const r = await window.cloud.createTicket(payload);
+    if (r.error) { msg.textContent = r.error; msg.className = "tk-msg error"; btn.disabled = false; return; }
+    location.hash = "#ticket/" + r.id;
+  });
+
+  // ---- Notifications ----
+  async function renderAlertsScreen() {
+    const body = document.getElementById("alertsBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    if (!window.cloud) { body.innerHTML = `<p class="screen-sub">Sign in to see notifications.</p>`; return; }
+    const res = await window.cloud.listNotifications();
+    if (res.error) {
+      body.innerHTML = res.notReady
+        ? `<p class="screen-sub">Notifications aren't set up yet.</p>`
+        : `<p class="screen-sub">Couldn't load: ${escHtml(res.error)}</p>`;
+      return;
+    }
+    if (!res.items.length) { body.innerHTML = `<p class="screen-sub">Nothing yet.</p>`; return; }
+    const line = n => n.kind === "assigned"
+      ? `<b>You were assigned:</b> ${escHtml(n.ticketTitle)}${n.houseName ? " — " + escHtml(n.houseName) : ""}`
+      : `<b>${escHtml(n.actorName)} commented</b> on “${escHtml(n.ticketTitle)}”`;
+    body.innerHTML =
+      `<button type="button" class="tk-btn" id="tkMarkAllRead" style="margin-bottom:12px">Mark all read</button>`
+      + res.items.map(n => `<button type="button" class="notif-row${n.readAt ? "" : " unread"}" data-notif-ticket="${n.ticketId}">
+          <span>${n.kind === "assigned" ? "🎫" : "💬"}</span>
+          <span>${line(n)}<div class="tk-who">${tkFmt(n.createdAt)}</div></span>
+        </button>`).join("");
+  }
+
+  document.getElementById("alertsBody").addEventListener("click", async e => {
+    if (e.target.closest("#tkMarkAllRead")) {
+      await window.cloud.markAllNotificationsRead();
+      renderAlertsScreen();
+      return;
+    }
+    const row = e.target.closest("[data-notif-ticket]");
+    if (row) location.hash = "#ticket/" + row.dataset.notifTicket;
+  });
+
+  // Badge painter — home buttons, the bell, and the shared byHouse map.
+  window.applyTicketCounts = function (c) {
+    c = c || {};
+    ticketByHouse = c.byHouse || {};
+    const set = (elId, n) => { const el = document.getElementById(elId); if (el) el.textContent = n > 0 ? ` (${n})` : ""; };
+    set("ticketsBadge", c.allOpen);
+    set("myTicketsBadge", c.mineOpen);
+    set("alertsBadge", c.unread);
   };
 
   window.applyReviewCount = function (n) {
