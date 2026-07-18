@@ -227,6 +227,62 @@ async function setProfileRole(id, role) {
   return { error: error ? error.message : null };
 }
 
+// ---- Job titles (supervisor-managed list; RLS is the real gate) ----
+// The list everyone reads (for dropdowns + labels); only supervisors write.
+
+// All titles, ordered by name. activeOnly:true → only assignable ones (the
+// Team dropdown); the management screen passes nothing to see retired ones too.
+// Returns { titles:[{id,name,kind,active}], error }.
+async function listJobTitles({ activeOnly } = {}) {
+  let q = supabase.from("job_titles").select("id, name, kind, active").order("name");
+  if (activeOnly) q = q.eq("active", true);
+  const { data, error } = await q;
+  if (error) return { titles: [], error: error.message };
+  return { titles: (data || []).map(t => ({
+    id: t.id, name: t.name, kind: t.kind || "field", active: t.active !== false,
+  })) };
+}
+
+// Create a title (supervisor-only via RLS). Trims name. The unique lower(name)
+// index (0027) rejects a duplicate — surfaced as a friendly message.
+async function createJobTitle({ name, kind }) {
+  const clean = (name || "").trim();
+  if (!clean) return { error: "Title name can't be empty." };
+  const k = kind === "office" ? "office" : "field";
+  const { error } = await supabase.from("job_titles").insert({ name: clean, kind: k });
+  if (error) {
+    if ((error.code === "23505") || /duplicate|unique/i.test(error.message || "")) {
+      return { error: "A title with that name already exists." };
+    }
+    return { error: error.message };
+  }
+  return { error: null };
+}
+
+async function renameJobTitle(id, name) {
+  const clean = (name || "").trim();
+  if (!clean) return { error: "Title name can't be empty." };
+  const { error } = await supabase.from("job_titles").update({ name: clean }).eq("id", id);
+  if (error) {
+    if ((error.code === "23505") || /duplicate|unique/i.test(error.message || "")) {
+      return { error: "A title with that name already exists." };
+    }
+    return { error: error.message };
+  }
+  return { error: null };
+}
+
+async function setJobTitleKind(id, kind) {
+  const k = kind === "office" ? "office" : "field";
+  const { error } = await supabase.from("job_titles").update({ kind: k }).eq("id", id);
+  return { error: error ? error.message : null };
+}
+
+async function setJobTitleActive(id, active) {
+  const { error } = await supabase.from("job_titles").update({ active: !!active }).eq("id", id);
+  return { error: error ? error.message : null };
+}
+
 // ---- Account admin (the admin-users Edge Function) ----
 // These call the server component that holds the service_role secret. The
 // browser can't do any of this directly. supabase.functions.invoke attaches
@@ -1132,6 +1188,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getHomeOrder, saveHomeOrder,
                  listAllProfiles, saveProfileAsSupervisor, setProfileRole,
                  listTeam, createTeamMember,
+                 listJobTitles, createJobTitle, renameJobTitle, setJobTitleKind, setJobTitleActive,
                  listMyVisits, getVisitDetail,
                  listCompletedVisits, getAnyVisitDetail, markVisitReviewed, unreviewedVisitCount,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
