@@ -9,7 +9,8 @@ this file before every session ends.)
 
 ## ⏭️ FIRST THING NEXT TIME (as of 2026-07-18)
 
-0. **Try the new 🎫 Tickets feature** (hard-refresh first, Ctrl+Shift+R):
+0. **Try the new 🎫 Tickets feature — it's LIVE (sw.js v29 confirmed).**
+   Hard-refresh first (Ctrl+Shift+R), then:
    - Home now has **📌 My tickets**, **🎫 Tickets**, and **🔔 Notifications**
      buttons (with count badges).
    - Open **🎫 Tickets** → filter chips (New / Unassigned / Urgent / Time
@@ -20,13 +21,22 @@ this file before every session ends.)
      checklist now shows a **"🎫 Open tickets at this house"** panel up top
      (House Visit List items pinned first) with In progress / Completed
      buttons.
-   - Tell Claude how it looks — anything to tweak before Phase 2 (photos).
-1. **Still pending from before:** the 👥 Team **+ Add new team member**
+   - **22 fake demo tickets are seeded** (2 urgent, 3 stale). Tell Claude how
+     it looks — anything to tweak?
+1. **Two decisions that unlock the next ticket work:**
+   - **Real SharePoint sync** (submit-from-app → SharePoint, and pull the real
+     list in). This needs **company IT / Microsoft Graph API access** we don't
+     have. If you can find out whether IT would grant it, that's the gate.
+   - **Photos on tickets** — arrives with **Phase 2 (photos)**, the natural
+     next slice.
+2. **Still pending from before:** the 👥 Team **+ Add new team member**
    milestone test (sign out, sign in as the new person). Do it when convenient.
 
 **Note on SharePoint sync:** the app does NOT talk to the real SharePoint list
-yet — that needs company IT/Graph approval. Tickets are fake demo data with the
-**same field shape**, so a real hookup later is a data copy, not a rewrite.
+yet. Tickets are fake demo data with the **same field shape** (fields,
+statuses, priorities, ~28 categories copied from the real
+`acrhomes123.sharepoint.com` list), so a real hookup later is a data copy, not
+a rewrite.
 
 ## ✅ What's live right now
 
@@ -34,12 +44,14 @@ yet — that needs company IT/Graph approval. Tickets are fake demo data with th
 - Supervisor **👥 Team** screen: edit anyone's name / phone / job title /
   role (with confirm + can't-demote-yourself/last-supervisor guards), real
   emails, **Add new team member** (temp-password flow).
-- **NEW 2026-07-18 — 🎫 Maintenance tickets:** file requests in-app, filter
-  the queue (new/unassigned/urgent/time-sensitive/wish-list/stale/completed),
-  assign + re-prioritize (supervisor), work tickets during a house visit,
-  history trail per ticket, and 🔔 notifications for assignments/comments.
-  Fake demo data, shaped like the real SharePoint list. Not synced to
-  SharePoint (needs IT approval).
+- **NEW 2026-07-18 — 🎫 Maintenance tickets** (live, verified): file requests
+  in-app, filter the queue
+  (new/unassigned/urgent/time-sensitive/wish-list/stale/completed), assign +
+  re-prioritize (supervisor), work tickets during a house visit, history trail
+  per ticket, and 🔔 notifications for assignments/comments. Fake demo data
+  (22 seeded), shaped like the real SharePoint list. Not synced to SharePoint
+  (needs IT approval). Spec/plan/mockup in `docs/superpowers/`; migrations
+  0025–0026; test `tests/tickets.test.py`.
 - Everything earlier: visits, reviews queue, house notes + suggestions,
   routes, daily logs, my notes, profile.
 - **2026-07-18 fix:** Daily Logs now records answered questions / N-A marks /
@@ -93,11 +105,14 @@ Your own login is the supervisor.
   — `command 'PASTED-VALUE'` — and never type the `<` `>` brackets from
   examples.
 
-## 🗺️ Roadmap after 2c + 2d
+## 🗺️ Roadmap
 
-Photos (Phase 2) · rotation + advance-notice email (Phase 3) · checklist
-task editing in-app · offline sync (Phase 5) · on-call calendar (Slice 4).
-Someday: move data into company M365/SharePoint (compliance home).
+Done: 🎫 tickets (2026-07-18). Next: Photos (Phase 2, also adds photos to
+tickets) · **real SharePoint ticket sync** (blocked on IT/Graph access) ·
+rotation + advance-notice email (Phase 3) · checklist task editing in-app ·
+offline sync (Phase 5) · on-call calendar (Slice 4) · Team 2c/2d (reset
+password, deactivate). Someday: move data into company M365/SharePoint
+(compliance home).
 
 ---
 *Claude: keep this file current — update "FIRST THING NEXT TIME" and
