@@ -2863,9 +2863,61 @@
     if (h.startsWith("#alerts")) return "alerts";
     return "home";
   }
+  // --- Personal home-menu ordering ---------------------------------------
+  // The pinned tail that never reorders and always stays last.
+  const HOME_PINNED_IDS = ["fieldTools"]; // Sign out has no id; handled below.
+
+  // Visible, reorderable home buttons in current DOM order. Excludes the
+  // pinned Field tools drawer, the Sign out button, and any admin-only button
+  // hidden for this role (offsetParent === null when display:none).
+  function reorderableHomeButtons() {
+    const home = document.getElementById("homeScreen");
+    return Array.from(home.querySelectorAll(".home-btn")).filter(b =>
+      b.id &&
+      !HOME_PINNED_IDS.includes(b.id) &&
+      b.offsetParent !== null            // visible for this role
+    );
+  }
+
+  // Fetch the saved order and rearrange the existing button nodes to match.
+  // Reconcile rules: keep saved ids that are still visible (in saved order),
+  // then append any visible id not in the saved list (new buttons -> bottom).
+  // Pinned Field tools + Sign out are moved back to the end afterward.
+  async function applyHomeOrder() {
+    const home = document.getElementById("homeScreen");
+    const buttons = reorderableHomeButtons();
+    if (!buttons.length) return;
+    const byId = new Map(buttons.map(b => [b.id, b]));
+    let saved = null;
+    try { ({ order: saved } = await window.cloud.getHomeOrder()); } catch { saved = null; }
+
+    let effective;
+    if (Array.isArray(saved) && saved.length) {
+      const kept = saved.filter(id => byId.has(id));
+      const keptSet = new Set(kept);
+      const appended = buttons.map(b => b.id).filter(id => !keptSet.has(id));
+      effective = kept.concat(appended);
+    } else {
+      effective = buttons.map(b => b.id); // no preference -> leave default order
+    }
+
+    // Reorder in place. Insert each button, in effective order, before the
+    // pinned Field tools drawer (which, with Sign out, stays at the tail).
+    const fieldTools = document.getElementById("fieldTools");
+    const signOut = home.querySelector(".home-signout");
+    for (const id of effective) {
+      const btn = byId.get(id);
+      if (btn) home.insertBefore(btn, fieldTools || signOut || null);
+    }
+    // Guarantee the pinned tail order: Field tools, then Sign out, last.
+    if (fieldTools) home.appendChild(fieldTools);
+    if (signOut) home.appendChild(signOut);
+  }
+
   function showScreen() {
     const scr = currentScreenFromHash();
     document.body.dataset.screen = scr;
+    if (scr === "home") applyHomeOrder();
     if (scr === "continue") renderContinue();
     if (scr === "routes") renderRoutesScreen();
     if (scr === "pending") renderPendingScreen();
