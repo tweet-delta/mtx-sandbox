@@ -514,6 +514,7 @@
   body:not([data-screen="mynotes"])  #mynotesScreen,
   body:not([data-screen="reviews"])  #reviewsScreen,
   body:not([data-screen="team"])     #teamScreen,
+  body:not([data-screen="titles"])   #titlesScreen,
   body:not([data-screen="tickets"])  #ticketsScreen,
   body:not([data-screen="ticket"])   #ticketDetailScreen,
   body:not([data-screen="newticket"]) #newTicketScreen,
@@ -926,6 +927,8 @@
     <small>Review techs' visits &amp; surveys</small></button>
   <button type="button" class="home-btn admin-only" id="homeTeam">👥 Team
     <small>Edit techs' name, phone &amp; role</small></button>
+  <button type="button" class="home-btn admin-only" id="homeTitles">🏷️ Job titles
+    <small>Create &amp; manage the team's job titles</small></button>
   <button type="button" class="home-btn" id="homeNewVisit">🏠 New house visit
     <small>Pick a house and start the checklist</small></button>
   <button type="button" class="home-btn" id="homeContinue">▶ Continue house visit
@@ -1035,6 +1038,14 @@
     <h1>Team</h1>
   </div>
   <div id="teamBody"><p class="screen-sub">Loading…</p></div>
+</div>
+
+<div id="titlesScreen" class="screen" aria-label="Job titles">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>Job titles</h1>
+  </div>
+  <div id="titlesBody"><p class="screen-sub">Loading…</p></div>
 </div>
 
 <div id="ticketsScreen" class="screen" aria-label="Tickets">
@@ -2885,6 +2896,7 @@
     if (h.startsWith("#mynotes")) return "mynotes";
     if (h.startsWith("#reviews")) return "reviews";
     if (h.startsWith("#team")) return "team";
+    if (h.startsWith("#titles")) return "titles";
     // Order matters: "#tickets" must be tested before "#ticket/".
     if (h.startsWith("#tickets")) return "tickets";
     if (h.startsWith("#ticket/")) return "ticket";
@@ -3053,6 +3065,7 @@
     if (scr === "mynotes") renderMyNotesScreen();
     if (scr === "reviews") renderReviewsScreen();
     if (scr === "team") renderTeamScreen();
+    if (scr === "titles") renderTitlesScreen();
     if (scr === "tickets") renderTicketsScreen();
     if (scr === "ticket") renderTicketDetailScreen();
     if (scr === "newticket") renderNewTicketScreen();
@@ -3107,6 +3120,10 @@
   document.getElementById("homeTeam").addEventListener("click", () => {
     editingTeamId = null;   // always land on Team with no card mid-edit
     location.hash = "#team";
+  });
+  document.getElementById("homeTitles").addEventListener("click", () => {
+    editingTitleId = null;   // always land on Job titles with no card mid-edit
+    location.hash = "#titles";
   });
   document.getElementById("homeTickets").addEventListener("click", () => {
     location.hash = "#tickets";
@@ -3300,6 +3317,11 @@
   // Same single-open discipline as editingNoteId; the roster is re-rendered
   // from the server after every mutation.
   let editingTeamId = null;
+
+  // Job titles: id of the title whose card is open for editing, or null; and
+  // whether the "+ Add title" form is open. Single-open discipline like Team.
+  let editingTitleId = null;
+  let titleAddOpen = false;
 
   async function renderMyNotesScreen() {
     const body = document.getElementById("mynotesBody");
@@ -3580,6 +3602,11 @@
   // When the Add-member form is open, this holds a truthy flag so a roster
   // re-render keeps it open. Cleared on cancel / successful create.
   let teamAddOpen = false;
+
+  async function renderTitlesScreen() {
+    document.getElementById("titlesBody").innerHTML =
+      `<p class="screen-sub">Coming up in the next step.</p>`;
+  }
 
   async function renderTeamScreen() {
     const body = document.getElementById("teamBody");
