@@ -541,6 +541,33 @@
   #fieldTools > .home-btn { margin-left: 14px; }
   .pending-count { font-weight: 700; }
 
+  /* ---- Personal home-menu ordering (Arrange mode) ---- */
+  .home-arrange-toggle {
+    margin-left: auto; font-size: 0.9rem; padding: 6px 12px;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .home-arrange-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #homeScreen .screen-head { display: flex; align-items: center; gap: 10px; }
+
+  /* Arrange mode: reveal move controls, quiet the pinned tail. */
+  .home-move { display: none; }
+  #homeScreen.arranging .home-btn { position: relative; padding-right: 92px; }
+  #homeScreen.arranging .home-move { display: inline-flex; }
+  .home-move {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 34px; height: 34px; align-items: center; justify-content: center;
+    font-size: 1.1rem; line-height: 1; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--ground); color: var(--ink); cursor: pointer;
+  }
+  .home-move.up   { right: 50px; }
+  .home-move.down { right: 10px; }
+  .home-move:disabled { opacity: 0.35; cursor: default; }
+  .home-move:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  /* Pinned tail is visibly not part of the arrangement. */
+  #homeScreen.arranging #fieldTools,
+  #homeScreen.arranging .home-signout { opacity: 0.5; pointer-events: none; }
+
   /* ---- Maintenance tickets ---- */
   .tk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
   .tk-chip {
@@ -892,7 +919,9 @@
 </div>
 
 <div id="homeScreen" class="screen" aria-label="Home">
-  <div class="screen-head"><h1>Maintenance House Visit</h1></div>
+  <div class="screen-head"><h1>Maintenance House Visit</h1>
+    <button type="button" class="home-arrange-toggle" id="homeArrangeToggle"
+      aria-pressed="false">⇅ Arrange</button></div>
   <button type="button" class="home-btn admin-only" id="homeReviews">✅ Completed visits<span class="pending-count" id="reviewCountBadge"></span>
     <small>Review techs' visits &amp; surveys</small></button>
   <button type="button" class="home-btn admin-only" id="homeTeam">👥 Team
@@ -2914,9 +2943,106 @@
     if (signOut) home.appendChild(signOut);
   }
 
+  // --- Arrange mode: ⇅ Arrange / ✓ Done, up/down controls ---
+  let homeArranging = false;
+
+  function makeMoveBtn(dir, label) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "home-move " + dir;
+    b.textContent = dir === "up" ? "↑" : "↓";
+    b.setAttribute("aria-label", label);
+    return b;
+  }
+
+  function refreshMoveDisabled() {
+    const btns = reorderableHomeButtons();
+    btns.forEach((b, i) => {
+      const up = b.querySelector(".home-move.up");
+      const down = b.querySelector(".home-move.down");
+      if (up) up.disabled = (i === 0);
+      if (down) down.disabled = (i === btns.length - 1);
+    });
+  }
+
+  function enterArrangeMode() {
+    if (homeArranging) return;
+    homeArranging = true;
+    const home = document.getElementById("homeScreen");
+    home.classList.add("arranging");
+    const toggle = document.getElementById("homeArrangeToggle");
+    toggle.textContent = "✓ Done";
+    toggle.setAttribute("aria-pressed", "true");
+    // Inject arrows into each reorderable button. A capture-phase guard on
+    // homeScreen (below) suppresses button navigation while arranging.
+    reorderableHomeButtons().forEach(b => {
+      const label = (b.textContent || "").trim().split("\n")[0];
+      const up = makeMoveBtn("up", "Move " + label + " up");
+      const down = makeMoveBtn("down", "Move " + label + " down");
+      up.addEventListener("click", ev => { ev.stopPropagation(); swapHome(b, -1); });
+      down.addEventListener("click", ev => { ev.stopPropagation(); swapHome(b, 1); });
+      b.appendChild(up);
+      b.appendChild(down);
+    });
+    refreshMoveDisabled();
+  }
+
+  // Move button `b` one slot up (-1) or down (+1) among reorderable siblings.
+  function swapHome(b, dir) {
+    const btns = reorderableHomeButtons();
+    const i = btns.indexOf(b);
+    const j = i + dir;
+    if (j < 0 || j >= btns.length) return;
+    const home = document.getElementById("homeScreen");
+    if (dir === -1) home.insertBefore(b, btns[j]);
+    else home.insertBefore(btns[j], b);
+    refreshMoveDisabled();
+  }
+
+  async function exitArrangeMode() {
+    if (!homeArranging) return;
+    homeArranging = false;
+    const home = document.getElementById("homeScreen");
+    home.classList.remove("arranging");
+    const toggle = document.getElementById("homeArrangeToggle");
+    toggle.textContent = "⇅ Arrange";
+    toggle.setAttribute("aria-pressed", "false");
+    // Read current order BEFORE removing arrows (removal doesn't change order,
+    // but read first to be safe), then strip the injected arrows.
+    const ids = reorderableHomeButtons().map(b => b.id);
+    home.querySelectorAll(".home-move").forEach(el => el.remove());
+    const res = await window.cloud.saveHomeOrder(ids);
+    if (res && res.error) {
+      // Keep the on-screen order; tell the user it didn't persist.
+      let note = document.getElementById("homeArrangeNote");
+      if (!note) {
+        note = document.createElement("p");
+        note.id = "homeArrangeNote";
+        note.className = "screen-sub";
+        note.textContent = "Couldn't save your order — it'll reset next time.";
+        home.querySelector(".screen-head").after(note);
+      }
+    }
+  }
+
+  document.getElementById("homeArrangeToggle").addEventListener("click", () => {
+    if (homeArranging) exitArrangeMode(); else enterArrangeMode();
+  });
+
+  // Suppress button navigation while arranging (capture phase, so it beats the
+  // per-button click handlers). Arrow clicks call stopPropagation already, but
+  // a tap on the button body must not navigate.
+  document.getElementById("homeScreen").addEventListener("click", ev => {
+    if (homeArranging && ev.target.closest(".home-btn") && !ev.target.closest(".home-move")) {
+      ev.stopPropagation();
+      ev.preventDefault();
+    }
+  }, true);
+
   function showScreen() {
     const scr = currentScreenFromHash();
     document.body.dataset.screen = scr;
+    if (scr !== "home" && homeArranging) exitArrangeMode();
     if (scr === "home") applyHomeOrder();
     if (scr === "continue") renderContinue();
     if (scr === "routes") renderRoutesScreen();
