@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
       const { data: list, error } = await admin.auth.admin.listUsers();
       if (error) return json({ error: error.message }, 500);
       const { data: profs } = await admin
-        .from("profiles").select("id, full_name, phone, job_title, role, active");
+        .from("profiles")
+        .select("id, full_name, phone, role, active, job_title_id, job_titles(name)");
       const byId = new Map((profs ?? []).map((p) => [p.id as string, p]));
       const people = list.users.map((u) => {
         const p = (byId.get(u.id) ?? {}) as Record<string, unknown>;
@@ -94,7 +95,8 @@ Deno.serve(async (req) => {
           email: u.email ?? "",
           fullName: (p.full_name as string) ?? "",
           phone: (p.phone as string) ?? "",
-          jobTitle: (p.job_title as string) ?? "",
+          jobTitleId: (p.job_title_id as string) ?? null,
+          jobTitleName: ((p.job_titles as { name?: string } | null)?.name) ?? "",
           role: (p.role as string) ?? "tech",
           active: (p.active as boolean) ?? true,
           isMe: u.id === user.id,
