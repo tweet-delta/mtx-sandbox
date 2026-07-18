@@ -3468,7 +3468,7 @@
     const id = saveBtn.dataset.teamSave;
     const fullName = card.querySelector("[data-team-name]").value.trim();
     const phone = card.querySelector("[data-team-phone]").value.trim();
-    const jobTitle = card.querySelector("[data-team-title]").value.trim();
+    const jobTitleId = card.querySelector("[data-team-title-id]").value || null;
     const errEl = card.querySelector("[data-team-error]");
     const showErr = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
     errEl.hidden = true;
@@ -3486,7 +3486,7 @@
       if (r.error) { showErr(r.error); return; }
     }
 
-    const s = await window.cloud.saveProfileAsSupervisor(id, { fullName, phone, jobTitle });
+    const s = await window.cloud.saveProfileAsSupervisor(id, { fullName, phone, jobTitleId });
     if (s.error) { showErr(s.error); return; }
     editingTeamId = null;
     renderTeamScreen();
@@ -3749,10 +3749,13 @@
       return;
     }
     const people = res.people || [];
+    const tRes = await window.cloud.listJobTitles({ activeOnly: true });
+    if (currentScreenFromHash() !== "team") return;
+    const activeTitles = tRes.titles || [];
     body.innerHTML =
       `<button type="button" class="home-btn" id="teamAddBtn">+ Add new team member</button>` +
       (teamAddOpen ? teamAddFormHTML() : "") +
-      people.map(p => teamCardHTML(p)).join("");
+      people.map(p => teamCardHTML(p, activeTitles)).join("");
     if (teamAddOpen) body.querySelector("[data-team-new-name]")?.focus();
   }
 
@@ -3776,15 +3779,15 @@
 
   // A person's card. Real email now shown for everyone (from the Edge
   // Function). Own card has no role control. Password reset arrives in 2c.
-  function teamCardHTML(p) {
-    if (editingTeamId === p.id) return teamEditHTML(p);
+  function teamCardHTML(p, activeTitles) {
+    if (editingTeamId === p.id) return teamEditHTML(p, activeTitles);
     const name = p.fullName || "Unnamed";
     const meTag = p.isMe ? ` <span class="team-me-tag">(you)</span>` : "";
     return `<div class="team-card" data-team-card data-team-id="${escAttr(p.id)}">
       <h3>${escHtml(name)}${meTag}
         <span class="team-role-badge">${escHtml(p.role)}</span></h3>
       <div class="muted-row">📞 ${escHtml(p.phone || "—")}</div>
-      <div class="muted-row">🏷️ ${escHtml(p.jobTitle || "—")}</div>
+      <div class="muted-row">🏷️ ${escHtml(p.jobTitleName || "—")}</div>
       <div class="muted-row">✉️ ${escHtml(p.email || "—")}</div>
       <div class="muted-row">🔒 Password — reset coming next</div>
       <button type="button" class="menu-btn team-edit-btn" data-team-edit="${escAttr(p.id)}">✎ Edit</button>
@@ -3793,7 +3796,7 @@
 
   // Inline editor. The role <select> appears only on OTHER people's cards —
   // you can't demote yourself (the DB guard also enforces this).
-  function teamEditHTML(p) {
+  function teamEditHTML(p, activeTitles) {
     const roleField = p.isMe ? "" : `
       <label class="team-field"><span>Role</span>
         <select data-team-role data-orig-role="${escAttr(p.role)}">
@@ -3806,7 +3809,15 @@
       <label class="team-field"><span>Phone</span>
         <input type="text" data-team-phone value="${escAttr(p.phone)}"></label>
       <label class="team-field"><span>Job title</span>
-        <input type="text" data-team-title value="${escAttr(p.jobTitle || "")}"></label>
+        <select data-team-title-id>
+          <option value=""${!p.jobTitleId ? " selected" : ""}>— none —</option>
+          ${(activeTitles || []).map(t =>
+            `<option value="${escAttr(t.id)}"${t.id === p.jobTitleId ? " selected" : ""}>${escHtml(t.name)}</option>`
+          ).join("")}
+          ${p.jobTitleId && !(activeTitles || []).some(t => t.id === p.jobTitleId)
+            ? `<option value="${escAttr(p.jobTitleId)}" selected>${escHtml(p.jobTitleName)} (retired)</option>`
+            : ""}
+        </select></label>
       ${roleField}
       <p class="team-error" data-team-error hidden></p>
       <div class="team-edit-actions">
