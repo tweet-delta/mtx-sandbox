@@ -3492,6 +3492,61 @@
     renderTeamScreen();
   });
 
+  // ---- Job-titles interactions (supervisor-only; RLS enforces) ----
+  document.getElementById("titlesBody").addEventListener("click", async (e) => {
+    if (e.target.closest("#titleAddBtn")) {
+      titleAddOpen = true; editingTitleId = null; renderTitlesScreen(); return;
+    }
+    if (e.target.closest("[data-title-add-cancel]")) {
+      titleAddOpen = false; renderTitlesScreen(); return;
+    }
+    const editBtn = e.target.closest("[data-title-edit]");
+    if (editBtn) { editingTitleId = editBtn.dataset.titleEdit; titleAddOpen = false; renderTitlesScreen(); return; }
+    if (e.target.closest("[data-title-cancel]")) {
+      editingTitleId = null; renderTitlesScreen(); return;
+    }
+
+    // Retire / reactivate.
+    const activeBtn = e.target.closest("[data-title-active]");
+    if (activeBtn) {
+      const r = await window.cloud.setJobTitleActive(
+        activeBtn.dataset.titleActive, activeBtn.dataset.titleTo === "1");
+      if (r.error) { toast("Couldn't update — " + r.error, "error"); return; }
+      renderTitlesScreen(); return;
+    }
+
+    // Create a new title.
+    if (e.target.closest("[data-title-create]")) {
+      const form = e.target.closest("[data-title-add-form]");
+      const name = form.querySelector("[data-title-new-name]").value.trim();
+      const kind = form.querySelector("[data-title-kind]").value;
+      const errEl = form.querySelector("[data-title-error]");
+      const showErr = (m) => { errEl.textContent = m; errEl.hidden = false; };
+      errEl.hidden = true;
+      if (!name) { showErr("Title name can't be empty."); return; }
+      const r = await window.cloud.createJobTitle({ name, kind });
+      if (r.error) { showErr(r.error); return; }
+      titleAddOpen = false; renderTitlesScreen(); return;
+    }
+
+    // Save an edit (name + kind).
+    const saveBtn = e.target.closest("[data-title-save]");
+    if (!saveBtn) return;
+    const card = saveBtn.closest("[data-title-card]");
+    const id = saveBtn.dataset.titleSave;
+    const name = card.querySelector("[data-title-name]").value.trim();
+    const kind = card.querySelector("[data-title-kind]").value;
+    const errEl = card.querySelector("[data-title-error]");
+    const showErr = (m) => { errEl.textContent = m; errEl.hidden = false; };
+    errEl.hidden = true;
+    if (!name) { showErr("Title name can't be empty."); return; }
+    const r1 = await window.cloud.renameJobTitle(id, name);
+    if (r1.error) { showErr(r1.error); return; }
+    const r2 = await window.cloud.setJobTitleKind(id, kind);
+    if (r2.error) { showErr(r2.error); return; }
+    editingTitleId = null; renderTitlesScreen();
+  });
+
   // Shared by My Visit History and the supervisor review detail so the two
   // can never drift: only the items worth revisiting — flagged (answer ===
   // item.bad, polarity from GROUPS) OR carrying a note. An item_key no
@@ -3604,8 +3659,78 @@
   let teamAddOpen = false;
 
   async function renderTitlesScreen() {
-    document.getElementById("titlesBody").innerHTML =
-      `<p class="screen-sub">Coming up in the next step.</p>`;
+    const body = document.getElementById("titlesBody");
+    if (!window.cloud || window.cloud.role !== "supervisor") {
+      body.innerHTML = `<p class="screen-sub">Supervisors only.</p>`;
+      return;
+    }
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const res = await window.cloud.listJobTitles();   // all, incl. retired
+    if (currentScreenFromHash() !== "titles") return;  // navigated away meanwhile
+    if (res.error) {
+      body.innerHTML = `<p class="screen-sub">Couldn't load job titles — ${escHtml(res.error)}</p>`;
+      return;
+    }
+    const titles = res.titles || [];
+    body.innerHTML =
+      `<button type="button" class="home-btn" id="titleAddBtn">+ Add job title</button>` +
+      (titleAddOpen ? titleAddFormHTML() : "") +
+      (titles.length
+        ? titles.map(t => titleCardHTML(t)).join("")
+        : `<p class="screen-sub">No titles yet — add your first one above.</p>`);
+    if (titleAddOpen) body.querySelector("[data-title-new-name]")?.focus();
+  }
+
+  // The "+ Add title" form: name + a field/office picker.
+  function titleAddFormHTML() {
+    return `<div class="team-card" data-title-add-form>
+      <label class="team-field"><span>Title name</span>
+        <input type="text" data-title-new-name placeholder="e.g. Interior Designer"></label>
+      <label class="team-field"><span>Kind</span>
+        ${kindSelectHTML("field")}</label>
+      <p class="team-error" data-title-error hidden></p>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-save" data-title-create>Add</button>
+        <button type="button" class="menu-btn team-cancel" data-title-add-cancel>Cancel</button>
+      </div>
+    </div>`;
+  }
+
+  // A field/office dropdown; `sel` is the currently-selected value.
+  function kindSelectHTML(sel) {
+    return `<select data-title-kind>
+      <option value="field"${sel === "field" ? " selected" : ""}>Field (house visits &amp; daily logs)</option>
+      <option value="office"${sel === "office" ? " selected" : ""}>Office / Projects</option>
+    </select>`;
+  }
+
+  function titleCardHTML(t) {
+    if (editingTitleId === t.id) return titleEditHTML(t);
+    const kindLabel = t.kind === "office" ? "Office / Projects" : "Field";
+    const retired = t.active === false
+      ? ` <span class="team-role-badge">retired</span>` : "";
+    return `<div class="team-card" data-title-card data-title-id="${escAttr(t.id)}">
+      <h3>${escHtml(t.name)}
+        <span class="team-role-badge">${escHtml(kindLabel)}</span>${retired}</h3>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-edit-btn" data-title-edit="${escAttr(t.id)}">✎ Edit</button>
+        <button type="button" class="menu-btn" data-title-active="${escAttr(t.id)}" data-title-to="${t.active === false ? "1" : "0"}">${t.active === false ? "Reactivate" : "Retire"}</button>
+      </div>
+    </div>`;
+  }
+
+  function titleEditHTML(t) {
+    return `<div class="team-card" data-title-card data-title-id="${escAttr(t.id)}">
+      <label class="team-field"><span>Title name</span>
+        <input type="text" data-title-name value="${escAttr(t.name)}"></label>
+      <label class="team-field"><span>Kind</span>
+        ${kindSelectHTML(t.kind === "office" ? "office" : "field")}</label>
+      <p class="team-error" data-title-error hidden></p>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-save" data-title-save="${escAttr(t.id)}">Save</button>
+        <button type="button" class="menu-btn team-cancel" data-title-cancel>Cancel</button>
+      </div>
+    </div>`;
   }
 
   async function renderTeamScreen() {
