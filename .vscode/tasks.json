@@ -1,0 +1,20 @@
+{
+  // Auto-opens START-HERE.md whenever this folder is opened in VS Code.
+  // First time only: VS Code asks to allow automatic tasks — click "Allow".
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Open START-HERE",
+      "type": "shell",
+      "command": "code -r \"START-HERE.md\"",
+      "runOptions": { "runOn": "folderOpen" },
+      "presentation": {
+        "reveal": "never",
+        "echo": false,
+        "showReuseMessage": false,
+        "close": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

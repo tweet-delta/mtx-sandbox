@@ -1,7 +1,9 @@
 # CLAUDE.md — MTX Route Checklist
 
-Guidance for any Claude Code session working in this repo. Read this first,
-then `route-checklist/HANDOFF.md` for the current app's details.
+Guidance for any Claude Code session working in this repo. **Session entry
+point: read `START-HERE.md` first** (the owner's one-file reference — current
+state, links, next steps; keep it updated before every session ends), then
+this file, then `route-checklist/HANDOFF.md` for deep technical detail.
 
 ---
 
