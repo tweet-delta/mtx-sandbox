@@ -9,7 +9,22 @@ this file before every session ends.)
 
 ## ⏭️ FIRST THING NEXT TIME (as of 2026-07-18)
 
-0. **Try the new 🎫 Tickets feature — it's LIVE (sw.js v29 confirmed).**
+0a. **NEW — 🏷️ Managed job titles are LIVE (sw.js v31).** Hard-refresh first
+   (Ctrl+Shift+R). As a **supervisor**:
+   - Home has a new **🏷️ Job titles** button → create titles, each marked
+     **Field** or **Office / Projects**, rename or retire them.
+   - **👥 Team** → ✎ Edit someone → pick their title from the **dropdown**
+     (no more free typing).
+   - **The payoff:** give a **test account** an *Office* title, then **sign in
+     as that account for real** (not preview) — its home screen should HIDE
+     house visits / daily logs and show only House notes, My notes, My profile,
+     maintenance requests, plus a "your tailored tools are coming" note. This is
+     the live check Claude can't do headless — **please try it and report back.**
+   - This is Slice 1. Your "pick-and-choose admin permissions" and the *actual*
+     custom screens for the Interior Designer / Project Director / Carpenter are
+     the next two slices (not built yet — by design).
+
+0b. **Try the 🎫 Tickets feature — it's LIVE.**
    Hard-refresh first (Ctrl+Shift+R), then:
    - Home now has **📌 My tickets**, **🎫 Tickets**, and **🔔 Notifications**
      buttons (with count badges).
@@ -41,6 +56,13 @@ a rewrite.
 ## ✅ What's live right now
 
 - **Live app:** https://tweet-delta.github.io/mtx-sandbox/route-checklist/index.html#home
+- **NEW 2026-07-18 — 🏷️ Managed job titles (Slice 1):** supervisors create an
+  official list of job titles (each **Field** or **Office/Projects**), assign
+  them to people via a dropdown on 👥 Team, and each title's kind decides the
+  home screen — **Office** people don't see house-visit/daily-log tooling.
+  Titles are supervisor-assigned (read-only on My Profile). Migration 0027;
+  Edge Function updated; sw.js **v31**. Permissions and the tailored
+  Designer/Director/Carpenter screens are deliberately **later slices**.
 - **NEW 2026-07-18 — ⇅ Arrange (personal home-menu order):** everyone can
   reorder their own home buttons (⇅ Arrange next to the title → ↑/↓ → ✓ Done).
   Order saves to your account (`profiles.home_order`, migration 0028) so it

@@ -15,6 +15,42 @@ supervisor view) are complete and live on `main`.
 
 ---
 
+## 2026-07-18 — Managed job titles + office/field home screens (Slice 1) — SHIPPED
+
+Job titles are now a **supervisor-managed list**, not free text.
+Spec: `docs/superpowers/specs/2026-07-18-managed-job-titles-design.md`;
+plan: `docs/superpowers/plans/2026-07-18-managed-job-titles.md`. SW **v31**.
+
+- **DB (migration 0027):** new `job_titles` table (`name` unique-ci, `kind`
+  `field`|`office`, `active`) + `profiles.job_title_id` FK. RLS: any
+  authenticated **reads** the list, **supervisors write** (`current_user_role()
+  = 'supervisor'`); no delete policy (retire via `active=false`). The old
+  free-text `profiles.job_title` column is **kept, unused, as a recovery net** —
+  a later `0028` drops it once the backfill is confirmed. Backfill created one
+  `field` title per distinct old text title and linked profiles.
+- **cloud.js:** `listJobTitles/createJobTitle/renameJobTitle/setJobTitleKind/
+  setJobTitleActive`; `getMyProfile`/`listAllProfiles` join the title
+  (`jobTitleName`/`jobTitleKind`/`jobTitleId`); `saveProfileAsSupervisor` sends
+  `job_title_id`; `saveMyProfile` no longer sends a title; `loadRole` sets
+  `window.cloud.jobTitleKind` + toggles `body.is-office`.
+- **Edge Function (admin-users `list`):** returns `jobTitleId`/`jobTitleName`.
+- **UI:** supervisor-only **🏷️ Job titles** screen (add / rename / change kind /
+  retire); Team screen assigns via a **dropdown** (preserves a retired-but-held
+  title); My Profile shows the title **read-only** (supervisor-assigned).
+- **Home-screen gate:** `body.is-office .field-only { display:none }` hides New/
+  Continue visit, My visit history, Daily logs, and 🧰 Field tools for office
+  titles; everyone keeps House notes, My notes, My profile, and the
+  maintenance-request screens. Office people see a "your tailored tools are
+  coming" note. `is-admin` and `is-office` are independent (a supervisor can be
+  office). Cleared on sign-out; forced off in preview; re-applied on exit.
+- **NOT built (deliberate seams):** Slice 2 = per-person/per-title permissions
+  ("pick and choose allow" — owner undecided); Slice 3 = the actual tailored
+  office screens (Interior Designer, Project Director, Carpenter). The titles
+  table + 🏷️ screen are where those hang.
+- **Note:** this slice was cherry-picked onto main to exclude unrelated docs
+  commits from a parallel session that had interleaved on the feature branch.
+  Migration 0027 + the Edge Function are already deployed to Supabase.
+
 ## 2026-07-18 — Personal home-menu ordering (⇅ Arrange) — SHIPPED
 
 Everyone (tech or supervisor) can reorder their own home-screen buttons.
