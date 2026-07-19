@@ -920,6 +920,16 @@
   </div>
 </dialog>
 
+<dialog id="dayModal" aria-label="Day detail">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="dayModalTitle">Day</h2>
+      <button type="button" class="modal-x" id="dayModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="dayModalBody"></div>
+  </div>
+</dialog>
+
 <aside id="houseInfoPanel" hidden aria-label="House info">
   <h2>
     <span class="sidebar-title" id="houseInfoTitle">House info</span>
@@ -3958,8 +3968,7 @@
     const readOnly = isAdmin && logsMyId != null && logsViewTechId !== logsMyId;
 
     body.innerHTML = renderTechPicker(isAdmin)
-      + renderCalHead(first) + renderGrid(first, last, byDay)
-      + (logsSelectedDate ? renderDayDetail(logsSelectedDate, byDay[logsSelectedDate] || [], readOnly) : "");
+      + renderCalHead(first) + renderGrid(first, last, byDay);
   }
 
   // Supervisor-only tech picker. Empty string for techs (no picker).
@@ -4065,7 +4074,7 @@
     const monthRows = logsMonthRows;
     const autos = dayRows.filter(r => r.kind === "auto");
     const manual = dayRows.filter(r => r.kind === "manual");
-    let html = `<div class="cal-detail"><h2 style="font-size:1rem">${escHtml(fmtDate(iso))}</h2>`;
+    let html = `<div class="cal-detail">`;
     autos.forEach(auto => { html += renderAutoDetail(auto, monthRows); });
     html += manual.map(m => `<div class="cal-note" data-note-id="${escAttr(m.id)}">
       <p>${escHtml(m.note)}</p>
@@ -4079,6 +4088,19 @@
     return html + `</div>`;
   }
 
+  // Fill and open the day-detail dialog for one ISO date. Reads the month's
+  // rows (already fetched by renderLogsScreen and stashed in logsMonthRows) for
+  // that day, and recomputes readOnly the same way renderLogsScreen does. This
+  // is the ONLY place the modal is opened — the screen render never opens it.
+  function openDayModal(iso) {
+    const isAdmin = document.body.classList.contains("is-admin");
+    const readOnly = isAdmin && logsMyId != null && logsViewTechId !== logsMyId;
+    const dayRows = logsMonthRows.filter(r => r.logDate === iso);
+    document.getElementById("dayModalTitle").textContent = fmtDate(iso);
+    document.getElementById("dayModalBody").innerHTML = renderDayDetail(iso, dayRows, readOnly);
+    document.getElementById("dayModal").showModal();
+  }
+
   document.getElementById("logsBody").addEventListener("click", async e => {
     if (e.target.closest("[data-cal-prev]")) {
       logsMonth = new Date(logsMonth.getFullYear(), logsMonth.getMonth()-1, 1);
@@ -4089,22 +4111,34 @@
       logsSelectedDate = null; return renderLogsScreen();
     }
     const dayBtn = e.target.closest("[data-cal-day]");
-    if (dayBtn) { logsSelectedDate = dayBtn.dataset.calDay; return renderLogsScreen(); }
+    if (dayBtn) {
+      const iso = dayBtn.dataset.calDay;
+      logsSelectedDate = iso;
+      await renderLogsScreen();   // draws the `selected` highlight; never opens the modal
+      openDayModal(iso);          // explicit, separate step — the only open path
+      return;
+    }
 
     const addBtn = e.target.closest("[data-note-add]");
     if (addBtn) {
       const val = document.getElementById("calNoteInput").value;
       if (!val.trim()) return;
-      const res = await window.cloud.addLogEntry(logsSelectedDate, val);
+      const iso = logsSelectedDate;
+      const res = await window.cloud.addLogEntry(iso, val);
       if (res.error) { alert(res.error); return; }
-      return renderLogsScreen();
+      await renderLogsScreen();   // refresh grid + logsMonthRows behind the modal
+      openDayModal(iso);          // re-render modal body from fresh rows, stay open
+      return;
     }
     const delBtn = e.target.closest("[data-note-del]");
     if (delBtn) {
       if (!confirm("Delete this note?")) return;
+      const iso = logsSelectedDate;
       const res = await window.cloud.deleteLogEntry(delBtn.dataset.noteDel);
       if (res.error) { alert(res.error); return; }
-      return renderLogsScreen();
+      await renderLogsScreen();
+      openDayModal(iso);
+      return;
     }
     const editBtn = e.target.closest("[data-note-edit]");
     if (editBtn) {
@@ -4116,9 +4150,12 @@
       const current = stored ? stored.note : "";
       const next = prompt("Edit note:", current);
       if (next == null || !next.trim()) return;
+      const iso = logsSelectedDate;
       const res = await window.cloud.updateLogEntry(id, next);
       if (res.error) { alert(res.error); return; }
-      return renderLogsScreen();
+      await renderLogsScreen();
+      openDayModal(iso);
+      return;
     }
   });
 
@@ -4129,6 +4166,11 @@
       logsSelectedDate = null;   // don't show one tech's day under another's grid
       renderLogsScreen();
     }
+  });
+
+  // Native <dialog> already closes on Esc and backdrop; this handles the ✕ button.
+  document.getElementById("dayModalClose").addEventListener("click", () => {
+    document.getElementById("dayModal").close();
   });
 
   document.getElementById("profileBody").addEventListener("click", async e => {
