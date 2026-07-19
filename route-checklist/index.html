@@ -705,6 +705,10 @@
   .team-role-badge { font-size: .72rem; font-weight: 600; padding: 2px 8px;
     border-radius: 999px; background: var(--line); color: var(--ink); }
   .team-card .muted-row { color: var(--muted); font-size: .85rem; margin: 2px 0; }
+  /* Bare fallback: muted-row is also used outside .team-card (e.g. the
+     read-only Profile job-title note); the scoped rule above still wins
+     inside team cards since it has higher specificity. */
+  .muted-row { color: var(--muted, #555); font-size: 0.85rem; }
   .team-field { display: block; margin: 8px 0; }
   .team-field span { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 2px; }
   .team-field input, .team-field select {
@@ -813,6 +817,16 @@
   /* Supervisor-only controls; loadRole() toggles body.is-admin. The UI hides,
      RLS enforces. */
   body:not(.is-admin) .admin-only { display: none; }
+  /* Office titles (kind='office') don't do house visits or daily logs, so
+     loadRole() sets body.is-office to hide the field-only buttons. The office
+     note is the reverse: shown ONLY for office people. */
+  body.is-office .field-only { display: none; }
+  .home-office-note { display: none; }
+  body.is-office .home-office-note {
+    display: block; margin: 0 0 12px; padding: 12px 14px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--muted, #555); font-size: 0.95rem;
+  }
   .route-row, .house-route-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .route-row input, .route-row select, .house-route-row select {
     font: inherit; font-size: 16px; padding: 8px 10px; min-width: 0;
@@ -929,9 +943,10 @@
     <small>Edit techs' name, phone &amp; role</small></button>
   <button type="button" class="home-btn admin-only" id="homeTitles">🏷️ Job titles
     <small>Create &amp; manage the team's job titles</small></button>
-  <button type="button" class="home-btn" id="homeNewVisit">🏠 New house visit
+  <p class="home-office-note" id="officeToolsNote">Your tailored tools are coming. For now you have House notes, My notes, maintenance requests and your profile.</p>
+  <button type="button" class="home-btn field-only" id="homeNewVisit">🏠 New house visit
     <small>Pick a house and start the checklist</small></button>
-  <button type="button" class="home-btn" id="homeContinue">▶ Continue house visit
+  <button type="button" class="home-btn field-only" id="homeContinue">▶ Continue house visit
     <small>Pick up where you left off</small></button>
   <button type="button" class="home-btn" id="homeMyTickets">📌 My tickets<span class="pending-count" id="myTicketsBadge"></span>
     <small>Open tickets assigned to you</small></button>
@@ -943,9 +958,9 @@
     <small>Info, item notes &amp; general notes per house</small></button>
   <button type="button" class="home-btn" id="homeProfile">👤 My profile
     <small>Your name &amp; phone number</small></button>
-  <button type="button" class="home-btn" id="homeHistory">🗓️ My visit history
+  <button type="button" class="home-btn field-only" id="homeHistory">🗓️ My visit history
     <small>Your completed visits</small></button>
-  <button type="button" class="home-btn" id="homeLogs">🗓️ Daily logs
+  <button type="button" class="home-btn field-only" id="homeLogs">🗓️ Daily logs
     <small>Your workday calendar</small></button>
   <button type="button" class="home-btn" id="homeMyNotes">📋 My notes
     <small>Your private checklist — only you can see this</small></button>
@@ -953,7 +968,7 @@
     <small>Assign techs &amp; houses to routes</small></button>
   <button type="button" class="home-btn admin-only" id="homePending">⏳ Pending changes<span class="pending-count" id="pendingCountBadge"></span>
     <small>Review techs' suggested note fixes</small></button>
-  <details id="fieldTools" class="admin-only">
+  <details id="fieldTools" class="admin-only field-only">
     <summary class="home-btn">🧰 Field tools
       <small>New visit, continue &amp; my own history — rarely needed</small></summary>
   </details>
@@ -1515,7 +1530,7 @@
     previewLabel.textContent = "Previewing " + routeName;
     previewBanner.hidden = false;
     document.body.classList.add("previewing");
-    document.body.classList.remove("is-admin");   // hide supervisor controls
+    document.body.classList.remove("is-admin", "is-office");   // hide supervisor controls; show full field home
     // A tech's home screen has New visit / Continue / My history flat on the
     // page; supervisors keep them tucked in the admin-only Field tools drawer,
     // which removing is-admin just hid. Re-lay them as the tech's so the
@@ -1530,6 +1545,8 @@
     clearPreviewUI();
     document.body.classList.toggle("is-admin",
       !!window.cloud && window.cloud.role === "supervisor");
+    document.body.classList.toggle("is-office",
+      !!window.cloud && window.cloud.jobTitleKind === "office");
     // Undo the tech re-lay from startPreview: tuck the field buttons back into
     // the supervisor's drawer (or leave them flat if somehow not a supervisor).
     if (window.applyRole) window.applyRole(window.cloud && window.cloud.role);

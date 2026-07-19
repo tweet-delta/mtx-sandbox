@@ -1268,8 +1268,8 @@ supabase.auth.onAuthStateChange((_event, session) => {
   } else {
     showGate(true);
     if (whoami) whoami.textContent = "";
-    if (window.cloud) { window.cloud.role = null; window.cloud.myId = null; }
-    document.body.classList.remove("is-admin");
+    if (window.cloud) { window.cloud.role = null; window.cloud.myId = null; window.cloud.jobTitleKind = ""; }
+    document.body.classList.remove("is-admin", "is-office");
     if (window.applyRole) window.applyRole(null);
     if (window.applyMyHouses) window.applyMyHouses(null);
     // Clear any per-user Daily Logs view state so the next sign-in (possibly a
