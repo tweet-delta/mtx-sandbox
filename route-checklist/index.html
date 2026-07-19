@@ -3300,10 +3300,7 @@
         <label for="profilePhone">Phone</label>
         <input type="tel" id="profilePhone" value="${escAttr(res.phone)}" placeholder="e.g. 555-123-4567">
       </div>
-      <div class="profile-field">
-        <label for="profileTitle">Job title</label>
-        <input type="text" id="profileTitle" value="${escAttr(res.jobTitle || "")}" placeholder="e.g. Lead Tech">
-      </div>
+      <p class="profile-readonly">Job title: <b>${escHtml(res.jobTitleName || "—")}</b> <span class="muted-row">(set by a supervisor)</span></p>
       <button type="button" id="profileSaveBtn">Save</button>
       <div id="profileMsg"></div>`;
   }
@@ -4121,7 +4118,6 @@
     if (!e.target.closest("#profileSaveBtn")) return;
     const nameInput = document.getElementById("profileName");
     const phoneInput = document.getElementById("profilePhone");
-    const titleInput = document.getElementById("profileTitle");
     const msg = document.getElementById("profileMsg");
     const fullName = nameInput.value.trim();
     if (!fullName) {
@@ -4133,7 +4129,7 @@
     btn.disabled = true;
     msg.textContent = "Saving…";
     msg.className = "";
-    const res = await window.cloud.saveMyProfile({ fullName, phone: phoneInput.value.trim(), jobTitle: titleInput.value.trim() });
+    const res = await window.cloud.saveMyProfile({ fullName, phone: phoneInput.value.trim() });
     btn.disabled = false;
     if (res.error) {
       msg.textContent = "Couldn't save — " + res.error;
