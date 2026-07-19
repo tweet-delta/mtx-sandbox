@@ -15,6 +15,30 @@ supervisor view) are complete and live on `main`.
 
 ---
 
+## 2026-07-18 — Personal home-menu ordering (⇅ Arrange) — SHIPPED
+
+Everyone (tech or supervisor) can reorder their own home-screen buttons.
+Spec: `docs/superpowers/specs/2026-07-18-personal-home-menu-order-design.md`;
+plan: `docs/superpowers/plans/2026-07-18-personal-home-menu-order.md`.
+
+- **DB:** migration `0028_profile_home_order.sql` — nullable
+  `profiles.home_order text[]` (array of button ids; NULL = default order).
+  No RLS change: `profiles_update` (0001) already scopes to own row.
+- **cloud.js:** `getHomeOrder()` → `{order|null}` (never throws; null on any
+  error), `saveHomeOrder(ids)` → `{error, degraded?}` (isMissingColumn-safe).
+- **index.html:** `applyHomeOrder()` runs on every home render — reconciles
+  the saved id array against the *visible* buttons (drops stale/role-hidden
+  ids, appends new buttons at the bottom) and **moves the existing DOM nodes**
+  (`insertBefore`) so the hardcoded per-id click listeners survive. Never
+  rebuild home buttons from a template — that breaks navigation.
+- **Arrange mode:** ⇅ Arrange toggle in the home header → per-button ↑/↓
+  (aria-labelled, keyboard-operable, ends disabled), nav suppressed via a
+  capture-phase guard, ✓ Done saves; leaving home mid-arrange auto-saves.
+  `#fieldTools` + Sign out pinned last, dimmed while arranging.
+- **Verified headless** (logic harnesses: reconcile 4 cases, arrange 6 cases,
+  zero console errors). **Owner still owes the live signed-in pass**: arrange →
+  Done → reload → persists; confirm `select home_order from profiles`.
+
 ## STATE AS OF 2026-07-18 (feature: Maintenance Tickets)
 
 **New feature — maintenance tickets** (spec:

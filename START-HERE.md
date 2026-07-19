@@ -41,6 +41,13 @@ a rewrite.
 ## ✅ What's live right now
 
 - **Live app:** https://tweet-delta.github.io/mtx-sandbox/route-checklist/index.html#home
+- **NEW 2026-07-18 — ⇅ Arrange (personal home-menu order):** everyone can
+  reorder their own home buttons (⇅ Arrange next to the title → ↑/↓ → ✓ Done).
+  Order saves to your account (`profiles.home_order`, migration 0028) so it
+  follows you across devices. Field tools + Sign out stay pinned at the bottom;
+  new buttons we add later appear at the bottom of your custom order.
+  **Owner: after hard-refresh, try it signed in** — move 📋 My notes up, ✓ Done,
+  reload, confirm it stuck (this is the live-auth check Claude can't do headless).
 - Supervisor **👥 Team** screen: edit anyone's name / phone / job title /
   role (with confirm + can't-demote-yourself/last-supervisor guards), real
   emails, **Add new team member** (temp-password flow).

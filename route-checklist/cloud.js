@@ -149,6 +149,31 @@ async function saveMyProfile({ fullName, phone, jobTitle }) {
   return { error: error ? error.message : null };
 }
 
+// ---- Personal home-menu ordering (per-user; own row only) ----
+
+// The caller's saved home-button order, as an array of button ids, or null
+// (use the default order). Never throws: any error or a missing column yields
+// null so the home screen just falls back to its default layout.
+async function getHomeOrder() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { order: null };
+  const { data, error } = await supabase
+    .from("profiles").select("home_order").eq("id", user.id).single();
+  if (error || !data) return { order: null };
+  return { order: Array.isArray(data.home_order) ? data.home_order : null };
+}
+
+// Persist the caller's home-button order (array of button ids) to their own
+// row. Degrades to a no-op flag if the column isn't there yet.
+async function saveHomeOrder(ids) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { error } = await supabase
+    .from("profiles").update({ home_order: ids }).eq("id", user.id);
+  if (error && isMissingColumn(error)) return { error: null, degraded: true };
+  return { error: error ? error.message : null };
+}
+
 // ---- Team roster (supervisor-only; RLS is the real gate) ----
 
 // Every profile the caller may see. For a supervisor, RLS returns all rows;
@@ -1104,6 +1129,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  listPendingSuggestions, pendingCount,
                  listRoutes, listTechs, saveRoute, setHouseRoute, listHousesForRoutes,
                  getMyProfile, saveMyProfile,
+                 getHomeOrder, saveHomeOrder,
                  listAllProfiles, saveProfileAsSupervisor, setProfileRole,
                  listTeam, createTeamMember,
                  listMyVisits, getVisitDetail,
