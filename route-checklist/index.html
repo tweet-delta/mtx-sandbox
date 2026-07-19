@@ -514,6 +514,7 @@
   body:not([data-screen="mynotes"])  #mynotesScreen,
   body:not([data-screen="reviews"])  #reviewsScreen,
   body:not([data-screen="team"])     #teamScreen,
+  body:not([data-screen="titles"])   #titlesScreen,
   body:not([data-screen="tickets"])  #ticketsScreen,
   body:not([data-screen="ticket"])   #ticketDetailScreen,
   body:not([data-screen="newticket"]) #newTicketScreen,
@@ -704,6 +705,10 @@
   .team-role-badge { font-size: .72rem; font-weight: 600; padding: 2px 8px;
     border-radius: 999px; background: var(--line); color: var(--ink); }
   .team-card .muted-row { color: var(--muted); font-size: .85rem; margin: 2px 0; }
+  /* Bare fallback: muted-row is also used outside .team-card (e.g. the
+     read-only Profile job-title note); the scoped rule above still wins
+     inside team cards since it has higher specificity. */
+  .muted-row { color: var(--muted, #555); font-size: 0.85rem; }
   .team-field { display: block; margin: 8px 0; }
   .team-field span { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 2px; }
   .team-field input, .team-field select {
@@ -812,6 +817,16 @@
   /* Supervisor-only controls; loadRole() toggles body.is-admin. The UI hides,
      RLS enforces. */
   body:not(.is-admin) .admin-only { display: none; }
+  /* Office titles (kind='office') don't do house visits or daily logs, so
+     loadRole() sets body.is-office to hide the field-only buttons. The office
+     note is the reverse: shown ONLY for office people. */
+  body.is-office .field-only { display: none; }
+  .home-office-note { display: none; }
+  body.is-office .home-office-note {
+    display: block; margin: 0 0 12px; padding: 12px 14px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--muted, #555); font-size: 0.95rem;
+  }
   .route-row, .house-route-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .route-row input, .route-row select, .house-route-row select {
     font: inherit; font-size: 16px; padding: 8px 10px; min-width: 0;
@@ -926,9 +941,12 @@
     <small>Review techs' visits &amp; surveys</small></button>
   <button type="button" class="home-btn admin-only" id="homeTeam">👥 Team
     <small>Edit techs' name, phone &amp; role</small></button>
-  <button type="button" class="home-btn" id="homeNewVisit">🏠 New house visit
+  <button type="button" class="home-btn admin-only" id="homeTitles">🏷️ Job titles
+    <small>Create &amp; manage the team's job titles</small></button>
+  <p class="home-office-note" id="officeToolsNote">Your tailored tools are coming. For now you have House notes, My notes, maintenance requests and your profile.</p>
+  <button type="button" class="home-btn field-only" id="homeNewVisit">🏠 New house visit
     <small>Pick a house and start the checklist</small></button>
-  <button type="button" class="home-btn" id="homeContinue">▶ Continue house visit
+  <button type="button" class="home-btn field-only" id="homeContinue">▶ Continue house visit
     <small>Pick up where you left off</small></button>
   <button type="button" class="home-btn" id="homeMyTickets">📌 My tickets<span class="pending-count" id="myTicketsBadge"></span>
     <small>Open tickets assigned to you</small></button>
@@ -940,9 +958,9 @@
     <small>Info, item notes &amp; general notes per house</small></button>
   <button type="button" class="home-btn" id="homeProfile">👤 My profile
     <small>Your name &amp; phone number</small></button>
-  <button type="button" class="home-btn" id="homeHistory">🗓️ My visit history
+  <button type="button" class="home-btn field-only" id="homeHistory">🗓️ My visit history
     <small>Your completed visits</small></button>
-  <button type="button" class="home-btn" id="homeLogs">🗓️ Daily logs
+  <button type="button" class="home-btn field-only" id="homeLogs">🗓️ Daily logs
     <small>Your workday calendar</small></button>
   <button type="button" class="home-btn" id="homeMyNotes">📋 My notes
     <small>Your private checklist — only you can see this</small></button>
@@ -950,7 +968,7 @@
     <small>Assign techs &amp; houses to routes</small></button>
   <button type="button" class="home-btn admin-only" id="homePending">⏳ Pending changes<span class="pending-count" id="pendingCountBadge"></span>
     <small>Review techs' suggested note fixes</small></button>
-  <details id="fieldTools" class="admin-only">
+  <details id="fieldTools" class="admin-only field-only">
     <summary class="home-btn">🧰 Field tools
       <small>New visit, continue &amp; my own history — rarely needed</small></summary>
   </details>
@@ -1035,6 +1053,14 @@
     <h1>Team</h1>
   </div>
   <div id="teamBody"><p class="screen-sub">Loading…</p></div>
+</div>
+
+<div id="titlesScreen" class="screen" aria-label="Job titles">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>Job titles</h1>
+  </div>
+  <div id="titlesBody"><p class="screen-sub">Loading…</p></div>
 </div>
 
 <div id="ticketsScreen" class="screen" aria-label="Tickets">
@@ -1504,7 +1530,7 @@
     previewLabel.textContent = "Previewing " + routeName;
     previewBanner.hidden = false;
     document.body.classList.add("previewing");
-    document.body.classList.remove("is-admin");   // hide supervisor controls
+    document.body.classList.remove("is-admin", "is-office");   // hide supervisor controls; show full field home
     // A tech's home screen has New visit / Continue / My history flat on the
     // page; supervisors keep them tucked in the admin-only Field tools drawer,
     // which removing is-admin just hid. Re-lay them as the tech's so the
@@ -1519,6 +1545,8 @@
     clearPreviewUI();
     document.body.classList.toggle("is-admin",
       !!window.cloud && window.cloud.role === "supervisor");
+    document.body.classList.toggle("is-office",
+      !!window.cloud && window.cloud.jobTitleKind === "office");
     // Undo the tech re-lay from startPreview: tuck the field buttons back into
     // the supervisor's drawer (or leave them flat if somehow not a supervisor).
     if (window.applyRole) window.applyRole(window.cloud && window.cloud.role);
@@ -2885,6 +2913,7 @@
     if (h.startsWith("#mynotes")) return "mynotes";
     if (h.startsWith("#reviews")) return "reviews";
     if (h.startsWith("#team")) return "team";
+    if (h.startsWith("#titles")) return "titles";
     // Order matters: "#tickets" must be tested before "#ticket/".
     if (h.startsWith("#tickets")) return "tickets";
     if (h.startsWith("#ticket/")) return "ticket";
@@ -3053,6 +3082,7 @@
     if (scr === "mynotes") renderMyNotesScreen();
     if (scr === "reviews") renderReviewsScreen();
     if (scr === "team") renderTeamScreen();
+    if (scr === "titles") renderTitlesScreen();
     if (scr === "tickets") renderTicketsScreen();
     if (scr === "ticket") renderTicketDetailScreen();
     if (scr === "newticket") renderNewTicketScreen();
@@ -3107,6 +3137,10 @@
   document.getElementById("homeTeam").addEventListener("click", () => {
     editingTeamId = null;   // always land on Team with no card mid-edit
     location.hash = "#team";
+  });
+  document.getElementById("homeTitles").addEventListener("click", () => {
+    editingTitleId = null;   // always land on Job titles with no card mid-edit
+    location.hash = "#titles";
   });
   document.getElementById("homeTickets").addEventListener("click", () => {
     location.hash = "#tickets";
@@ -3283,10 +3317,7 @@
         <label for="profilePhone">Phone</label>
         <input type="tel" id="profilePhone" value="${escAttr(res.phone)}" placeholder="e.g. 555-123-4567">
       </div>
-      <div class="profile-field">
-        <label for="profileTitle">Job title</label>
-        <input type="text" id="profileTitle" value="${escAttr(res.jobTitle || "")}" placeholder="e.g. Lead Tech">
-      </div>
+      <p class="profile-readonly">Job title: <b>${escHtml(res.jobTitleName || "—")}</b> <span class="muted-row">(set by a supervisor)</span></p>
       <button type="button" id="profileSaveBtn">Save</button>
       <div id="profileMsg"></div>`;
   }
@@ -3300,6 +3331,11 @@
   // Same single-open discipline as editingNoteId; the roster is re-rendered
   // from the server after every mutation.
   let editingTeamId = null;
+
+  // Job titles: id of the title whose card is open for editing, or null; and
+  // whether the "+ Add title" form is open. Single-open discipline like Team.
+  let editingTitleId = null;
+  let titleAddOpen = false;
 
   async function renderMyNotesScreen() {
     const body = document.getElementById("mynotesBody");
@@ -3446,7 +3482,7 @@
     const id = saveBtn.dataset.teamSave;
     const fullName = card.querySelector("[data-team-name]").value.trim();
     const phone = card.querySelector("[data-team-phone]").value.trim();
-    const jobTitle = card.querySelector("[data-team-title]").value.trim();
+    const jobTitleId = card.querySelector("[data-team-title-id]").value || null;
     const errEl = card.querySelector("[data-team-error]");
     const showErr = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
     errEl.hidden = true;
@@ -3464,10 +3500,65 @@
       if (r.error) { showErr(r.error); return; }
     }
 
-    const s = await window.cloud.saveProfileAsSupervisor(id, { fullName, phone, jobTitle });
+    const s = await window.cloud.saveProfileAsSupervisor(id, { fullName, phone, jobTitleId });
     if (s.error) { showErr(s.error); return; }
     editingTeamId = null;
     renderTeamScreen();
+  });
+
+  // ---- Job-titles interactions (supervisor-only; RLS enforces) ----
+  document.getElementById("titlesBody").addEventListener("click", async (e) => {
+    if (e.target.closest("#titleAddBtn")) {
+      titleAddOpen = true; editingTitleId = null; renderTitlesScreen(); return;
+    }
+    if (e.target.closest("[data-title-add-cancel]")) {
+      titleAddOpen = false; renderTitlesScreen(); return;
+    }
+    const editBtn = e.target.closest("[data-title-edit]");
+    if (editBtn) { editingTitleId = editBtn.dataset.titleEdit; titleAddOpen = false; renderTitlesScreen(); return; }
+    if (e.target.closest("[data-title-cancel]")) {
+      editingTitleId = null; renderTitlesScreen(); return;
+    }
+
+    // Retire / reactivate.
+    const activeBtn = e.target.closest("[data-title-active]");
+    if (activeBtn) {
+      const r = await window.cloud.setJobTitleActive(
+        activeBtn.dataset.titleActive, activeBtn.dataset.titleTo === "1");
+      if (r.error) { toast("Couldn't update — " + r.error, "error"); return; }
+      renderTitlesScreen(); return;
+    }
+
+    // Create a new title.
+    if (e.target.closest("[data-title-create]")) {
+      const form = e.target.closest("[data-title-add-form]");
+      const name = form.querySelector("[data-title-new-name]").value.trim();
+      const kind = form.querySelector("[data-title-kind]").value;
+      const errEl = form.querySelector("[data-title-error]");
+      const showErr = (m) => { errEl.textContent = m; errEl.hidden = false; };
+      errEl.hidden = true;
+      if (!name) { showErr("Title name can't be empty."); return; }
+      const r = await window.cloud.createJobTitle({ name, kind });
+      if (r.error) { showErr(r.error); return; }
+      titleAddOpen = false; renderTitlesScreen(); return;
+    }
+
+    // Save an edit (name + kind).
+    const saveBtn = e.target.closest("[data-title-save]");
+    if (!saveBtn) return;
+    const card = saveBtn.closest("[data-title-card]");
+    const id = saveBtn.dataset.titleSave;
+    const name = card.querySelector("[data-title-name]").value.trim();
+    const kind = card.querySelector("[data-title-kind]").value;
+    const errEl = card.querySelector("[data-title-error]");
+    const showErr = (m) => { errEl.textContent = m; errEl.hidden = false; };
+    errEl.hidden = true;
+    if (!name) { showErr("Title name can't be empty."); return; }
+    const r1 = await window.cloud.renameJobTitle(id, name);
+    if (r1.error) { showErr(r1.error); return; }
+    const r2 = await window.cloud.setJobTitleKind(id, kind);
+    if (r2.error) { showErr(r2.error); return; }
+    editingTitleId = null; renderTitlesScreen();
   });
 
   // Shared by My Visit History and the supervisor review detail so the two
@@ -3581,6 +3672,81 @@
   // re-render keeps it open. Cleared on cancel / successful create.
   let teamAddOpen = false;
 
+  async function renderTitlesScreen() {
+    const body = document.getElementById("titlesBody");
+    if (!window.cloud || window.cloud.role !== "supervisor") {
+      body.innerHTML = `<p class="screen-sub">Supervisors only.</p>`;
+      return;
+    }
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    const res = await window.cloud.listJobTitles();   // all, incl. retired
+    if (currentScreenFromHash() !== "titles") return;  // navigated away meanwhile
+    if (res.error) {
+      body.innerHTML = `<p class="screen-sub">Couldn't load job titles — ${escHtml(res.error)}</p>`;
+      return;
+    }
+    const titles = res.titles || [];
+    body.innerHTML =
+      `<button type="button" class="home-btn" id="titleAddBtn">+ Add job title</button>` +
+      (titleAddOpen ? titleAddFormHTML() : "") +
+      (titles.length
+        ? titles.map(t => titleCardHTML(t)).join("")
+        : `<p class="screen-sub">No titles yet — add your first one above.</p>`);
+    if (titleAddOpen) body.querySelector("[data-title-new-name]")?.focus();
+  }
+
+  // The "+ Add title" form: name + a field/office picker.
+  function titleAddFormHTML() {
+    return `<div class="team-card" data-title-add-form>
+      <label class="team-field"><span>Title name</span>
+        <input type="text" data-title-new-name placeholder="e.g. Interior Designer"></label>
+      <label class="team-field"><span>Kind</span>
+        ${kindSelectHTML("field")}</label>
+      <p class="team-error" data-title-error hidden></p>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-save" data-title-create>Add</button>
+        <button type="button" class="menu-btn team-cancel" data-title-add-cancel>Cancel</button>
+      </div>
+    </div>`;
+  }
+
+  // A field/office dropdown; `sel` is the currently-selected value.
+  function kindSelectHTML(sel) {
+    return `<select data-title-kind>
+      <option value="field"${sel === "field" ? " selected" : ""}>Field (house visits &amp; daily logs)</option>
+      <option value="office"${sel === "office" ? " selected" : ""}>Office / Projects</option>
+    </select>`;
+  }
+
+  function titleCardHTML(t) {
+    if (editingTitleId === t.id) return titleEditHTML(t);
+    const kindLabel = t.kind === "office" ? "Office / Projects" : "Field";
+    const retired = t.active === false
+      ? ` <span class="team-role-badge">retired</span>` : "";
+    return `<div class="team-card" data-title-card data-title-id="${escAttr(t.id)}">
+      <h3>${escHtml(t.name)}
+        <span class="team-role-badge">${escHtml(kindLabel)}</span>${retired}</h3>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-edit-btn" data-title-edit="${escAttr(t.id)}">✎ Edit</button>
+        <button type="button" class="menu-btn" data-title-active="${escAttr(t.id)}" data-title-to="${t.active === false ? "1" : "0"}">${t.active === false ? "Reactivate" : "Retire"}</button>
+      </div>
+    </div>`;
+  }
+
+  function titleEditHTML(t) {
+    return `<div class="team-card" data-title-card data-title-id="${escAttr(t.id)}">
+      <label class="team-field"><span>Title name</span>
+        <input type="text" data-title-name value="${escAttr(t.name)}"></label>
+      <label class="team-field"><span>Kind</span>
+        ${kindSelectHTML(t.kind === "office" ? "office" : "field")}</label>
+      <p class="team-error" data-title-error hidden></p>
+      <div class="team-edit-actions">
+        <button type="button" class="menu-btn team-save" data-title-save="${escAttr(t.id)}">Save</button>
+        <button type="button" class="menu-btn team-cancel" data-title-cancel>Cancel</button>
+      </div>
+    </div>`;
+  }
+
   async function renderTeamScreen() {
     const body = document.getElementById("teamBody");
     if (!window.cloud || window.cloud.role !== "supervisor" || !window.cloud.listTeam) {
@@ -3597,10 +3763,13 @@
       return;
     }
     const people = res.people || [];
+    const tRes = await window.cloud.listJobTitles({ activeOnly: true });
+    if (currentScreenFromHash() !== "team") return;
+    const activeTitles = tRes.titles || [];
     body.innerHTML =
       `<button type="button" class="home-btn" id="teamAddBtn">+ Add new team member</button>` +
       (teamAddOpen ? teamAddFormHTML() : "") +
-      people.map(p => teamCardHTML(p)).join("");
+      people.map(p => teamCardHTML(p, activeTitles)).join("");
     if (teamAddOpen) body.querySelector("[data-team-new-name]")?.focus();
   }
 
@@ -3624,15 +3793,15 @@
 
   // A person's card. Real email now shown for everyone (from the Edge
   // Function). Own card has no role control. Password reset arrives in 2c.
-  function teamCardHTML(p) {
-    if (editingTeamId === p.id) return teamEditHTML(p);
+  function teamCardHTML(p, activeTitles) {
+    if (editingTeamId === p.id) return teamEditHTML(p, activeTitles);
     const name = p.fullName || "Unnamed";
     const meTag = p.isMe ? ` <span class="team-me-tag">(you)</span>` : "";
     return `<div class="team-card" data-team-card data-team-id="${escAttr(p.id)}">
       <h3>${escHtml(name)}${meTag}
         <span class="team-role-badge">${escHtml(p.role)}</span></h3>
       <div class="muted-row">📞 ${escHtml(p.phone || "—")}</div>
-      <div class="muted-row">🏷️ ${escHtml(p.jobTitle || "—")}</div>
+      <div class="muted-row">🏷️ ${escHtml(p.jobTitleName || "—")}</div>
       <div class="muted-row">✉️ ${escHtml(p.email || "—")}</div>
       <div class="muted-row">🔒 Password — reset coming next</div>
       <button type="button" class="menu-btn team-edit-btn" data-team-edit="${escAttr(p.id)}">✎ Edit</button>
@@ -3641,7 +3810,7 @@
 
   // Inline editor. The role <select> appears only on OTHER people's cards —
   // you can't demote yourself (the DB guard also enforces this).
-  function teamEditHTML(p) {
+  function teamEditHTML(p, activeTitles) {
     const roleField = p.isMe ? "" : `
       <label class="team-field"><span>Role</span>
         <select data-team-role data-orig-role="${escAttr(p.role)}">
@@ -3654,7 +3823,15 @@
       <label class="team-field"><span>Phone</span>
         <input type="text" data-team-phone value="${escAttr(p.phone)}"></label>
       <label class="team-field"><span>Job title</span>
-        <input type="text" data-team-title value="${escAttr(p.jobTitle || "")}"></label>
+        <select data-team-title-id>
+          <option value=""${!p.jobTitleId ? " selected" : ""}>— none —</option>
+          ${(activeTitles || []).map(t =>
+            `<option value="${escAttr(t.id)}"${t.id === p.jobTitleId ? " selected" : ""}>${escHtml(t.name)}</option>`
+          ).join("")}
+          ${p.jobTitleId && !(activeTitles || []).some(t => t.id === p.jobTitleId)
+            ? `<option value="${escAttr(p.jobTitleId)}" selected>${escHtml(p.jobTitleName)} (retired)</option>`
+            : ""}
+        </select></label>
       ${roleField}
       <p class="team-error" data-team-error hidden></p>
       <div class="team-edit-actions">
@@ -3958,7 +4135,6 @@
     if (!e.target.closest("#profileSaveBtn")) return;
     const nameInput = document.getElementById("profileName");
     const phoneInput = document.getElementById("profilePhone");
-    const titleInput = document.getElementById("profileTitle");
     const msg = document.getElementById("profileMsg");
     const fullName = nameInput.value.trim();
     if (!fullName) {
@@ -3970,7 +4146,7 @@
     btn.disabled = true;
     msg.textContent = "Saving…";
     msg.className = "";
-    const res = await window.cloud.saveMyProfile({ fullName, phone: phoneInput.value.trim(), jobTitle: titleInput.value.trim() });
+    const res = await window.cloud.saveMyProfile({ fullName, phone: phoneInput.value.trim() });
     btn.disabled = false;
     if (res.error) {
       msg.textContent = "Couldn't save — " + res.error;

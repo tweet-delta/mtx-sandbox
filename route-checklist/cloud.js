@@ -68,10 +68,20 @@ async function loadRole() {
   if (!user) return;
   window.cloud.myId = user.id;   // the UI's "is this ticket mine?" check
   const { data, error } = await supabase
-    .from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (error) { console.error("Could not load role:", error.message); return; }
-  window.cloud.role = data?.role || "tech";
+    .from("profiles").select("role, job_titles(kind)").eq("id", user.id).maybeSingle();
+  if (error) {
+    // Fall back to role-only if job_titles isn't joinable yet (pre-0027).
+    const { data: d2, error: e2 } = await supabase
+      .from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if (e2) { console.error("Could not load role:", e2.message); return; }
+    window.cloud.role = d2?.role || "tech";
+    window.cloud.jobTitleKind = "";
+  } else {
+    window.cloud.role = data?.role || "tech";
+    window.cloud.jobTitleKind = data?.job_titles?.kind || "";
+  }
   document.body.classList.toggle("is-admin", window.cloud.role === "supervisor");
+  document.body.classList.toggle("is-office", window.cloud.jobTitleKind === "office");
   if (window.applyRole) window.applyRole(window.cloud.role);
   if (window.cloud.role === "supervisor") {
     pendingCount().then(r => {
@@ -114,16 +124,20 @@ async function getMyProfile() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
   let { data, error } = await supabase
-    .from("profiles").select("full_name, phone, job_title, role").eq("id", user.id).maybeSingle();
+    .from("profiles")
+    .select("full_name, phone, role, job_title_id, job_titles(name, kind)")
+    .eq("id", user.id).maybeSingle();
   if (error && isMissingColumn(error)) {
     ({ data, error } = await supabase
       .from("profiles").select("full_name, role").eq("id", user.id).maybeSingle());
   }
   if (error) return { error: error.message };
+  const jt = data?.job_titles || null;
   return {
     fullName: data?.full_name || "",
     phone: data?.phone || "",
-    jobTitle: data?.job_title || "",
+    jobTitleName: jt?.name || "",
+    jobTitleKind: jt?.kind || "",
     role: data?.role || "tech",
     email: user.email || "",
   };
@@ -132,18 +146,14 @@ async function getMyProfile() {
 // Save the signed-in user's OWN name/phone. Never sends role — role changes
 // stay a deliberate dashboard action (guard_profile_role trigger blocks a
 // non-supervisor from changing it anyway).
-async function saveMyProfile({ fullName, phone, jobTitle }) {
+async function saveMyProfile({ fullName, phone }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
   let { error } = await supabase
-    .from("profiles")
-    .update({ full_name: fullName, phone, job_title: jobTitle })
-    .eq("id", user.id);
+    .from("profiles").update({ full_name: fullName, phone }).eq("id", user.id);
   if (error && isMissingColumn(error)) {
     ({ error } = await supabase
-      .from("profiles")
-      .update({ full_name: fullName })
-      .eq("id", user.id));
+      .from("profiles").update({ full_name: fullName }).eq("id", user.id));
     if (!error) return { error: null, degraded: true };
   }
   return { error: error ? error.message : null };
@@ -180,13 +190,15 @@ async function saveHomeOrder(ids) {
 // for a tech it returns only their own (the #team renderer blocks techs first
 // anyway). profiles has no email column, so only the caller's OWN email is
 // known here (auth.getUser()); other rows' email is a Slice-2 concern.
-// Returns { people:[{id,fullName,phone,jobTitle,role,isMe}], myId, myEmail }
+// Returns { people:[{id,fullName,phone,jobTitleId,jobTitleName,jobTitleKind,role,isMe}], myId, myEmail }
 // or { error }.
 async function listAllProfiles() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
   let { data, error } = await supabase
-    .from("profiles").select("id, full_name, phone, job_title, role").order("full_name");
+    .from("profiles")
+    .select("id, full_name, phone, role, job_title_id, job_titles(name, kind)")
+    .order("full_name");
   if (error && isMissingColumn(error)) {
     ({ data, error } = await supabase
       .from("profiles").select("id, full_name, role").order("full_name"));
@@ -196,7 +208,9 @@ async function listAllProfiles() {
     id: p.id,
     fullName: p.full_name || "",
     phone: p.phone || "",
-    jobTitle: p.job_title || "",
+    jobTitleId: p.job_title_id || null,
+    jobTitleName: p.job_titles?.name || "",
+    jobTitleKind: p.job_titles?.kind || "",
     role: p.role || "tech",
     isMe: p.id === user.id,
   }));
@@ -206,9 +220,9 @@ async function listAllProfiles() {
 // Supervisor edits ANOTHER person's name/phone/job title. Never sends role
 // (that goes through setProfileRole). RLS refuses this for a non-supervisor.
 // Name-only fallback if the phone/job_title columns are missing.
-async function saveProfileAsSupervisor(id, { fullName, phone, jobTitle }) {
-  let { error } = await supabase
-    .from("profiles").update({ full_name: fullName, phone, job_title: jobTitle }).eq("id", id);
+async function saveProfileAsSupervisor(id, { fullName, phone, jobTitleId }) {
+  const patch = { full_name: fullName, phone, job_title_id: jobTitleId || null };
+  let { error } = await supabase.from("profiles").update(patch).eq("id", id);
   if (error && isMissingColumn(error)) {
     ({ error } = await supabase
       .from("profiles").update({ full_name: fullName }).eq("id", id));
@@ -224,6 +238,62 @@ async function saveProfileAsSupervisor(id, { fullName, phone, jobTitle }) {
 async function setProfileRole(id, role) {
   const { error } = await supabase
     .from("profiles").update({ role }).eq("id", id);
+  return { error: error ? error.message : null };
+}
+
+// ---- Job titles (supervisor-managed list; RLS is the real gate) ----
+// The list everyone reads (for dropdowns + labels); only supervisors write.
+
+// All titles, ordered by name. activeOnly:true → only assignable ones (the
+// Team dropdown); the management screen passes nothing to see retired ones too.
+// Returns { titles:[{id,name,kind,active}], error }.
+async function listJobTitles({ activeOnly } = {}) {
+  let q = supabase.from("job_titles").select("id, name, kind, active").order("name");
+  if (activeOnly) q = q.eq("active", true);
+  const { data, error } = await q;
+  if (error) return { titles: [], error: error.message };
+  return { titles: (data || []).map(t => ({
+    id: t.id, name: t.name, kind: t.kind || "field", active: t.active !== false,
+  })) };
+}
+
+// Create a title (supervisor-only via RLS). Trims name. The unique lower(name)
+// index (0027) rejects a duplicate — surfaced as a friendly message.
+async function createJobTitle({ name, kind }) {
+  const clean = (name || "").trim();
+  if (!clean) return { error: "Title name can't be empty." };
+  const k = kind === "office" ? "office" : "field";
+  const { error } = await supabase.from("job_titles").insert({ name: clean, kind: k });
+  if (error) {
+    if ((error.code === "23505") || /duplicate|unique/i.test(error.message || "")) {
+      return { error: "A title with that name already exists." };
+    }
+    return { error: error.message };
+  }
+  return { error: null };
+}
+
+async function renameJobTitle(id, name) {
+  const clean = (name || "").trim();
+  if (!clean) return { error: "Title name can't be empty." };
+  const { error } = await supabase.from("job_titles").update({ name: clean }).eq("id", id);
+  if (error) {
+    if ((error.code === "23505") || /duplicate|unique/i.test(error.message || "")) {
+      return { error: "A title with that name already exists." };
+    }
+    return { error: error.message };
+  }
+  return { error: null };
+}
+
+async function setJobTitleKind(id, kind) {
+  const k = kind === "office" ? "office" : "field";
+  const { error } = await supabase.from("job_titles").update({ kind: k }).eq("id", id);
+  return { error: error ? error.message : null };
+}
+
+async function setJobTitleActive(id, active) {
+  const { error } = await supabase.from("job_titles").update({ active: !!active }).eq("id", id);
   return { error: error ? error.message : null };
 }
 
@@ -1132,6 +1202,7 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getHomeOrder, saveHomeOrder,
                  listAllProfiles, saveProfileAsSupervisor, setProfileRole,
                  listTeam, createTeamMember,
+                 listJobTitles, createJobTitle, renameJobTitle, setJobTitleKind, setJobTitleActive,
                  listMyVisits, getVisitDetail,
                  listCompletedVisits, getAnyVisitDetail, markVisitReviewed, unreviewedVisitCount,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
@@ -1197,8 +1268,8 @@ supabase.auth.onAuthStateChange((_event, session) => {
   } else {
     showGate(true);
     if (whoami) whoami.textContent = "";
-    if (window.cloud) { window.cloud.role = null; window.cloud.myId = null; }
-    document.body.classList.remove("is-admin");
+    if (window.cloud) { window.cloud.role = null; window.cloud.myId = null; window.cloud.jobTitleKind = ""; }
+    document.body.classList.remove("is-admin", "is-office");
     if (window.applyRole) window.applyRole(null);
     if (window.applyMyHouses) window.applyMyHouses(null);
     // Clear any per-user Daily Logs view state so the next sign-in (possibly a
