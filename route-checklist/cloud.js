@@ -68,7 +68,7 @@ async function loadRole() {
   if (!user) return;
   window.cloud.myId = user.id;   // the UI's "is this ticket mine?" check
   const { data, error } = await supabase
-    .from("profiles").select("role, job_titles(kind)").eq("id", user.id).maybeSingle();
+    .from("profiles").select("role, job_titles(kind, home_screen)").eq("id", user.id).maybeSingle();
   if (error) {
     // Fall back to role-only if job_titles isn't joinable yet (pre-0027).
     const { data: d2, error: e2 } = await supabase
@@ -76,12 +76,16 @@ async function loadRole() {
     if (e2) { console.error("Could not load role:", e2.message); return; }
     window.cloud.role = d2?.role || "tech";
     window.cloud.jobTitleKind = "";
+    window.cloud.homeScreen = "";
   } else {
     window.cloud.role = data?.role || "tech";
     window.cloud.jobTitleKind = data?.job_titles?.kind || "";
+    window.cloud.homeScreen = data?.job_titles?.home_screen || "";
   }
   document.body.classList.toggle("is-admin", window.cloud.role === "supervisor");
   document.body.classList.toggle("is-office", window.cloud.jobTitleKind === "office");
+  document.body.classList.toggle("is-designer",
+    window.cloud.jobTitleKind === "office" && window.cloud.homeScreen === "designer");
   if (window.applyRole) window.applyRole(window.cloud.role);
   if (window.cloud.role === "supervisor") {
     pendingCount().then(r => {
@@ -248,12 +252,13 @@ async function setProfileRole(id, role) {
 // Team dropdown); the management screen passes nothing to see retired ones too.
 // Returns { titles:[{id,name,kind,active}], error }.
 async function listJobTitles({ activeOnly } = {}) {
-  let q = supabase.from("job_titles").select("id, name, kind, active").order("name");
+  let q = supabase.from("job_titles").select("id, name, kind, active, home_screen").order("name");
   if (activeOnly) q = q.eq("active", true);
   const { data, error } = await q;
   if (error) return { titles: [], error: error.message };
   return { titles: (data || []).map(t => ({
     id: t.id, name: t.name, kind: t.kind || "field", active: t.active !== false,
+    homeScreen: t.home_screen || "office",
   })) };
 }
 
@@ -289,6 +294,14 @@ async function renameJobTitle(id, name) {
 async function setJobTitleKind(id, kind) {
   const k = kind === "office" ? "office" : "field";
   const { error } = await supabase.from("job_titles").update({ kind: k }).eq("id", id);
+  return { error: error ? error.message : null };
+}
+
+// Supervisor-only (RLS enforces): choose which home layout a title uses.
+async function setJobTitleHomeScreen(id, homeScreen) {
+  const hs = homeScreen === "designer" ? "designer" : "office";
+  const { error } = await supabase.from("job_titles")
+    .update({ home_screen: hs }).eq("id", id);
   return { error: error ? error.message : null };
 }
 
@@ -1011,11 +1024,18 @@ function listHousesForRoutes() {
 // assign/re-prioritize/edit). Field names mirror the company SharePoint list
 // so a someday-migration is a plain data copy.
 
+// Mirror of index.html DESIGN_CATEGORIES (kept in sync by hand — six values).
+// Two files can't share a constant (no module system), so this deliberate
+// duplicate feeds the designer badge counts computed in refreshTicketBadges.
+const DESIGN_CATEGORIES_JS = new Set([
+  "Decorating", "Furniture", "Interior Painting", "Flooring", "Windows", "Ceiling",
+]);
+
 // tickets has THREE profiles FKs (submitted_by / assigned_to / completed_by),
 // so every profiles embed must name its FK or PostgREST rejects it (same
 // lesson as visits after 0020).
 const TICKET_COLS = `id, title, description, category, level, status, priority,
-  requested_by_role, assigned_to, created_at, updated_at, completed_at,
+  requested_by_role, submitted_by, assigned_to, created_at, updated_at, completed_at,
   houses(name),
   submitter:profiles!tickets_submitted_by_fkey(full_name),
   assignee:profiles!tickets_assigned_to_fkey(full_name)`;
@@ -1031,6 +1051,7 @@ function mapTicket(t) {
     priority: t.priority,
     requestedByRole: t.requested_by_role,
     houseName: t.houses?.name || "",
+    submittedBy: t.submitted_by || null,
     submittedByName: t.submitter?.full_name || "",
     assignedTo: t.assigned_to || null,
     assignedToName: t.assignee?.full_name || "",
@@ -1167,7 +1188,7 @@ async function refreshTicketBadges() {
     if (!user) return;
     const [tk, nf] = await Promise.all([
       supabase.from("tickets")
-        .select("status, assigned_to, houses(name)")
+        .select("status, assigned_to, submitted_by, priority, category, houses(name)")
         .neq("status", "completed"),
       supabase.from("notifications")
         .select("id", { count: "exact", head: true })
@@ -1187,6 +1208,18 @@ async function refreshTicketBadges() {
       byHouse,
       unread: nf.count || 0,
     });
+    // Designer badges — cheap to always compute; the buttons are hidden for
+    // everyone but a designer, so unused counts never show. Reuses tk.data
+    // (already the OPEN tickets, thanks to the .neq above) — no extra fetch.
+    if (window.applyDesignerBadges) {
+      const open = tk.data || [];
+      const design = open.filter(t => DESIGN_CATEGORIES_JS.has(t.category));
+      window.applyDesignerBadges({
+        myRequests: open.filter(t => t.submitted_by === user.id).length,
+        wishlist: design.filter(t => t.priority === "wish_list").length,
+        houses: new Set(design.map(t => t.houses?.name).filter(Boolean)).size,
+      });
+    }
   } catch (e) {
     console.warn("Ticket badge refresh failed:", e.message);
   }
@@ -1202,7 +1235,8 @@ window.cloud = { saveVisit, loadInProgress, lastDone, listInProgress,
                  getHomeOrder, saveHomeOrder,
                  listAllProfiles, saveProfileAsSupervisor, setProfileRole,
                  listTeam, createTeamMember,
-                 listJobTitles, createJobTitle, renameJobTitle, setJobTitleKind, setJobTitleActive,
+                 listJobTitles, createJobTitle, renameJobTitle, setJobTitleKind,
+                 setJobTitleActive, setJobTitleHomeScreen,
                  listMyVisits, getVisitDetail,
                  listCompletedVisits, getAnyVisitDetail, markVisitReviewed, unreviewedVisitCount,
                  listLogsInRange, listLogTechs, addLogEntry, updateLogEntry, deleteLogEntry,
@@ -1268,8 +1302,11 @@ supabase.auth.onAuthStateChange((_event, session) => {
   } else {
     showGate(true);
     if (whoami) whoami.textContent = "";
-    if (window.cloud) { window.cloud.role = null; window.cloud.myId = null; window.cloud.jobTitleKind = ""; }
-    document.body.classList.remove("is-admin", "is-office");
+    if (window.cloud) {
+      window.cloud.role = null; window.cloud.myId = null;
+      window.cloud.jobTitleKind = ""; window.cloud.homeScreen = "";
+    }
+    document.body.classList.remove("is-admin", "is-office", "is-designer");
     if (window.applyRole) window.applyRole(null);
     if (window.applyMyHouses) window.applyMyHouses(null);
     // Clear any per-user Daily Logs view state so the next sign-in (possibly a

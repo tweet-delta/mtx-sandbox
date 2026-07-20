@@ -510,6 +510,9 @@
   body:not([data-screen="pending"])  #pendingScreen,
   body:not([data-screen="profile"])  #profileScreen,
   body:not([data-screen="history"])  #historyScreen,
+  body:not([data-screen="myrequests"])   #myRequestsScreen,
+  body:not([data-screen="designwishlist"]) #designWishlistScreen,
+  body:not([data-screen="designhouses"])   #designHousesScreen,
   body:not([data-screen="logs"])     #logsScreen,
   body:not([data-screen="mynotes"])  #mynotesScreen,
   body:not([data-screen="reviews"])  #reviewsScreen,
@@ -827,6 +830,11 @@
     background: var(--card); border: 1px solid var(--line); border-radius: 10px;
     color: var(--muted, #555); font-size: 0.95rem;
   }
+  /* Designer titles (office + home_screen='designer') swap the office note for
+     the three ticket-derived buttons. */
+  .designer-only { display: none; }
+  body.is-designer .designer-only { display: block; }
+  body.is-designer #officeToolsNote { display: none; }
   .route-row, .house-route-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .route-row input, .route-row select, .house-route-row select {
     font: inherit; font-size: 16px; padding: 8px 10px; min-width: 0;
@@ -954,6 +962,12 @@
   <button type="button" class="home-btn admin-only" id="homeTitles">🏷️ Job titles
     <small>Create &amp; manage the team's job titles</small></button>
   <p class="home-office-note" id="officeToolsNote">Your tailored tools are coming. For now you have House notes, My notes, maintenance requests and your profile.</p>
+  <button type="button" class="home-btn designer-only" id="homeMyRequests">📤 My requests<span class="pending-count" id="myRequestsBadge"></span>
+    <small>Tickets you filed — track what you're waiting on</small></button>
+  <button type="button" class="home-btn designer-only" id="homeDesignWishlist">💭 Design wish list<span class="pending-count" id="designWishlistBadge"></span>
+    <small>Open wish-list requests in your design categories</small></button>
+  <button type="button" class="home-btn designer-only" id="homeDesignHouses">🏠 Design by house<span class="pending-count" id="designHousesBadge"></span>
+    <small>Houses with open design work</small></button>
   <button type="button" class="home-btn field-only" id="homeNewVisit">🏠 New house visit
     <small>Pick a house and start the checklist</small></button>
   <button type="button" class="home-btn field-only" id="homeContinue">▶ Continue house visit
@@ -1015,6 +1029,30 @@
     <h1>My Visit History</h1>
   </div>
   <div id="historyBody"></div>
+</div>
+
+<div id="myRequestsScreen" class="screen" aria-label="My requests">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>📤 My requests</h1>
+  </div>
+  <div id="myRequestsBody"></div>
+</div>
+
+<div id="designWishlistScreen" class="screen" aria-label="Design wish list">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>💭 Design wish list</h1>
+  </div>
+  <div id="designWishlistBody"></div>
+</div>
+
+<div id="designHousesScreen" class="screen" aria-label="Design by house">
+  <div class="screen-head">
+    <button type="button" class="menu-btn" data-nav-home>← Home</button>
+    <h1>🏠 Design by house</h1>
+  </div>
+  <div id="designHousesBody"></div>
 </div>
 
 <div id="logsScreen" class="screen" aria-label="Daily logs">
@@ -1540,7 +1578,7 @@
     previewLabel.textContent = "Previewing " + routeName;
     previewBanner.hidden = false;
     document.body.classList.add("previewing");
-    document.body.classList.remove("is-admin", "is-office");   // hide supervisor controls; show full field home
+    document.body.classList.remove("is-admin", "is-office", "is-designer");   // hide supervisor controls; show full field home
     // A tech's home screen has New visit / Continue / My history flat on the
     // page; supervisors keep them tucked in the admin-only Field tools drawer,
     // which removing is-admin just hid. Re-lay them as the tech's so the
@@ -1557,6 +1595,8 @@
       !!window.cloud && window.cloud.role === "supervisor");
     document.body.classList.toggle("is-office",
       !!window.cloud && window.cloud.jobTitleKind === "office");
+    document.body.classList.toggle("is-designer",
+      !!window.cloud && window.cloud.jobTitleKind === "office" && window.cloud.homeScreen === "designer");
     // Undo the tech re-lay from startPreview: tuck the field buttons back into
     // the supervisor's drawer (or leave them flat if somehow not a supervisor).
     if (window.applyRole) window.applyRole(window.cloud && window.cloud.role);
@@ -2919,6 +2959,9 @@
     if (h.startsWith("#pending")) return "pending";
     if (h.startsWith("#profile")) return "profile";
     if (h.startsWith("#history")) return "history";
+    if (h.startsWith("#myrequests")) return "myrequests";
+    if (h.startsWith("#designwishlist")) return "designwishlist";
+    if (h.startsWith("#designhouses")) return "designhouses";
     if (h.startsWith("#logs")) return "logs";
     if (h.startsWith("#mynotes")) return "mynotes";
     if (h.startsWith("#reviews")) return "reviews";
@@ -3088,6 +3131,9 @@
     if (scr === "pending") renderPendingScreen();
     if (scr === "profile") renderProfileScreen();
     if (scr === "history") renderHistoryScreen();
+    if (scr === "myrequests") renderMyRequestsScreen();
+    if (scr === "designwishlist") renderDesignWishlistScreen();
+    if (scr === "designhouses") renderDesignHousesScreen();
     if (scr === "logs") renderLogsScreen();
     if (scr === "mynotes") renderMyNotesScreen();
     if (scr === "reviews") renderReviewsScreen();
@@ -3158,6 +3204,9 @@
   document.getElementById("homeMyTickets").addEventListener("click", () => {
     location.hash = "#tickets/mine";
   });
+  document.getElementById("homeMyRequests").addEventListener("click", () => { location.hash = "#myrequests"; });
+  document.getElementById("homeDesignWishlist").addEventListener("click", () => { location.hash = "#designwishlist"; });
+  document.getElementById("homeDesignHouses").addEventListener("click", () => { location.hash = "#designhouses"; });
   document.getElementById("homeAlerts").addEventListener("click", () => {
     location.hash = "#alerts";
   });
@@ -3568,6 +3617,11 @@
     if (r1.error) { showErr(r1.error); return; }
     const r2 = await window.cloud.setJobTitleKind(id, kind);
     if (r2.error) { showErr(r2.error); return; }
+    const homeSel = card.querySelector("[data-title-home]");
+    if (homeSel) {
+      const r3 = await window.cloud.setJobTitleHomeScreen(id, homeSel.value);
+      if (r3.error) { showErr(r3.error); return; }
+    }
     editingTitleId = null; renderTitlesScreen();
   });
 
@@ -3749,6 +3803,12 @@
         <input type="text" data-title-name value="${escAttr(t.name)}"></label>
       <label class="team-field"><span>Kind</span>
         ${kindSelectHTML(t.kind === "office" ? "office" : "field")}</label>
+      ${t.kind === "office" ? `
+      <label class="team-field"><span>Home screen</span>
+        <select data-title-home>
+          <option value="office"${(t.homeScreen || "office") === "office" ? " selected" : ""}>Standard office</option>
+          <option value="designer"${t.homeScreen === "designer" ? " selected" : ""}>Interior design</option>
+        </select></label>` : ""}
       <p class="team-error" data-title-error hidden></p>
       <div class="team-edit-actions">
         <button type="button" class="menu-btn team-save" data-title-save="${escAttr(t.id)}">Save</button>
@@ -4260,6 +4320,15 @@
   const TK_PRIORITY_LABEL = { urgent: "Urgent", time_sensitive: "Time sensitive",
     normal: "Normal", wish_list: "Wish list" };
   const TK_PRIORITY_ORDER = { urgent: 0, time_sensitive: 1, normal: 2, wish_list: 3 };
+  // Categories the Interior Designer works in. Only the wish-list + by-house
+  // views filter by this; My requests shows everything she filed.
+  // NOTE: kept in sync BY HAND with DESIGN_CATEGORIES_JS in cloud.js (no module
+  // system to share the constant across the two files).
+  const DESIGN_CATEGORIES = new Set([
+    "Decorating", "Furniture", "Interior Painting", "Flooring", "Windows", "Ceiling",
+  ]);
+  const isDesignTicket = t => DESIGN_CATEGORIES.has(t.category);
+  const isOpen = t => t.status !== "completed";
   const TK_STATUS_LABEL = { new: "New", in_progress: "In progress",
     on_hold: "On hold", completed: "Completed" };
   const TK_LEVEL_LABEL = { resident: "Resident level", rs: "RS level" };
@@ -4391,6 +4460,68 @@
   });
   document.getElementById("ticketsBody").addEventListener("change", e => {
     if (e.target.id === "tkHousePick") { ticketsHouse = e.target.value; renderTicketsScreen(); }
+  });
+
+  // ================= Interior Designer home views =================
+  // 📤 My requests — tickets I submitted. Open first (priority then oldest),
+  // then a capped "Recently completed" list.
+  async function renderMyRequestsScreen() {
+    const body = document.getElementById("myRequestsBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    if (!window.cloud) { body.innerHTML = `<p class="screen-sub">Sign in to see your requests.</p>`; return; }
+    const me = window.cloud && window.cloud.myId;
+    const res = await window.cloud.listTickets();
+    if (currentScreenFromHash() !== "myrequests") return;
+    if (res.error) { body.innerHTML = `<p class="screen-sub">Couldn't load — ${escHtml(res.error)}</p>`; return; }
+    const mine = res.tickets.filter(t => t.submittedBy === me);
+    const open = mine.filter(isOpen).sort((a, b) =>
+      (TK_PRIORITY_ORDER[a.priority] - TK_PRIORITY_ORDER[b.priority]) || (new Date(a.createdAt) - new Date(b.createdAt)));
+    const done = mine.filter(t => !isOpen(t))
+      .sort((a, b) => new Date(b.completedAt || b.updatedAt) - new Date(a.completedAt || a.updatedAt)).slice(0, 20);
+    body.innerHTML =
+      `<div class="notes-sec"><h2>Open (${open.length})</h2>${
+        open.length ? open.map(tkCardHTML).join("") : `<p class="screen-sub">Nothing open that you filed.</p>`}</div>` +
+      `<div class="notes-sec"><h2>Recently completed</h2>${
+        done.length ? done.map(tkCardHTML).join("") : `<p class="screen-sub">Nothing completed recently.</p>`}</div>`;
+  }
+
+  // 💭 Design wish list — open wish-list-priority tickets in design categories.
+  async function renderDesignWishlistScreen() {
+    const body = document.getElementById("designWishlistBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    if (!window.cloud) { body.innerHTML = `<p class="screen-sub">Sign in to see the wish list.</p>`; return; }
+    const res = await window.cloud.listTickets();
+    if (currentScreenFromHash() !== "designwishlist") return;
+    if (res.error) { body.innerHTML = `<p class="screen-sub">Couldn't load — ${escHtml(res.error)}</p>`; return; }
+    const rows = res.tickets
+      .filter(t => isOpen(t) && t.priority === "wish_list" && isDesignTicket(t))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));   // oldest first
+    body.innerHTML = rows.length ? rows.map(tkCardHTML).join("")
+      : `<p class="screen-sub">No open design wish-list requests.</p>`;
+  }
+
+  // 🏠 Design by house — houses with open design-category tickets + counts.
+  // Tapping a house opens the existing #tickets screen pre-filtered to it.
+  async function renderDesignHousesScreen() {
+    const body = document.getElementById("designHousesBody");
+    body.innerHTML = `<p class="screen-sub">Loading…</p>`;
+    if (!window.cloud) { body.innerHTML = `<p class="screen-sub">Sign in to see design work.</p>`; return; }
+    const res = await window.cloud.listTickets();
+    if (currentScreenFromHash() !== "designhouses") return;
+    if (res.error) { body.innerHTML = `<p class="screen-sub">Couldn't load — ${escHtml(res.error)}</p>`; return; }
+    const counts = {};
+    res.tickets.filter(t => isOpen(t) && isDesignTicket(t))
+      .forEach(t => { counts[t.houseName] = (counts[t.houseName] || 0) + 1; });
+    const houses = Object.keys(counts).sort();
+    body.innerHTML = houses.length ? houses.map(h =>
+      `<button type="button" class="home-btn" data-design-house="${escAttr(h)}">🏠 ${escHtml(h)}
+        <span class="pending-count">${counts[h]}</span></button>`).join("")
+      : `<p class="screen-sub">No open design work at any house.</p>`;
+  }
+
+  document.getElementById("designHousesBody").addEventListener("click", e => {
+    const btn = e.target.closest("[data-design-house]");
+    if (btn) { ticketsHouse = btn.dataset.designHouse; ticketsFilter = "all"; location.hash = "#tickets"; }
   });
 
   // ---- Ticket detail ----
@@ -4598,6 +4729,17 @@
     set("ticketsBadge", c.allOpen);
     set("myTicketsBadge", c.mineOpen);
     set("alertsBadge", c.unread);
+  };
+
+  // Designer home badges — open submitted count, open design wish-list count,
+  // count of houses with open design work. Best-effort like applyTicketCounts.
+  window.applyDesignerBadges = function (c) {
+    c = c || {};
+    const set = (id, n) => { const el = document.getElementById(id);
+      if (el) el.textContent = n ? String(n) : ""; };
+    set("myRequestsBadge", c.myRequests);
+    set("designWishlistBadge", c.wishlist);
+    set("designHousesBadge", c.houses);
   };
 
   window.applyReviewCount = function (n) {

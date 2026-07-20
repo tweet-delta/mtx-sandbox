@@ -7,22 +7,42 @@ this file before every session ends.)
 
 ---
 
-## ⏭️ FIRST THING NEXT TIME (as of 2026-07-18)
+## ⏭️ FIRST THING NEXT TIME (as of 2026-07-19)
 
-0a. **NEW — 🏷️ Managed job titles are LIVE (sw.js v31).** Hard-refresh first
-   (Ctrl+Shift+R). As a **supervisor**:
-   - Home has a new **🏷️ Job titles** button → create titles, each marked
+0a. **NEW — 🎨 Interior Designer home screen is LIVE (sw.js v32).**
+   Hard-refresh first (Ctrl+Shift+R, maybe twice; fully close/reopen the PWA
+   on phones). To try it, as a **supervisor**:
+   - **🏷️ Job titles** → ✎ Edit an **office**-kind title → a new **"Home
+     screen"** dropdown appears → set it to **"Interior design"** → Save.
+     (Field titles don't show this dropdown — it's office-only.)
+   - **Sign in as an account holding that title** (for real, not preview) →
+     home should show three new buttons instead of the old "tailored tools
+     are coming" note: **📤 My requests** (tickets you filed — open first,
+     then recently completed), **💭 Design wish list** (open wish-list
+     tickets in a design category, across all houses), and **🏠 Design by
+     house** (houses with open design tickets, tap → jumps to 🎫 Tickets
+     pre-filtered to that house). Each has a live count badge.
+   - Confirm house-visit / daily-log / field tools stay **hidden** (same as
+     any office title), and each of the three views actually loads without
+     errors.
+   - Confirm a **plain office title (not Interior design) is unchanged** —
+     still shows the old note, not the three buttons.
+   - This is Slice 3, part 1. Deliberately **not built yet**: the orders /
+     awaiting-delivery tracker, photos (Phase 2), and Project Director /
+     Carpenter screens (same `home_screen` seam, just need a new value).
+   - Real Interior Designer (Gwyn) isn't an app user yet — when ready, add
+     her via 👥 Team → Add new team member, assign her the title, and flip
+     that title's Home screen to "Interior design."
+
+0b. **🏷️ Managed job titles are LIVE (shipped under sw.js v31; current SW is v32).**
+   As a **supervisor**:
+   - Home has a **🏷️ Job titles** button → create titles, each marked
      **Field** or **Office / Projects**, rename or retire them.
    - **👥 Team** → ✎ Edit someone → pick their title from the **dropdown**
      (no more free typing).
-   - **The payoff:** give a **test account** an *Office* title, then **sign in
-     as that account for real** (not preview) — its home screen should HIDE
-     house visits / daily logs and show only House notes, My notes, My profile,
-     maintenance requests, plus a "your tailored tools are coming" note. This is
-     the live check Claude can't do headless — **please try it and report back.**
-   - This is Slice 1. Your "pick-and-choose admin permissions" and the *actual*
-     custom screens for the Interior Designer / Project Director / Carpenter are
-     the next two slices (not built yet — by design).
+   - This is Slice 1. Your "pick-and-choose admin permissions" is Slice 2
+     (not built yet — by design); Slice 3 (tailored office screens) is now
+     underway, starting with Interior Designer above.
 
 0b. **Try the 🎫 Tickets feature — it's LIVE.**
    Hard-refresh first (Ctrl+Shift+R), then:
@@ -56,13 +76,22 @@ a rewrite.
 ## ✅ What's live right now
 
 - **Live app:** https://tweet-delta.github.io/mtx-sandbox/route-checklist/index.html#home
-- **NEW 2026-07-18 — 🏷️ Managed job titles (Slice 1):** supervisors create an
+- **NEW 2026-07-19 — 🎨 Interior Designer home screen (Slice 3, part 1):**
+  office titles can now carry a `home_screen` of "office" (default) or
+  "designer," set via a dropdown on 🏷️ Job titles. A title with
+  `home_screen='designer'` gets three tailored buttons instead of the Slice 1
+  note: **📤 My requests** (tickets I filed), **💭 Design wish list** (open
+  wish-list tickets in a design category), and **🏠 Design by house** (houses
+  with open design tickets). All three are built entirely from existing
+  ticket data — no new ticket fields. Migration 0029; sw.js **v32**. Still
+  deferred: the orders/awaiting-delivery tracker, photos (Phase 2), and
+  Project Director / Carpenter screens (same seam, not built).
+- **2026-07-18 — 🏷️ Managed job titles (Slice 1):** supervisors create an
   official list of job titles (each **Field** or **Office/Projects**), assign
   them to people via a dropdown on 👥 Team, and each title's kind decides the
   home screen — **Office** people don't see house-visit/daily-log tooling.
   Titles are supervisor-assigned (read-only on My Profile). Migration 0027;
-  Edge Function updated; sw.js **v31**. Permissions and the tailored
-  Designer/Director/Carpenter screens are deliberately **later slices**.
+  Edge Function updated. Slice 2 permissions still deliberately **not built**.
 - **NEW 2026-07-18 — ⇅ Arrange (personal home-menu order):** everyone can
   reorder their own home buttons (⇅ Arrange next to the title → ↑/↓ → ✓ Done).
   Order saves to your account (`profiles.home_order`, migration 0028) so it
@@ -136,12 +165,14 @@ Your own login is the supervisor.
 
 ## 🗺️ Roadmap
 
-Done: 🎫 tickets (2026-07-18). Next: Photos (Phase 2, also adds photos to
-tickets) · **real SharePoint ticket sync** (blocked on IT/Graph access) ·
-rotation + advance-notice email (Phase 3) · checklist task editing in-app ·
-offline sync (Phase 5) · on-call calendar (Slice 4) · Team 2c/2d (reset
-password, deactivate). Someday: move data into company M365/SharePoint
-(compliance home).
+Done: 🎫 tickets (2026-07-18) · 🎨 Interior Designer home (Slice 3 part 1,
+2026-07-19). Next: orders/awaiting-delivery tracker (designer, next slice) ·
+Photos (Phase 2, also adds photos to tickets) · Project Director / Carpenter
+home screens (same `home_screen` seam) · **real SharePoint ticket sync**
+(blocked on IT/Graph access) · rotation + advance-notice email (Phase 3) ·
+checklist task editing in-app · offline sync (Phase 5) · on-call calendar
+(Slice 4) · Team 2c/2d (reset password, deactivate). Someday: move data into
+company M365/SharePoint (compliance home).
 
 ---
 *Claude: keep this file current — update "FIRST THING NEXT TIME" and
