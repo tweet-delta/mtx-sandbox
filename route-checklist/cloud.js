@@ -1027,7 +1027,7 @@ function listHousesForRoutes() {
 // so every profiles embed must name its FK or PostgREST rejects it (same
 // lesson as visits after 0020).
 const TICKET_COLS = `id, title, description, category, level, status, priority,
-  requested_by_role, assigned_to, created_at, updated_at, completed_at,
+  requested_by_role, submitted_by, assigned_to, created_at, updated_at, completed_at,
   houses(name),
   submitter:profiles!tickets_submitted_by_fkey(full_name),
   assignee:profiles!tickets_assigned_to_fkey(full_name)`;
@@ -1043,6 +1043,7 @@ function mapTicket(t) {
     priority: t.priority,
     requestedByRole: t.requested_by_role,
     houseName: t.houses?.name || "",
+    submittedBy: t.submitted_by || null,
     submittedByName: t.submitter?.full_name || "",
     assignedTo: t.assigned_to || null,
     assignedToName: t.assignee?.full_name || "",

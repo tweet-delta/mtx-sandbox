@@ -59,6 +59,14 @@ WRAPPER = r"""
     role: 'supervisor',
     job_titles: { kind: 'office', home_screen: 'designer' },
   };
+  // One ticket submitted by the signed-in user, for the submittedBy mapping test.
+  const TICKETS = [
+    { id: 'tk-1', title: 'Test ticket', description: '', category: 'Plumbing',
+      level: 'resident', status: 'new', priority: 'normal', requested_by_role: 'maintenance',
+      submitted_by: FAKE.id, assigned_to: null,
+      created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z', completed_at: null,
+      houses: { name: 'Amble' }, submitter: { full_name: 'E2E' }, assignee: null },
+  ];
   function makeQuery(table) {
     const rec = { table, method: 'select', payload: null, options: null, single: false };
     const q = {};
@@ -80,6 +88,7 @@ WRAPPER = r"""
     if (rec.table === 'profiles') return { data: rec.single ? PROFILE : [], error: null };
     if (rec.table === 'houses') return { data: [], error: null };
     if (rec.table === 'routes') return { data: [], error: null };
+    if (rec.table === 'tickets') return { data: TICKETS, error: null };
     return { data: rec.single ? null : [], error: null, count: 0 };
   }
   function wrap(client) {
@@ -149,6 +158,8 @@ else:
     proc.terminate(); sys.exit("FATAL: app never reached signed-in state")
 time.sleep(0.6)
 
+MY_ID = '00000000-e2e0-4000-8000-000000000002'  # matches WRAPPER's FAKE.id
+
 results = []
 
 # --- TEST 1: window.cloud.homeScreen === "designer" after loadRole() ---
@@ -166,6 +177,12 @@ is_designer = js("document.body.classList.contains('is-designer')")
 is_office = js("document.body.classList.contains('is-office')")
 t3 = is_designer is True and is_office is True
 results.append((f"body.is-designer and body.is-office both set (is-designer={is_designer}, is-office={is_office})", t3))
+
+# --- TEST 4: mapTicket exposes submittedBy (needed for "My requests") ---
+list_res = js("window.cloud.listTickets()")
+submitted_by = (list_res or {}).get("tickets", [{}])[0].get("submittedBy") if isinstance(list_res, dict) else None
+t4 = submitted_by == MY_ID
+results.append((f"listTickets()[0].submittedBy === MY_ID (got {submitted_by!r})", t4))
 
 for label, ok in results:
     print(f"{'PASS' if ok else 'FAIL'}  {label}")
