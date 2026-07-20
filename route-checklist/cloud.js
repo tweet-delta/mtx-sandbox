@@ -1023,6 +1023,13 @@ function listHousesForRoutes() {
 // assign/re-prioritize/edit). Field names mirror the company SharePoint list
 // so a someday-migration is a plain data copy.
 
+// Mirror of index.html DESIGN_CATEGORIES (kept in sync by hand — six values).
+// Two files can't share a constant (no module system), so this deliberate
+// duplicate feeds the designer badge counts computed in refreshTicketBadges.
+const DESIGN_CATEGORIES_JS = new Set([
+  "Decorating", "Furniture", "Interior Painting", "Flooring", "Windows", "Ceiling",
+]);
+
 // tickets has THREE profiles FKs (submitted_by / assigned_to / completed_by),
 // so every profiles embed must name its FK or PostgREST rejects it (same
 // lesson as visits after 0020).
@@ -1180,7 +1187,7 @@ async function refreshTicketBadges() {
     if (!user) return;
     const [tk, nf] = await Promise.all([
       supabase.from("tickets")
-        .select("status, assigned_to, houses(name)")
+        .select("status, assigned_to, submitted_by, priority, category, houses(name)")
         .neq("status", "completed"),
       supabase.from("notifications")
         .select("id", { count: "exact", head: true })
@@ -1200,6 +1207,18 @@ async function refreshTicketBadges() {
       byHouse,
       unread: nf.count || 0,
     });
+    // Designer badges — cheap to always compute; the buttons are hidden for
+    // everyone but a designer, so unused counts never show. Reuses tk.data
+    // (already the OPEN tickets, thanks to the .neq above) — no extra fetch.
+    if (window.applyDesignerBadges) {
+      const open = tk.data || [];
+      const design = open.filter(t => DESIGN_CATEGORIES_JS.has(t.category));
+      window.applyDesignerBadges({
+        myRequests: open.filter(t => t.submitted_by === user.id).length,
+        wishlist: design.filter(t => t.priority === "wish_list").length,
+        houses: new Set(design.map(t => t.houses?.name).filter(Boolean)).size,
+      });
+    }
   } catch (e) {
     console.warn("Ticket badge refresh failed:", e.message);
   }

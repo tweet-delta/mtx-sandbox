@@ -59,13 +59,31 @@ WRAPPER = r"""
     role: 'supervisor',
     job_titles: { kind: 'office', home_screen: 'designer' },
   };
-  // One ticket submitted by the signed-in user, for the submittedBy mapping test.
+  // Fixtures for both the submittedBy mapping test and the three designer views:
+  //  - two tickets submitted by the signed-in user (one open, one completed)
+  //  - one open wish_list Decorating ticket at house "Amble" (a design category)
+  //  - one open Plumbing ticket (NOT a design category — must be excluded)
   const TICKETS = [
-    { id: 'tk-1', title: 'Test ticket', description: '', category: 'Plumbing',
+    { id: 'tk-1', title: 'My open request', description: '', category: 'Plumbing',
       level: 'resident', status: 'new', priority: 'normal', requested_by_role: 'maintenance',
       submitted_by: FAKE.id, assigned_to: null,
       created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z', completed_at: null,
       houses: { name: 'Amble' }, submitter: { full_name: 'E2E' }, assignee: null },
+    { id: 'tk-2', title: 'My done request', description: '', category: 'Doors',
+      level: 'resident', status: 'completed', priority: 'normal', requested_by_role: 'maintenance',
+      submitted_by: FAKE.id, assigned_to: null,
+      created_at: '2026-01-02T00:00:00.000Z', updated_at: '2026-01-03T00:00:00.000Z', completed_at: '2026-01-03T00:00:00.000Z',
+      houses: { name: 'Amble' }, submitter: { full_name: 'E2E' }, assignee: null },
+    { id: 'tk-3', title: 'Wish-list decorating', description: '', category: 'Decorating',
+      level: 'resident', status: 'new', priority: 'wish_list', requested_by_role: 'maintenance',
+      submitted_by: 'someone-else', assigned_to: null,
+      created_at: '2026-01-04T00:00:00.000Z', updated_at: '2026-01-04T00:00:00.000Z', completed_at: null,
+      houses: { name: 'Amble' }, submitter: { full_name: 'Other' }, assignee: null },
+    { id: 'tk-4', title: 'Open plumbing', description: '', category: 'Plumbing',
+      level: 'resident', status: 'new', priority: 'wish_list', requested_by_role: 'maintenance',
+      submitted_by: 'someone-else', assigned_to: null,
+      created_at: '2026-01-05T00:00:00.000Z', updated_at: '2026-01-05T00:00:00.000Z', completed_at: null,
+      houses: { name: 'Brook' }, submitter: { full_name: 'Other' }, assignee: null },
   ];
   function makeQuery(table) {
     const rec = { table, method: 'select', payload: null, options: null, single: false };
@@ -183,6 +201,37 @@ list_res = js("window.cloud.listTickets()")
 submitted_by = (list_res or {}).get("tickets", [{}])[0].get("submittedBy") if isinstance(list_res, dict) else None
 t4 = submitted_by == MY_ID
 results.append((f"listTickets()[0].submittedBy === MY_ID (got {submitted_by!r})", t4))
+
+# --- Navigation helper: set the hash, then poll until the target screen's
+#     async renderer has painted (renderers await listTickets()). ---
+def nav(hash_val, ready_expr):
+    js(f"location.hash = {json.dumps(hash_val)}")
+    for _ in range(40):
+        if js(ready_expr):
+            return True
+        time.sleep(0.1)
+    return False
+
+# --- TEST 5: #myrequests renders both my tickets (open + completed) as cards ---
+nav("#myrequests", "document.querySelectorAll('#myRequestsBody .notes-sec .tk-card').length >= 1")
+my_cards = js("document.querySelectorAll('#myRequestsBody .notes-sec .tk-card').length")
+t5 = my_cards == 2
+results.append((f"#myrequests renders 2 cards under .notes-sec (got {my_cards!r})", t5))
+
+# --- TEST 6: #designwishlist renders exactly the Decorating card, not Plumbing ---
+nav("#designwishlist", "document.querySelectorAll('#designWishlistBody .tk-card').length >= 1")
+wish_cards = js("document.querySelectorAll('#designWishlistBody .tk-card').length")
+wish_text = js("document.getElementById('designWishlistBody').textContent") or ""
+t6 = wish_cards == 1 and "Decorating" in wish_text and "Plumbing" not in wish_text
+results.append((f"#designwishlist: exactly 1 card, Decorating not Plumbing "
+                f"(cards={wish_cards!r}, hasDecorating={'Decorating' in wish_text}, hasPlumbing={'Plumbing' in wish_text})", t6))
+
+# --- TEST 7: #designhouses shows one house button "Amble" with count 1 ---
+nav("#designhouses", "document.querySelectorAll('#designHousesBody [data-design-house]').length >= 1")
+house_btns = js("document.querySelectorAll('#designHousesBody [data-design-house]').length")
+house_text = js("document.getElementById('designHousesBody').textContent") or ""
+t7 = house_btns == 1 and "Amble" in house_text
+results.append((f"#designhouses: one house button 'Amble' (buttons={house_btns!r}, hasAmble={'Amble' in house_text})", t7))
 
 for label, ok in results:
     print(f"{'PASS' if ok else 'FAIL'}  {label}")
