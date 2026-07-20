@@ -3568,6 +3568,11 @@
     if (r1.error) { showErr(r1.error); return; }
     const r2 = await window.cloud.setJobTitleKind(id, kind);
     if (r2.error) { showErr(r2.error); return; }
+    const homeSel = card.querySelector("[data-title-home]");
+    if (homeSel) {
+      const r3 = await window.cloud.setJobTitleHomeScreen(id, homeSel.value);
+      if (r3.error) { showErr(r3.error); return; }
+    }
     editingTitleId = null; renderTitlesScreen();
   });
 
@@ -3749,6 +3754,12 @@
         <input type="text" data-title-name value="${escAttr(t.name)}"></label>
       <label class="team-field"><span>Kind</span>
         ${kindSelectHTML(t.kind === "office" ? "office" : "field")}</label>
+      ${t.kind === "office" ? `
+      <label class="team-field"><span>Home screen</span>
+        <select data-title-home>
+          <option value="office"${(t.homeScreen || "office") === "office" ? " selected" : ""}>Standard office</option>
+          <option value="designer"${t.homeScreen === "designer" ? " selected" : ""}>Interior design</option>
+        </select></label>` : ""}
       <p class="team-error" data-title-error hidden></p>
       <div class="team-edit-actions">
         <button type="button" class="menu-btn team-save" data-title-save="${escAttr(t.id)}">Save</button>
