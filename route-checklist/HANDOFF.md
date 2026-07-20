@@ -3,6 +3,81 @@
 Context for continuing work in a new session. Point a fresh Claude Code
 session at this file: "Read route-checklist/HANDOFF.md and let's continue."
 
+## 2026-07-19 — Interior Designer home screen (Job Titles Slice 3, part 1) — SHIPPED
+
+Office titles can now carry a **tailored home screen** instead of the generic
+Slice 1 "your tailored tools are coming" note — the first of these is the
+**Interior Designer** layout. Spec:
+`docs/superpowers/specs/2026-07-19-interior-designer-home-design.md`; plan:
+`docs/superpowers/plans/2026-07-19-interior-designer-home.md`. SW **v32**.
+
+- **DB (migration 0029):** `job_titles.home_screen text not null default
+  'office' check (home_screen in ('office','designer'))`. Field titles ignore
+  this column entirely (kind='field' always gets the field home); it only
+  matters for `kind='office'` titles. No RLS changes — `job_titles` was
+  already supervisor-write/all-read.
+- **cloud.js:** `setJobTitleHomeScreen(id, homeScreen)` added + exported;
+  `listJobTitles()` now returns `homeScreen` per title; `loadRole()` sets
+  `window.cloud.homeScreen` from the signed-in user's title and toggles
+  `body.is-designer` — true only when the title is BOTH `kind='office'` AND
+  `home_screen='designer'` (a field title is never `is-designer` even if the
+  column somehow says so). Also: `mapTicket` now exposes `submittedBy`;
+  `TICKET_COLS` gained `submitted_by`; `refreshTicketBadges` widened its
+  Supabase select to also fetch `submitted_by, priority, category` (no new
+  round-trip — same query, more columns) and now pushes
+  `window.applyDesignerBadges({myRequests, wishlist, houses})` alongside the
+  existing badge updates. A new `DESIGN_CATEGORIES_JS` Set (six values) feeds
+  the wish-list/by-house badge filtering.
+- **index.html:**
+  - The 🏷️ Job titles edit form gained a **"Home screen"** dropdown
+    ("Standard office" / "Interior design") — shown **only for office-kind
+    titles** (field titles don't have the concept). Saving calls
+    `setJobTitleHomeScreen`.
+  - Home screen: when `body.is-designer`, the Slice 1 "tailored tools are
+    coming" note is replaced by three new buttons (each `designer-only`,
+    badge-counted, participates in ⇅ Arrange like any other button):
+    - **📤 My requests** — tickets `submitted_by` the signed-in user; open
+      ones first (status/priority pills, assigned-to, sorted by priority
+      then oldest-first), then a capped "Recently completed" section.
+    - **💭 Design wish list** — open tickets with `priority='wish_list'`
+      whose category is one of the six design categories, oldest first,
+      across all houses.
+    - **🏠 Design by house** — houses with ≥1 open design-category ticket,
+      each showing its count; tapping a house jumps to the existing 🎫
+      Tickets screen pre-filtered to that house.
+  - Three new screens back these: `#myrequests`, `#designwishlist`,
+    `#designhouses`. All three reuse the existing ticket-card/detail
+    navigation (tap → the same ticket detail screen).
+  - `DESIGN_CATEGORIES` — a Set of the same six category strings (Decorating,
+    Furniture, Interior Painting, Flooring, Windows, Ceiling), used by the
+    new screens' own filtering.
+  - `window.applyDesignerBadges` — the painter function `refreshTicketBadges`
+    calls into; sets the three designer button badge counts.
+- **⚠️ Duplication warning:** the six design categories are **hand-duplicated
+  in two files** — `DESIGN_CATEGORIES` in `index.html` and
+  `DESIGN_CATEGORIES_JS` in `cloud.js`. There is no shared module system in
+  this app, so **any future change to the category list (add/rename/remove a
+  design category) must be made in BOTH places** or the wish-list/by-house
+  views and their badges will silently disagree with each other. This was a
+  deliberate, called-out tradeoff (see the spec's Task 5 self-review), not an
+  oversight — but it's a real footgun for future edits.
+- **Tests:** `tests/designer-home.test.py` — CDP harness, 7/7 passing
+  (designer title → three buttons render with counts; filed ticket → My
+  requests; seeded wish-list ticket → wish list lane; its house → Design by
+  house; non-designer office title still gets the Slice 1 note).
+- **Deliberately deferred (out of scope this slice):**
+  - **Orders / awaiting-delivery tracker** (ordered → delivered → installed)
+    — its own future design conversation, not started.
+  - **Photos** on tickets/rooms — arrives with Phase 2 (photo storage).
+  - **Project Director / Carpenter** tailored screens — reuse the same
+    `home_screen` seam (`job_titles.home_screen` just needs a new allowed
+    value + a new screen), not built yet.
+  - Slice 2 pick-and-choose permissions — still undecided, untouched.
+- **Real-life rollout note (from the spec):** the real Interior Designer
+  (Gwyn) isn't an app user yet. When ready: 👥 Team → Add new team member,
+  assign her the Interior Designer title, and flip that title's Home screen
+  to "Interior design" via 🏷️ Job titles.
+
 ## SLICE 4 — Shared on-call rotation calendar — DEFERRED (not started)
 
 **Intentionally paused by the owner on 2026-07-14.** Slice 4 of the 4-slice
