@@ -299,8 +299,9 @@ async function setJobTitleKind(id, kind) {
 
 // Supervisor-only (RLS enforces): choose which home layout a title uses.
 async function setJobTitleHomeScreen(id, homeScreen) {
+  const hs = homeScreen === "designer" ? "designer" : "office";
   const { error } = await supabase.from("job_titles")
-    .update({ home_screen: homeScreen }).eq("id", id);
+    .update({ home_screen: hs }).eq("id", id);
   return { error: error ? error.message : null };
 }
 

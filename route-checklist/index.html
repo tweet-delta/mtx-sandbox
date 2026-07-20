@@ -1578,7 +1578,7 @@
     previewLabel.textContent = "Previewing " + routeName;
     previewBanner.hidden = false;
     document.body.classList.add("previewing");
-    document.body.classList.remove("is-admin", "is-office");   // hide supervisor controls; show full field home
+    document.body.classList.remove("is-admin", "is-office", "is-designer");   // hide supervisor controls; show full field home
     // A tech's home screen has New visit / Continue / My history flat on the
     // page; supervisors keep them tucked in the admin-only Field tools drawer,
     // which removing is-admin just hid. Re-lay them as the tech's so the
@@ -1595,6 +1595,8 @@
       !!window.cloud && window.cloud.role === "supervisor");
     document.body.classList.toggle("is-office",
       !!window.cloud && window.cloud.jobTitleKind === "office");
+    document.body.classList.toggle("is-designer",
+      !!window.cloud && window.cloud.jobTitleKind === "office" && window.cloud.homeScreen === "designer");
     // Undo the tech re-lay from startPreview: tuck the field buttons back into
     // the supervisor's drawer (or leave them flat if somehow not a supervisor).
     if (window.applyRole) window.applyRole(window.cloud && window.cloud.role);
